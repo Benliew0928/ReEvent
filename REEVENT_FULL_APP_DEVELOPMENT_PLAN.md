@@ -1056,7 +1056,28 @@ Basic rules:
 
 ## 14. Development Phases
 
-## Phase 0: Team Setup and Scope Lock
+**Implementation audit:** 14 July 2026
+
+**Status key:** `[x]` verified complete, `[~]` partially complete / UI-only / needs validation, `[ ]` not started or no implementation evidence.
+**Progress bars measure verified delivery, not the presence of a planned design or placeholder.**
+
+| Phase | Progress | Current position |
+|---|---:|---|
+| 0. Team Setup and Scope Lock | `[########--] 80%` | Scope is documented; project is a Git repository; team/board evidence remains. |
+| 1. Proposal and UI Prototype | `[#######---] 70%` | Product, visual system, screen flow, and Compose UI are present; Figma/proposal handoff needs verification. |
+| 2. Android Project Foundation | `[####------] 40%` | Compose app, theme, launcher icon, and custom screen routing exist; core architecture dependencies are absent. |
+| 3. Authentication and Role Onboarding | `[####------] 40%` | Onboarding and sign-in screens exist as UI flows only. |
+| 4. Event and Resource Inventory | `[##--------] 20%` | Dashboard, resource cards, and add-resource form are static UI backed by `MockData`. |
+| 5. Digital Resource Passport and QR | `[##--------] 20%` | Passport screen and visual QR placeholder exist; no real ID, QR, scanner, or history. |
+| 6. Circular Matching Engine | `[##--------] 20%` | Match/recommendation UI exists with fixed sample partners; no matching engine. |
+| 7. Marketplace and Peer-to-Peer Flow | `[##--------] 20%` | Marketplace listing UI exists; search, filters, and transactions are not functional. |
+| 8. Circular Partner Module and Map | `[##--------] 20%` | Mock map, partner cards, and bottom sheet exist; programme and pickup workflows are not persisted. |
+| 9. Impact Dashboard and Gamification | `[##--------] 20%` | Dashboard charts and badge visuals exist with fixed figures; calculations/actions are absent. |
+| 10. Optional AI Enhancement | `[#---------] 10%` | Image-upload and AI-result visuals are placeholders only. |
+| 11. Testing and QA | `[----------] 0%` | No automated tests or completed QA evidence found. |
+| 12. HUAWEI AppGallery Deployment | `[----------] 0%` | No AppGallery account, compliance review, release package, or release configuration is evidenced. |
+
+## Phase 0: Team Setup and Scope Lock - `[########--] 80%` `[~]`
 
 Goal:
 
@@ -1064,14 +1085,14 @@ Make sure the team has one clear build target.
 
 Tasks:
 
-- Confirm project name: ReEvent.
-- Confirm MVP event type: university/community events.
-- Confirm user roles.
-- Confirm app modules.
-- Assign team roles.
-- Create GitHub repository.
-- Set branch naming rules.
-- Create issue board.
+- [x] Confirm project name: ReEvent.
+- [x] Confirm MVP event type: university/community events.
+- [x] Confirm user roles.
+- [x] Confirm app modules.
+- [~] Assign team roles (a suggested four-member allocation exists; named ownership is not evidenced).
+- [x] Create GitHub repository (local Git repository present).
+- [x] Set branch naming rules (documented; adoption is not yet verified).
+- [ ] Create issue board.
 
 Deliverables:
 
@@ -1085,7 +1106,7 @@ Exit criteria:
 - Every member knows what they own.
 - MVP is not too broad.
 
-## Phase 1: Proposal and UI Prototype
+## Phase 1: Proposal and UI Prototype - `[#######---] 70%` `[~]`
 
 Goal:
 
@@ -1093,17 +1114,17 @@ Prepare the Week 5 proposal and polished Figma prototype.
 
 Tasks:
 
-- Write problem statement.
-- Explain SDG 12 alignment.
-- Explain the three requirement areas:
-  - Peer-to-peer resource optimisation
-  - Behavioural transformation
-  - Closing the loop
-- Prepare UI wireflow.
-- Convert current LoopLink Figma prototype into ReEvent.
-- Build clickable flow.
-- Create UI style guide.
-- Prepare proposal screenshots.
+- [x] Write problem statement.
+- [x] Explain SDG 12 alignment.
+- [x] Explain the three requirement areas:
+  - [x] Peer-to-peer resource optimisation
+  - [x] Behavioural transformation
+  - [x] Closing the loop
+- [x] Prepare UI wireflow.
+- [~] Convert current LoopLink Figma prototype into ReEvent (ReEvent screen assets and Compose implementation exist; Figma file state was not verified).
+- [~] Build clickable flow (manual Compose screen routing works; Figma prototype is unverified).
+- [x] Create UI style guide.
+- [~] Prepare proposal screenshots (screen images exist locally; proposal placement is unverified).
 
 Deliverables:
 
@@ -1121,7 +1142,7 @@ Exit criteria:
 - Proposal can explain the idea in under 2 minutes.
 - Figma screens clearly show ReEvent, not LoopLink.
 
-## Phase 2: Android Project Foundation
+## Phase 2: Android Project Foundation - `[####------] 40%` `[~]`
 
 Goal:
 
@@ -1129,18 +1150,18 @@ Create a clean and scalable app foundation.
 
 Tasks:
 
-- Create Android project.
-- Set Kotlin and Gradle versions.
-- Add Jetpack Compose.
-- Add Material 3.
-- Add Navigation Compose.
-- Add Hilt.
-- Add Room.
-- Add DataStore.
-- Add Retrofit/Ktor.
-- Add QR scanner dependency.
-- Build app theme based on Figma tokens.
-- Create launcher icon.
+- [x] Create Android project.
+- [x] Set Kotlin and Gradle versions.
+- [x] Add Jetpack Compose.
+- [x] Add Material 3.
+- [ ] Add Navigation Compose (the app uses a custom `rememberSaveable` route instead).
+- [ ] Add Hilt.
+- [ ] Add Room.
+- [ ] Add DataStore.
+- [ ] Add Retrofit/Ktor.
+- [ ] Add QR scanner dependency.
+- [x] Build app theme based on Figma tokens.
+- [x] Create launcher icon.
 
 Deliverables:
 
@@ -1154,7 +1175,7 @@ Exit criteria:
 - App launches successfully.
 - Navigation between placeholder screens works.
 
-## Phase 3: Authentication and Role Onboarding
+## Phase 3: Authentication and Role Onboarding - `[####------] 40%` `[~]`
 
 Goal:
 
@@ -1162,12 +1183,12 @@ Make the app role-based.
 
 Tasks:
 
-- Build onboarding screen.
-- Build role selection.
-- Build login screen.
-- Connect authentication backend.
-- Save selected role locally.
-- Redirect users to correct dashboard.
+- [~] Build onboarding screen (UI implemented; selection is in-memory only).
+- [~] Build role selection (three roles are displayed; the selected role is not carried into a role-specific flow).
+- [~] Build login screen (UI implemented; sign-in directly opens the same home screen).
+- [ ] Connect authentication backend.
+- [ ] Save selected role locally.
+- [ ] Redirect users to correct dashboard.
 
 Deliverables:
 
@@ -1179,7 +1200,7 @@ Exit criteria:
 
 - Organiser, participant, and partner users can reach different dashboards.
 
-## Phase 4: Event and Resource Inventory
+## Phase 4: Event and Resource Inventory - `[##--------] 20%` `[~]`
 
 Goal:
 
@@ -1187,15 +1208,15 @@ Build the core organiser workflow.
 
 Tasks:
 
-- Create event model.
-- Build create event screen.
-- Build event detail screen.
-- Build organiser dashboard.
-- Create resource model.
-- Build add resource screen.
-- Save resources locally with Room.
-- Sync resources to backend.
-- Upload resource photo.
+- [ ] Create event model.
+- [ ] Build create event screen.
+- [ ] Build event detail screen.
+- [~] Build organiser dashboard (screen implemented with fixed metrics and resources).
+- [~] Create resource model (display-only `ResourceItem` model and `MockData` exist; no domain/persistence model).
+- [~] Build add resource screen (form preview only; no save or validation).
+- [ ] Save resources locally with Room.
+- [ ] Sync resources to backend.
+- [ ] Upload resource photo.
 
 Deliverables:
 
@@ -1208,7 +1229,7 @@ Exit criteria:
 
 - Organiser can create an event and add resources to it.
 
-## Phase 5: Digital Resource Passport and QR
+## Phase 5: Digital Resource Passport and QR - `[##--------] 20%` `[~]`
 
 Goal:
 
@@ -1216,18 +1237,18 @@ Build the main innovation.
 
 Tasks:
 
-- Generate unique item IDs.
-- Generate QR code values.
-- Build passport detail screen.
-- Build QR scanner screen.
-- Open item passport after scanning.
-- Add scan actions:
-  - Check out
-  - Return
-  - Mark damaged
-  - Request repair
-  - Transfer
-- Save scan history.
+- [ ] Generate unique item IDs.
+- [ ] Generate QR code values (only a visual `FakeQrPanel` exists).
+- [~] Build passport detail screen (static sample passport implemented).
+- [ ] Build QR scanner screen.
+- [ ] Open item passport after scanning.
+- [ ] Add scan actions:
+  - [ ] Check out
+  - [ ] Return
+  - [ ] Mark damaged
+  - [ ] Request repair
+  - [ ] Transfer
+- [ ] Save scan history.
 
 Deliverables:
 
@@ -1240,7 +1261,7 @@ Exit criteria:
 
 - Scanning a QR code opens the correct resource passport.
 
-## Phase 6: Circular Matching Engine
+## Phase 6: Circular Matching Engine - `[##--------] 20%` `[~]`
 
 Goal:
 
@@ -1248,14 +1269,14 @@ Make the app feel smart and assignment-worthy.
 
 Tasks:
 
-- Create partner programme model.
-- Create circular action enum.
-- Build rule-based matching logic.
-- Match resource to suitable programmes.
-- Show best recommendation.
-- Show alternative recommendations.
-- Explain recommendation reason.
-- Allow user to create recovery request.
+- [ ] Create partner programme model.
+- [ ] Create circular action enum.
+- [ ] Build rule-based matching logic.
+- [ ] Match resource to suitable programmes.
+- [~] Show best recommendation (fixed recommendation UI).
+- [~] Show alternative recommendations (fixed partner cards).
+- [~] Explain recommendation reason (static explanatory text).
+- [ ] Allow user to create recovery request.
 
 Deliverables:
 
@@ -1267,7 +1288,7 @@ Exit criteria:
 
 - App can recommend a circular pathway based on item condition and material.
 
-## Phase 7: Marketplace and Peer-to-Peer Flow
+## Phase 7: Marketplace and Peer-to-Peer Flow - `[##--------] 20%` `[~]`
 
 Goal:
 
@@ -1275,15 +1296,15 @@ Fulfill peer-to-peer resource optimisation.
 
 Tasks:
 
-- Build marketplace list.
-- Add search.
-- Add filters.
-- Build item detail.
-- Create transaction request.
-- Approve/reject request.
-- Complete transaction.
-- Support organiser-to-organiser transfer.
-- Support user-to-user exchange.
+- [~] Build marketplace list (static resource cards from `MockData`).
+- [ ] Add search (visual field only).
+- [ ] Add filters (visual chips only).
+- [~] Build item detail (routes to a static passport view).
+- [ ] Create transaction request.
+- [ ] Approve/reject request.
+- [ ] Complete transaction.
+- [ ] Support organiser-to-organiser transfer.
+- [ ] Support user-to-user exchange.
 
 Deliverables:
 
@@ -1295,7 +1316,7 @@ Exit criteria:
 
 - A user can request an item and the owner can approve it.
 
-## Phase 8: Circular Partner Module and Map
+## Phase 8: Circular Partner Module and Map - `[##--------] 20%` `[~]`
 
 Goal:
 
@@ -1303,13 +1324,13 @@ Connect event resources with real recovery pathways.
 
 Tasks:
 
-- Build partner profile.
-- Build create programme screen.
-- Build programme list.
-- Add map screen.
-- Show partner pins.
-- Show partner detail bottom sheet.
-- Request pickup/drop-off.
+- [~] Build partner profile (a static partner workbench is present).
+- [ ] Build create programme screen.
+- [~] Build programme list (static matched-partner cards).
+- [~] Add map screen (mock map image, not a map SDK).
+- [~] Show partner pins (baked into the mock map image).
+- [x] Show partner detail bottom sheet.
+- [ ] Request pickup/drop-off (button only moves to a static workbench).
 
 Deliverables:
 
@@ -1322,7 +1343,7 @@ Exit criteria:
 
 - Organiser can find a suitable partner for a resource.
 
-## Phase 9: Impact Dashboard and Gamification
+## Phase 9: Impact Dashboard and Gamification - `[##--------] 20%` `[~]`
 
 Goal:
 
@@ -1330,16 +1351,16 @@ Show behavioural transformation and SDG 12 impact.
 
 Tasks:
 
-- Calculate event recovery rate.
-- Count reused items.
-- Count repaired items.
-- Count donated items.
-- Count recycled items.
-- Estimate waste avoided.
-- Estimate money saved.
-- Estimate CO2e saved.
-- Build dashboard charts.
-- Add badges and challenges.
+- [ ] Calculate event recovery rate.
+- [ ] Count reused items.
+- [ ] Count repaired items.
+- [ ] Count donated items.
+- [ ] Count recycled items.
+- [ ] Estimate waste avoided.
+- [ ] Estimate money saved.
+- [ ] Estimate CO2e saved.
+- [~] Build dashboard charts (static visualisation using fixed data).
+- [~] Add badges and challenges (badge visual exists; no rule/award system).
 
 Deliverables:
 
@@ -1351,7 +1372,7 @@ Exit criteria:
 
 - App can show measurable impact after actions are completed.
 
-## Phase 10: Optional AI Enhancement
+## Phase 10: Optional AI Enhancement - `[#---------] 10%` `[~]`
 
 Goal:
 
@@ -1359,12 +1380,12 @@ Add an advanced feature for higher marks.
 
 Tasks:
 
-- Add image picker/camera.
-- Upload image.
-- Call AI or ML classifier.
-- Detect category/material/condition.
-- Use result in circular matching.
-- Show confidence and recommendation.
+- [ ] Add image picker/camera (preview control only).
+- [ ] Upload image.
+- [ ] Call AI or ML classifier.
+- [ ] Detect category/material/condition.
+- [ ] Use result in circular matching.
+- [~] Show confidence and recommendation (static AI-match UI only).
 
 Deliverables:
 
@@ -1379,7 +1400,7 @@ Fallback:
 
 - Use mock AI result with realistic UI if API integration becomes unstable.
 
-## Phase 11: Testing and QA
+## Phase 11: Testing and QA - `[----------] 0%` `[ ]`
 
 Goal:
 
@@ -1387,16 +1408,16 @@ Make the app stable enough for live demo.
 
 Tasks:
 
-- Unit test matching logic.
-- Unit test impact calculations.
-- Test Room DAOs.
-- Test repository sync behaviour.
-- Test invalid forms.
-- Test role routing.
-- Test QR scanning.
-- Test offline drafts.
-- Test UI on multiple screen sizes.
-- Fix spacing and text overflow.
+- [ ] Unit test matching logic.
+- [ ] Unit test impact calculations.
+- [ ] Test Room DAOs.
+- [ ] Test repository sync behaviour.
+- [ ] Test invalid forms.
+- [ ] Test role routing.
+- [ ] Test QR scanning.
+- [ ] Test offline drafts.
+- [ ] Test UI on multiple screen sizes.
+- [ ] Fix spacing and text overflow.
 
 Deliverables:
 
@@ -1408,42 +1429,36 @@ Exit criteria:
 
 - Main demo scenario works without crashing.
 
-## Phase 12: Report, Presentation, and Submission
+## Phase 12: HUAWEI AppGallery Deployment - `[----------] 0%` `[ ]`
 
 Goal:
 
-Prepare final assignment materials.
+Prepare a compliant, tested ReEvent release for HUAWEI AppGallery.
 
 Tasks:
 
-- Write final report under page limit.
-- Include screenshots.
-- Explain architecture.
-- Explain local storage.
-- Explain external API.
-- Explain SDG 12 alignment.
-- Explain circular economy loops.
-- Explain member roles.
-- Show GitHub contribution evidence.
-- Prepare presentation slides.
-- Prepare demo script.
-- Prepare Q&A answers.
+- [ ] Register and verify the HUAWEI Developer account; give the release owner the required AppGallery Connect permissions.
+- [ ] Create the AppGallery Connect app with the final package name, release regions, and free/paid setting.
+- [ ] Complete truthful, localized app metadata: name, description, category, age rating, screenshots, icon, and copyright information.
+- [ ] Publish and link an accessible privacy policy; make the in-app privacy statement and consent flow match actual data collection, sharing, retention, and permissions.
+- [ ] Review every permission and SDK against the minimum-necessary principle; request sensitive permissions only when the related feature is used.
+- [ ] Verify rights to the ReEvent name, launcher icon, images, fonts, libraries, and all other third-party content.
+- [ ] Complete the regional legal review before enabling each market; do not enable Chinese mainland distribution without confirming applicable qualifications and app-filing requirements.
+- [ ] Produce a signed, non-debug release APK or App Bundle with an incremented version code; keep signing keys and credentials out of Git.
+- [ ] Test the release build on Huawei/HMS devices and with AppGallery Connect testing tools; fix crashes, ANRs, broken login, unsupported dependencies, and permission failures.
+- [ ] Provide reviewer instructions and a usable test account if authentication or restricted features are enabled.
+- [ ] Run AppGallery open testing, resolve confirmed issues, then submit the release for review and use phased release where appropriate.
 
 Deliverables:
 
-- Final app APK/source code
-- Final report
-- Presentation slides
-- GitHub repository
-- Demo script
-
-Target assignment date:
-
-- Week 12 Saturday, 5 September 2026 before 5 PM.
+- Signed release APK/App Bundle
+- Completed AppGallery Connect listing and privacy declaration
+- AppGallery compliance evidence and device-test record
+- Approved AppGallery release or documented review feedback
 
 Exit criteria:
 
-- App, report, screenshots, source code, and presentation are ready.
+- The release is approved in AppGallery, or any review rejection has a documented owner and remediation plan.
 
 ---
 
@@ -1451,12 +1466,25 @@ Exit criteria:
 
 Assuming four students:
 
+### Detailed Teammate Trackers
+
+Use the following files as the working source of truth for each teammate. They split the development phases into four parallel tracks, list page ownership, record the current audited status, and include AI-agent completion checks.
+
+| Teammate | Tracker | Main delivery track |
+|---|---|---|
+| LIEW KAIY BIN | [Core Platform and Account Track](docs/LIEW_KAIY_BIN_CORE_ACCOUNT_TRACK.md) | Architecture, shared data layer, authentication, role routing, and integration ownership. |
+| WONG JIE YING | [Resource Lifecycle and QR Track](docs/WONG_JIE_YING_RESOURCE_QR_TRACK.md) | Events, inventory, resource passport, photo flow, and QR lifecycle. |
+| MAH JUIN HONG | [Marketplace and Partner Track](docs/MAH_JUIN_HONG_MARKETPLACE_PARTNERS_TRACK.md) | Marketplace transactions, partner programmes, map/list, and pickup workflow. |
+| WONG LOONG JIE | [Matching, Impact, and Deployment Track](docs/WONG_LOONG_JIE_MATCHING_IMPACT_DEPLOYMENT_TRACK.md) | Circular recommendations, impact logic, optional AI, QA, and AppGallery deployment. |
+
+**Integration rule:** LIEW KAIY BIN owns build configuration, navigation, shared models, repository contracts, and database migrations. The feature owners work through those contracts, pull before starting, and update their tracker plus the relevant main-plan phase only after a verified handoff.
+
 | Member | Main Ownership | Details |
 |---|---|---|
-| Member 1 | Backend and architecture | Supabase/Firebase, data models, repositories, API sync, authentication |
-| Member 2 | UI and navigation | Jetpack Compose screens, theme, navigation, visual polish, Figma-to-code translation |
-| Member 3 | Resource and QR module | Event inventory, resource passport, QR generation/scanning, local Room storage |
-| Member 4 | Matching, impact, and documentation | Circular matching engine, impact dashboard, gamification, report, slides |
+| LIEW KAIY BIN | Backend and architecture | Supabase/Firebase, data models, repositories, API sync, authentication |
+| WONG JIE YING | UI, resource, and QR module | Event inventory, resource passport, QR generation/scanning, and organiser workflow UI |
+| MAH JUIN HONG | Marketplace and partner module | Marketplace transactions, partner programmes, partner discovery, and pickup/drop-off workflow |
+| WONG LOONG JIE | Matching, impact, and deployment | Circular matching engine, impact dashboard, gamification, QA, and AppGallery deployment |
 
 Every member should commit code regularly to GitHub.
 
@@ -1470,7 +1498,7 @@ feature/circular-matching
 feature/marketplace
 feature/partner-map
 feature/impact-dashboard
-docs/final-report
+release/appgallery-deployment
 ```
 
 ---
@@ -1555,14 +1583,14 @@ Test:
 
 ### 17.4 Demo Readiness Tests
 
-Before presentation:
+Before AppGallery open testing or release:
 
 - Use fixed demo account.
 - Use fixed demo event.
 - Preload sample data.
-- Test on actual presentation device.
-- Record backup demo video.
-- Prepare screenshots in case live API fails.
+- Test on at least one Huawei/HMS device and one non-Huawei Android device.
+- Record the device, Android/HarmonyOS version, build version, and test result.
+- Verify that the app remains usable if an optional external API fails.
 
 ---
 
@@ -1630,18 +1658,15 @@ Score high by showing:
 - Cloud image upload.
 - Map or AI integration.
 
-### 19.5 Documentation and Presentation
+### 19.5 AppGallery Deployment Readiness
 
-Score high by including:
+Strengthen the final product by ensuring:
 
-- Clear diagrams.
-- Screenshots.
-- Architecture explanation.
-- Database design.
-- Member contribution table.
-- GitHub commit evidence.
-- Risk mitigation.
-- Demo script.
+- Accurate AppGallery metadata, screenshots, category, age rating, and copyright information.
+- An accessible privacy policy and in-app privacy disclosure that match the implemented app.
+- Minimum-necessary permission requests and graceful denial/failure behaviour.
+- Signed release packaging, Huawei-device testing, and no reliance on unavailable Google-only services.
+- AppGallery review, open testing, and release-feedback remediation are tracked.
 
 ---
 
@@ -1698,4 +1723,3 @@ The best final version for the assignment is:
 **A polished Android app where an organiser can manage a university event, register resources, generate digital resource passports, scan QR codes, receive circular pathway recommendations, connect with users or circular partners, and see measurable SDG 12 impact.**
 
 This target is realistic enough to build and impressive enough to score high marks.
-
