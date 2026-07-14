@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.CircleShape
@@ -68,6 +69,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import com.reevent.app.R
 import com.reevent.app.ui.MockData
@@ -105,7 +107,8 @@ fun ReEventScaffold(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(ReEventCanvas)
+                .background(ReEventCanvas),
+            contentAlignment = Alignment.TopCenter
         ) {
             content(innerPadding)
         }
@@ -118,12 +121,21 @@ fun ReEventLazyColumn(
     modifier: Modifier = Modifier,
     content: LazyListScope.() -> Unit
 ) {
+    val configuration = LocalConfiguration.current
+    val horizontalPadding = when {
+        configuration.screenWidthDp < 360 -> 12.dp
+        configuration.screenWidthDp >= 840 -> 28.dp
+        else -> ScreenPadding
+    }
+
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .widthIn(max = 760.dp)
+            .fillMaxSize(),
         contentPadding = PaddingValues(
-            start = ScreenPadding,
+            start = horizontalPadding,
             top = paddingValues.calculateTopPadding() + 14.dp,
-            end = ScreenPadding,
+            end = horizontalPadding,
             bottom = paddingValues.calculateBottomPadding() + 24.dp
         ),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -444,6 +456,7 @@ fun ResourceCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val compact = LocalConfiguration.current.screenWidthDp < 360
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -453,21 +466,50 @@ fun ResourceCard(
         border = BorderStroke(1.dp, ReEventLine),
         tonalElevation = 0.dp
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Image(
-                painter = painterResource(item.imageRes),
-                contentDescription = item.title,
-                modifier = Modifier
-                    .size(106.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(ReEventMintSoft),
-                contentScale = ContentScale.Crop
-            )
-            Spacer(Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
+        if (compact) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Image(
+                    painter = painterResource(item.imageRes),
+                    contentDescription = item.title,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(154.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(ReEventMintSoft),
+                    contentScale = ContentScale.Crop
+                )
+                ResourceCardDetails(item)
+            }
+        } else {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Image(
+                    painter = painterResource(item.imageRes),
+                    contentDescription = item.title,
+                    modifier = Modifier
+                        .size(106.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(ReEventMintSoft),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(Modifier.width(14.dp))
+                ResourceCardDetails(item, Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResourceCardDetails(
+    item: ResourceItem,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     StatusChip(text = item.tone.label, color = item.tone.color)
                     Spacer(Modifier.width(8.dp))
@@ -515,7 +557,6 @@ fun ResourceCard(
                     color = ReEventBlue
                 )
             }
-        }
     }
 }
 

@@ -1,0 +1,16 @@
+Content in your Proposal 
+[no need for a table of content page in your proposal,
+but please include UTAR cover page]
+[Include an APP/PROJECT TITLE for your proposal on the front page]
+Introduction
+May include some background.
+Problem Statement / Motivation / Market Gap Analysis
+Can be research on what others have done in the market, to provide context on why you want to pursue what you are proposing.
+Proposed idea / solution / contribution
+Try your best to introduce some innovations, differentiations, or improvements to existing solutions.
+Do no try to limit your proposed solution because of the time constraints set for this group assignment. You want to present your proposal in the best of light, with solution that is as attractive as it feasibly can.
+Initial design of solution
+Overall system (architecture) design of solution (can be a simple diagram to show how everything fits together with some explanation without getting into too much details).
+An example of a simple system block diagram.
+Mock-up UI design of mobile application (can be screenshots of emulator or wireframes designed using graphics tool, focusing on a theme for your mobile application, whether your application employs a certain way to help user navigate around etc and please try your best to impress).
+[Keep the proposal under 10 pages. Additional information can be placed under Appendix (not counted towards the 10 pages limit), which I MAY only refer to if I want to.]

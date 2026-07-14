@@ -46,12 +46,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -100,6 +105,7 @@ import com.reevent.app.ui.theme.ReEventWarm
 
 @Composable
 fun OnboardingScreen(onNavigate: (ReEventScreen) -> Unit) {
+    var selectedRole by rememberSaveable { mutableStateOf(ReEventRole.Organizer) }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -161,20 +167,28 @@ fun OnboardingScreen(onNavigate: (ReEventScreen) -> Unit) {
                 modifier = Modifier.padding(horizontal = ScreenPadding, vertical = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CompactProof("3 roles", "Organizer, user, partner", Modifier.weight(1f))
-                    CompactProof("4 routes", "Reuse, repair, resale, recycle", Modifier.weight(1f))
+                Text(
+                    text = "Circular events start before teardown",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = ReEventInk
+                )
+                Text(
+                    text = "Choose the role you want to preview. You can switch roles later from the profile screen.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = ReEventMuted
+                )
+                ReEventRole.values().forEach { role ->
+                    RoleOptionCard(role, selectedRole == role) { selectedRole = role }
                 }
                 PrimaryActionButton(
-                    text = "Start prototype",
+                    text = "Choose role",
                     icon = Icons.Outlined.Home,
                     onClick = { onNavigate(ReEventScreen.SignIn) },
                     modifier = Modifier.fillMaxWidth()
                 )
                 SecondaryActionButton(
-                    text = "View marketplace",
-                    icon = Icons.Outlined.Search,
-                    onClick = { onNavigate(ReEventScreen.Marketplace) },
+                    text = "Already have an account? Sign in",
+                    onClick = { onNavigate(ReEventScreen.SignIn) },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -195,26 +209,15 @@ fun SignInScreen(onNavigate: (ReEventScreen) -> Unit) {
                 ) {
                     BrandLockup(compact = true)
                     Text(
-                        text = "Choose your circular role",
+                        text = "Welcome back",
                         style = MaterialTheme.typography.headlineMedium,
                         color = ReEventInk
                     )
                     Text(
-                        text = "Each endpoint sees different actions while sharing the same verified resource passport.",
+                        text = "Sign in to continue managing verified event resources and recovery routes.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = ReEventMuted
                     )
-                }
-            }
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ReEventRole.values().forEachIndexed { index, role ->
-                        RoleOptionCard(
-                            role = role,
-                            selected = index == 0,
-                            onClick = {}
-                        )
-                    }
                 }
             }
             item {
@@ -232,11 +235,21 @@ fun SignInScreen(onNavigate: (ReEventScreen) -> Unit) {
                 }
             }
             item {
-                PrimaryActionButton(
-                    text = "Enter dashboard",
-                    onClick = { onNavigate(ReEventScreen.Home) },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    PrimaryActionButton(
+                        text = "Sign in",
+                        onClick = { onNavigate(ReEventScreen.Home) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    SecondaryActionButton(
+                        text = "Continue with Google",
+                        onClick = { onNavigate(ReEventScreen.Home) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+            item {
+                TrustStrip()
             }
         }
     }
@@ -270,22 +283,26 @@ fun HomeScreen(onNavigate: (ReEventScreen) -> Unit) {
                         color = ReEventGreen,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        MetricCard(
-                            value = MockData.metrics[1].value,
-                            label = MockData.metrics[1].label,
-                            detail = MockData.metrics[1].detail,
-                            color = ReEventBlue,
-                            modifier = Modifier.weight(1f)
-                        )
-                        MetricCard(
-                            value = MockData.metrics[2].value,
-                            label = MockData.metrics[2].label,
-                            detail = MockData.metrics[2].detail,
-                            color = ReEventCoral,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                    AdaptiveTwoPane(
+                        first = {
+                            MetricCard(
+                                value = MockData.metrics[1].value,
+                                label = MockData.metrics[1].label,
+                                detail = MockData.metrics[1].detail,
+                                color = ReEventBlue,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        },
+                        second = {
+                            MetricCard(
+                                value = MockData.metrics[2].value,
+                                label = MockData.metrics[2].label,
+                                detail = MockData.metrics[2].detail,
+                                color = ReEventCoral,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    )
                 }
             }
             item {
@@ -354,17 +371,24 @@ fun MarketplaceScreen(onNavigate: (ReEventScreen) -> Unit) {
                 )
             }
             item {
+                FormFieldPreview(
+                    label = "Search available resources",
+                    value = "Search by item, material or location",
+                    icon = Icons.Outlined.Search
+                )
+            }
+            item {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    FilterChipPreview("All lots", true)
-                    FilterChipPreview("Reuse", false)
+                    FilterChipPreview("All", true)
+                    FilterChipPreview("Rent", false)
+                    FilterChipPreview("Donate", false)
                     FilterChipPreview("Repair", false)
-                    FilterChipPreview("Factory buy-back", false)
-                    FilterChipPreview("Participant swap", false)
+                    FilterChipPreview("Take-back", false)
                 }
             }
             item {
@@ -424,10 +448,14 @@ fun AddResourceScreen(onNavigate: (ReEventScreen) -> Unit) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     FormFieldPreview("Item title", "Reusable Cup Crates", icon = Icons.Outlined.ShoppingBag)
+                    FormFieldPreview("Category", "Food & beverage", icon = Icons.Outlined.Tune)
+                    FormFieldPreview("Material", "PP reusable plastic", icon = Icons.Outlined.CheckCircle)
                     FormFieldPreview("Quantity", "320 units across 16 crates", icon = Icons.Outlined.Add)
+                    FormFieldPreview("Unit", "Cups", icon = Icons.Outlined.ShoppingBag)
                     FormFieldPreview("Condition", "Clean, reusable, 6 cracked cups removed", icon = Icons.Outlined.CheckCircle)
                     FormFieldPreview("Available from", "28 July 2026, 6:30 PM", icon = Icons.Outlined.DateRange)
                     FormFieldPreview("Pickup point", "EcoCampus Hall loading bay", icon = Icons.Outlined.LocationOn)
+                    FormFieldPreview("End-of-event plan", "Reuse first, partner buy-back fallback", icon = Icons.Outlined.Refresh)
                 }
             }
             item {
@@ -523,10 +551,11 @@ fun PassportScreen(onNavigate: (ReEventScreen) -> Unit) {
                 }
             }
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    FakeQrPanel(modifier = Modifier.weight(1f))
-                    Surface(
-                        modifier = Modifier.weight(1f),
+                AdaptiveTwoPane(
+                    first = { FakeQrPanel(modifier = Modifier.fillMaxWidth()) },
+                    second = {
+                        Surface(
+                        modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(18.dp),
                         color = ReEventGreenDeep
                     ) {
@@ -551,7 +580,8 @@ fun PassportScreen(onNavigate: (ReEventScreen) -> Unit) {
                             )
                         }
                     }
-                }
+                    }
+                )
             }
             item {
                 SectionTitle(title = "Recommended route")
@@ -595,10 +625,10 @@ fun AiMatchScreen(onNavigate: (ReEventScreen) -> Unit) {
                     color = ReEventGreenDeep,
                     border = BorderStroke(1.dp, ReEventGreenDeep)
                 ) {
-                    Row(
+                    AdaptiveTwoPane(
                         modifier = Modifier.padding(18.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                        stackedAlignment = Alignment.CenterHorizontally,
+                        first = {
                         ProgressRing(
                             progress = 0.86f,
                             centerText = "86",
@@ -606,8 +636,9 @@ fun AiMatchScreen(onNavigate: (ReEventScreen) -> Unit) {
                             color = ReEventWarm,
                             modifier = Modifier.size(112.dp)
                         )
-                        Spacer(Modifier.width(18.dp))
-                        Column(modifier = Modifier.weight(1f)) {
+                        },
+                        second = {
+                        Column {
                             Text(
                                 text = "Reuse-first route selected",
                                 style = MaterialTheme.typography.titleLarge,
@@ -619,7 +650,8 @@ fun AiMatchScreen(onNavigate: (ReEventScreen) -> Unit) {
                                 color = Color.White.copy(alpha = 0.78f)
                             )
                         }
-                    }
+                        }
+                    )
                 }
             }
             items(MockData.matches) { match ->
@@ -706,18 +738,19 @@ fun ImpactScreen(onNavigate: (ReEventScreen) -> Unit) {
                     color = ReEventPaper,
                     border = BorderStroke(1.dp, ReEventLine)
                 ) {
-                    Row(
+                    AdaptiveTwoPane(
                         modifier = Modifier.padding(18.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                        stackedAlignment = Alignment.CenterHorizontally,
+                        first = {
                         ProgressRing(
                             progress = 0.83f,
                             centerText = "83%",
                             label = "recovered",
                             modifier = Modifier.size(142.dp)
                         )
-                        Spacer(Modifier.width(18.dp))
-                        Column(modifier = Modifier.weight(1f)) {
+                        },
+                        second = {
+                        Column {
                             StatusChip(text = "SDG 12 aligned", color = ReEventGreen)
                             Spacer(Modifier.height(10.dp))
                             Text(
@@ -726,7 +759,8 @@ fun ImpactScreen(onNavigate: (ReEventScreen) -> Unit) {
                                 color = ReEventInk
                             )
                         }
-                    }
+                        }
+                    )
                 }
             }
             item {
@@ -881,13 +915,11 @@ fun ParticipantReturnScreen(onNavigate: (ReEventScreen) -> Unit) {
                     color = ReEventPaper,
                     border = BorderStroke(1.dp, ReEventLine)
                 ) {
-                    Row(
+                    AdaptiveTwoPane(
                         modifier = Modifier.padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        FakeQrPanel(modifier = Modifier.weight(0.9f))
-                        Column(modifier = Modifier.weight(1.1f)) {
+                        first = { FakeQrPanel(modifier = Modifier.fillMaxWidth()) },
+                        second = {
+                        Column {
                             StatusChip(text = "Return pass", color = ReEventGreen)
                             Spacer(Modifier.height(10.dp))
                             Text(
@@ -901,7 +933,8 @@ fun ParticipantReturnScreen(onNavigate: (ReEventScreen) -> Unit) {
                                 color = ReEventMuted
                             )
                         }
-                    }
+                        }
+                    )
                 }
             }
             item {
@@ -984,6 +1017,55 @@ private fun CompactProof(
         Column(modifier = Modifier.padding(14.dp)) {
             Text(text = value, style = MaterialTheme.typography.titleLarge, color = ReEventGreenDeep)
             Text(text = label, style = MaterialTheme.typography.bodyMedium, color = ReEventMuted)
+        }
+    }
+}
+
+@Composable
+private fun TrustStrip() {
+    val compact = LocalConfiguration.current.screenWidthDp < 360
+    val items = listOf(
+        "Universities" to "Event teams",
+        "Community events" to "Local organisers",
+        "Circular partners" to "Verified routes"
+    )
+    if (compact) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            items.forEach { (value, label) -> CompactProof(value, label, Modifier.fillMaxWidth()) }
+        }
+    } else {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            items.forEach { (value, label) -> CompactProof(value, label, Modifier.weight(1f)) }
+        }
+    }
+}
+
+/** Keeps paired cards legible on compact portrait screens and uses the wider layout elsewhere. */
+@Composable
+private fun AdaptiveTwoPane(
+    modifier: Modifier = Modifier,
+    stackedAlignment: Alignment.Horizontal = Alignment.Start,
+    first: @Composable () -> Unit,
+    second: @Composable () -> Unit
+) {
+    val stackVertically = LocalConfiguration.current.screenWidthDp < 420
+    if (stackVertically) {
+        Column(
+            modifier = modifier,
+            horizontalAlignment = stackedAlignment,
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            first()
+            second()
+        }
+    } else {
+        Row(
+            modifier = modifier,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(modifier = Modifier.weight(1f)) { first() }
+            Box(modifier = Modifier.weight(1f)) { second() }
         }
     }
 }
