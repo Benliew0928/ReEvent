@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1660" height="1030" viewBox="0 0 1660 1030">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#14201B" flood-opacity=".14"/></filter>
+    <style>
+      .title{font:700 30px Arial,sans-serif;fill:#14201B}.sub{font:400 15px Arial,sans-serif;fill:#56635D}.label{font:700 12px Arial,sans-serif;fill:#14201B}.body{font:400 14px Arial,sans-serif;fill:#14201B}.small{font:400 12px Arial,sans-serif;fill:#56635D}.button{font:700 15px Arial,sans-serif;fill:#fff}.brand{font:700 13px Arial,sans-serif;fill:#08785F;letter-spacing:1px}.cap{font:700 12px Arial,sans-serif;fill:#08785F;letter-spacing:.8px}.screenName{font:700 16px Arial,sans-serif;fill:#14201B}.chip{font:700 11px Arial,sans-serif;fill:#08785F}.cardTitle{font:700 17px Arial,sans-serif;fill:#14201B}.link{font:700 13px Arial,sans-serif;fill:#08785F}</style>
+  </defs>
+  <rect width="1660" height="1030" fill="#EEE7DC"/>
+  <text x="72" y="68" class="brand" font-size="16">REEVENT / AUTHENTICATION &amp; ACCOUNT</text>
+  <text x="72" y="110" class="title" font-size="36">Calm, clear account journeys — designed for real users</text>
+  <text x="72" y="142" class="sub" font-size="17">Email and Google sign-in share one route; a role is chosen only once, then shown as fixed in Account.</text>
+  <!-- Screen 1 -->
+  <g transform="translate(70,190)" filter="url(#shadow)">
+    <rect width="350" height="750" rx="30" fill="#F8F2E8"/>
+    <rect x="0" y="0" width="350" height="88" rx="30" fill="#DDF4E9"/>
+    <path d="M258 0C280 32 304 43 350 46V0Z" fill="#08785F" opacity=".92"/>
+    <text x="24" y="42" class="brand">RE / EVENT</text>
+    <text x="24" y="137" class="title">Welcome back</text>
+    <text x="24" y="164" class="sub">Continue your circular flow.</text>
+    <text x="24" y="218" class="label">EMAIL ADDRESS</text>
+    <rect x="24" y="232" width="302" height="54" rx="12" fill="#FFFCF6" stroke="#E3D8CA"/>
+    <text x="42" y="265" class="body" fill="#77827C">name@example.com</text>
+    <text x="24" y="326" class="label">PASSWORD</text>
+    <rect x="24" y="340" width="302" height="54" rx="12" fill="#FFFCF6" stroke="#E3D8CA"/>
+    <text x="42" y="373" class="body" fill="#77827C">••••••••••••</text>
+    <text x="230" y="414" class="link">Forgot password?</text>
+    <rect x="24" y="436" width="302" height="54" rx="26" fill="#08785F"/>
+    <text x="145" y="470" class="button">Continue</text>
+    <line x1="24" y1="530" x2="134" y2="530" stroke="#E3D8CA"/>
+    <text x="154" y="535" class="small">or</text><line x1="192" y1="530" x2="326" y2="530" stroke="#E3D8CA"/>
+    <rect x="24" y="556" width="302" height="54" rx="26" fill="#FFFCF6" stroke="#B8C5BC"/>
+    <circle cx="55" cy="583" r="12" fill="#fff" stroke="#D3D8D3"/>
+    <text x="50" y="588" font-family="Arial" font-size="16" font-weight="700" fill="#4285F4">G</text>
+    <text x="101" y="588" class="body" font-weight="700">Continue with Google</text>
+    <text x="78" y="660" class="small">New to ReEvent?</text><text x="191" y="660" class="link">Create an account</text>
+    <rect x="24" y="686" width="302" height="38" rx="10" fill="#F1E7DA"/>
+    <text x="40" y="710" class="small">Your workspace stays separate and secure.</text>
+  </g>
+  <text x="70" y="970" class="screenName">01 — Sign in</text>
+  <text x="70" y="993" class="small">Fast, one-path email and Google access</text>
+  <!-- Screen 2 -->
+  <g transform="translate(465,190)" filter="url(#shadow)">
+    <rect width="350" height="750" rx="30" fill="#F8F2E8"/>
+    <rect x="0" y="0" width="350" height="88" rx="30" fill="#DDF4E9"/>
+    <text x="24" y="42" class="brand">RE / EVENT</text>
+    <circle cx="175" cy="194" r="52" fill="#DDF4E9"/>
+    <path d="M143 178h64v38h-64z" fill="none" stroke="#08785F" stroke-width="3" rx="6"/>
+    <path d="M144 180l31 24 31-24" fill="none" stroke="#08785F" stroke-width="3"/>
+    <text x="42" y="285" class="title">Check your inbox</text>
+    <text x="42" y="315" class="sub">We sent a confirmation link to</text>
+    <text x="42" y="340" class="body" font-weight="700">name@example.com</text>
+    <rect x="24" y="383" width="302" height="82" rx="14" fill="#FFFCF6" stroke="#E3D8CA"/>
+    <circle cx="50" cy="424" r="12" fill="#DDF4E9"/>
+    <text x="46" y="429" class="chip">✓</text>
+    <text x="74" y="417" class="label">AFTER CONFIRMATION</text>
+    <text x="74" y="440" class="small">Return here and choose your permanent workspace.</text>
+    <rect x="24" y="505" width="302" height="54" rx="26" fill="#08785F"/>
+    <text x="110" y="539" class="button">Open email app</text>
+    <text x="66" y="612" class="small">Did not receive the email?</text><text x="238" y="612" class="link">Resend</text>
+    <text x="45" y="654" class="small">A resend control is clear, rate-limit safe, and never leaves the user stuck.</text>
+  </g>
+  <text x="465" y="970" class="screenName">02 — Email confirmation</text>
+  <text x="465" y="993" class="small">Dedicated recovery state with resend action</text>
+  <!-- Screen 3 -->
+  <g transform="translate(860,190)" filter="url(#shadow)">
+    <rect width="350" height="750" rx="30" fill="#F8F2E8"/>
+    <rect x="0" y="0" width="350" height="88" rx="30" fill="#DDF4E9"/>
+    <text x="24" y="42" class="brand">RE / EVENT</text>
+    <text x="24" y="137" class="title" font-size="27">Choose your workspace</text>
+    <text x="24" y="165" class="sub">This choice is permanent in the mobile app.</text>
+    <rect x="24" y="204" width="302" height="116" rx="16" fill="#FFFCF6" stroke="#08785F" stroke-width="2"/>
+    <circle cx="54" cy="237" r="16" fill="#DDF4E9"/><text x="49" y="243" class="chip">O</text>
+    <text x="82" y="238" class="cardTitle">Organiser</text><text x="82" y="263" class="small">Manage events, resources and impact.</text>
+    <text x="82" y="292" class="link">Select organiser →</text>
+    <rect x="24" y="338" width="302" height="116" rx="16" fill="#FFFCF6" stroke="#E3D8CA"/>
+    <circle cx="54" cy="371" r="16" fill="#F1E7DA"/><text x="50" y="377" class="chip">P</text>
+    <text x="82" y="372" class="cardTitle">Participant</text><text x="82" y="397" class="small">Return items and browse marketplace offers.</text>
+    <text x="82" y="426" class="link">Select participant →</text>
+    <rect x="24" y="472" width="302" height="116" rx="16" fill="#FFFCF6" stroke="#E3D8CA"/>
+    <circle cx="54" cy="505" r="16" fill="#F1E7DA"/><text x="50" y="511" class="chip">C</text>
+    <text x="82" y="506" class="cardTitle">Circular partner</text><text x="82" y="531" class="small">Work on assigned programmes and handovers.</text>
+    <text x="82" y="560" class="link">Select partner →</text>
+    <rect x="24" y="628" width="302" height="62" rx="12" fill="#F1E7DA"/>
+    <text x="42" y="653" class="label">ROLE ISOLATION</text><text x="42" y="675" class="small">Your data and navigation are kept separate.</text>
+  </g>
+  <text x="860" y="970" class="screenName">03 — Permanent workspace</text>
+  <text x="860" y="993" class="small">Choice only appears for a role-less profile</text>
+  <!-- Screen 4 -->
+  <g transform="translate(1255,190)" filter="url(#shadow)">
+    <rect width="350" height="750" rx="30" fill="#F8F2E8"/>
+    <rect x="0" y="0" width="350" height="88" rx="30" fill="#DDF4E9"/>
+    <text x="24" y="42" class="brand">RE / EVENT</text>
+    <text x="24" y="137" class="title">Account</text>
+    <rect x="24" y="171" width="302" height="130" rx="18" fill="#FFFCF6"/>
+    <circle cx="76" cy="235" r="31" fill="#08785F"/>
+    <text x="64" y="244" font-family="Arial" font-size="22" font-weight="700" fill="#fff">BL</text>
+    <text x="123" y="220" class="cardTitle">Ben Liew</text>
+    <text x="123" y="245" class="small">ben@example.com</text>
+    <rect x="123" y="259" width="68" height="22" rx="11" fill="#DDF4E9"/>
+    <text x="137" y="274" class="chip">ACTIVE</text>
+    <text x="24" y="348" class="cap">WORKSPACE</text>
+    <rect x="24" y="365" width="302" height="88" rx="14" fill="#FFFCF6" stroke="#E3D8CA"/>
+    <text x="43" y="397" class="label">ORGANISER</text><text x="43" y="421" class="small">Events, resources and impact tools</text>
+    <rect x="247" y="385" width="57" height="23" rx="11" fill="#F1E7DA"/><text x="259" y="401" class="chip">FIXED</text>
+    <text x="24" y="501" class="cap">ACCOUNT &amp; SECURITY</text>
+    <rect x="24" y="518" width="302" height="56" rx="14" fill="#FFFCF6"/>
+    <text x="43" y="552" class="body">Privacy and data controls</text><text x="292" y="552" class="link">›</text>
+    <rect x="24" y="588" width="302" height="56" rx="14" fill="#FFFCF6"/>
+    <text x="43" y="622" class="body">Sign out securely</text><text x="292" y="622" class="link">›</text>
+    <text x="24" y="696" class="small">Role changes require an authorised administrator.</text>
+  </g>
+  <text x="1255" y="970" class="screenName">04 — Account</text>
+  <text x="1255" y="993" class="small">Role is visible, fixed, and never confusing</text>
+</svg>

@@ -1,8 +1,10 @@
 # LIEW KAIY BIN - Core Platform and Account Track
 
-**Owns:** project foundation, shared data contracts, local storage, backend/auth integration, role routing, and final integration of cross-cutting changes.
+**Owns:** project foundation, shared data contracts, offline-first local storage, Supabase/auth integration, role routing, and final integration of cross-cutting changes.
 
-**Current progress:** `[####------] 40%` - a Compose app, Material 3 theme, launcher icon, and manual screen routing exist. The project has no Navigation Compose, Hilt, Room, DataStore, Retrofit/Ktor, authentication backend, or role persistence.
+**Delivery baseline:** ReEvent is a real, deployable Android app. Use Supabase for cloud authentication and the shared MVP data; use Room and DataStore for secure offline-first behaviour; retain demo data only behind repository interfaces. All changes must remain compatible with Huawei AppGallery release requirements.
+
+**Current progress:** `[#########-] 90%` - Typed runtime role graphs, account-scoped Room v2 cache/outbox, remote Supabase reads/writes, offline sync state, deterministic matching, media upload support, repository-backed live screens, and focused unit tests are implemented. Applying the latest staging SQL, seed data, and real-provider/device acceptance evidence remain.
 
 ## Pages and Code Ownership
 
@@ -23,47 +25,47 @@ Do not let another track directly change Gradle, shared models, database migrati
 
 ## Delivery Order
 
-### Checkpoint 1 - Stable shared contracts `[ ]`
+### Checkpoint 1 - Stable shared contracts `[~]`
 
 - [ ] Pull the latest branch and inspect the current UI before changing shared code.
-- [ ] Add Navigation Compose and replace the manual `rememberSaveable` route with typed destinations.
-- [ ] Define the shared domain models from the main plan: `User`, `Event`, `ResourceItem`, `ResourcePassport`, `CircularProgramme`, `CircularTransaction`, and `ImpactRecord`.
-- [ ] Define repository interfaces that feature tracks can use without knowing whether data comes from Room, a fake repository, or the backend.
-- [ ] Provide realistic seeded fake data so other tracks can build in parallel before remote sync is ready.
-- [ ] Publish the exact repository methods and navigation routes in the `Coordination Contract` section below.
+- [x] Add Navigation Compose and replace runtime manual routes with typed destinations. The live graph passes only record IDs; the retained legacy enum is compile-only support for archived mock/previews.
+- [x] Define the shared domain models from the main plan: `User`, `Event`, `ResourceItem`, `ResourcePassport`, `CircularProgramme`, `CircularTransaction`, and `ImpactRecord`.
+- [x] Define repository interfaces that feature tracks can use without knowing whether data comes from Room, a fake repository, or the backend.
+- [~] Provide repeatable staging seed data in `ReEvent/supabase/seeds/staging_seed.sql`; it needs the three real profile IDs before use.
+- [x] Publish repository methods and typed live-route ownership in the coordination contract.
 
 **Completion evidence:** the app compiles, all existing screens still navigate, and each feature track can obtain its data through an interface rather than importing `MockData` directly.
 
-### Checkpoint 2 - Local-first persistence `[ ]`
+### Checkpoint 2 - Local-first persistence `[~]`
 
-- [ ] Add Hilt dependency injection.
-- [ ] Add Room and create the database, DAOs, entities, and migrations for the shared models.
-- [ ] Add DataStore for selected role, onboarding completion, session cache, and last opened event.
-- [ ] Implement repositories that use Room first and fall back to fake data only in a deliberate demo mode.
-- [ ] Add basic repository/DAO tests.
+- [x] Add Hilt dependency injection.
+- [~] Add Room and create the database, DAOs, entities, and migrations for the shared models. Version 2 scopes every feature cache/outbox row to its authenticated account; a device migration test remains required.
+- [x] Add DataStore for selected role, onboarding completion, session cache, and last opened event.
+- [x] Implement repositories that use Room first and fall back to fake data only in a deliberate demo mode.
+- [~] Add focused unit tests for role routing and matching. DAO/repository integration tests require the current staging test-account credentials and device migration test setup.
 
 **Completion evidence:** create/read/update flows survive an app restart in a local test or emulator; no feature screen writes directly to a DAO.
 
-### Checkpoint 3 - Account and role routing `[ ]`
+### Checkpoint 3 - Account and role routing `[~]`
 
 - [~] Keep the existing onboarding and sign-in UI, but connect its controls to real state.
-- [ ] Implement sign-up, sign-in, sign-out, and session restore using the selected backend.
-- [ ] Persist the selected role locally.
-- [ ] Route organiser, participant, and partner users to their intended starting destination.
-- [ ] Add loading, empty, error, and signed-out states.
-- [ ] Test role routing and session restoration.
+- [~] Implement sign-up, sign-in, sign-out, Google OAuth, password reset, and session restore using Supabase Auth. Code is implemented; real-provider verification needs Supabase/Google configuration.
+- [x] Persist the selected role locally and protect remote role assignment through the Supabase `complete_profile_role` RPC.
+- [x] Route organiser, participant, and partner users to separate intended starting destinations.
+- [x] Add loading, empty, retry/error, sync notice, and signed-out states to the live account/feature graph.
+- [~] Test role routing and session restoration in code; real provider/device evidence remains manual staging work.
 
 **Completion evidence:** three test accounts can sign in, close/reopen the app, and enter the correct role experience.
 
-### Checkpoint 4 - Remote integration and release integration `[ ]`
+### Checkpoint 4 - Remote integration and release integration `[~]`
 
-- [ ] Add Retrofit/Ktor or the selected Supabase/Firebase client behind repository interfaces.
-- [ ] Implement only the API calls required by the agreed MVP flow before adding optional endpoints.
-- [ ] Store secrets in local configuration; never commit API keys or credentials.
-- [ ] Coordinate migrations and dependency additions before merging feature branches.
-- [ ] Run a clean debug build and the available automated tests after each cross-track merge.
+- [x] Add the Supabase client and network-constrained local outbox behind repository interfaces.
+- [x] Implement the agreed MVP remote reads, local-first writes, outbox delivery, retry state, and owner-scoped media upload path.
+- [x] Store secrets in ignored local configuration; never commit API keys or credentials.
+- [x] Publish migrations and shared contracts before feature integration.
+- [x] Run compile/unit-test verification after the integration change.
 
-**Completion evidence:** the agreed MVP data can sync safely, failure states are visible, and the app still has a usable offline/demo fallback.
+**Completion evidence:** the agreed MVP data synchronises safely with Supabase, failure states are visible, offline behaviour is usable, and the release configuration remains suitable for AppGallery submission.
 
 ## Coordination Contract
 
@@ -71,11 +73,11 @@ Update this table whenever a shared contract changes. Feature teammates should p
 
 | Contract | Consumer | Status / notes |
 |---|---|---|
-| `AuthRepository` and current user/role state | WONG JIE YING, MAH JUIN HONG, WONG LOONG JIE | `[ ]` |
-| `EventRepository` and `ResourceRepository` | WONG JIE YING, WONG LOONG JIE | `[ ]` |
-| `PartnerRepository` and `TransactionRepository` | MAH JUIN HONG, WONG LOONG JIE | `[ ]` |
-| `ImpactRepository` | WONG LOONG JIE | `[ ]` |
-| Navigation routes and argument rules | WONG JIE YING, MAH JUIN HONG, WONG LOONG JIE | `[ ]` |
+| `AuthRepository` and current user/role state | WONG JIE YING, MAH JUIN HONG, WONG LOONG JIE | `[x]` Email/password, Google PKCE, fixed role and session flow. |
+| `EventRepository` and `ResourceRepository` | WONG JIE YING, WONG LOONG JIE | `[x]` Room-first reads/writes, Supabase refresh/outbox; routes use event/resource IDs only. |
+| `PartnerRepository` and `TransactionRepository` | MAH JUIN HONG, WONG LOONG JIE | `[x]` Programmes, deterministic matching and assigned transaction flows. |
+| `ImpactRepository` | WONG LOONG JIE | `[x]` Event-ID impact observation and local-first persistence. |
+| Navigation routes and argument rules | WONG JIE YING, MAH JUIN HONG, WONG LOONG JIE | `[x]` Role-specific typed destinations; no cross-role graph is registered. |
 
 ## AI Agent Working Rules
 
@@ -106,3 +108,5 @@ After every finished checkpoint:
 ## Change Log
 
 - 2026-07-14 - Tracker created from the audited full development plan.
+- 2026-07-14 - Implemented the core architecture, role-isolated navigation, Room/DataStore local state, Supabase/Google auth wiring, SQL schema/RLS migration, and sync outbox. `:app:compileDebugKotlin --no-daemon` passed; cloud/device verification is recorded in `../LIEW KAIY BIN Guide.md`.
+- 2026-07-15 - Completed live typed-route migration, account-scoped Room v2 cache/outbox, Supabase RLS snapshot refresh, sync state reconciliation, media upload boundary, deterministic programme matching and repository-backed live screens. `:app:testDebugUnitTest :app:compileDebugKotlin` passed. Apply `0003_public_passport_read.sql`, run the staging seed with real profile IDs, then complete the manual staging matrix in the guide.

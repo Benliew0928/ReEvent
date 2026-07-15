@@ -258,7 +258,7 @@ This improves the assignment's **peer-to-peer resource optimisation** requiremen
 | Closing the Loop | Items can be returned, repaired, refurbished, resold, donated, recycled, or reused in future events. |
 | Functional Mobile App | Can be developed as a role-based Android app with real workflows. |
 | Local Storage | Store events, inventory drafts, QR scan history, favourites, user profile, and cached item passports. |
-| External Endpoint / API / SDK | Use Supabase/Firebase for cloud data, Google Maps/Mapbox/OpenStreetMap for partner locations, and optional AI image recognition API. |
+| External Endpoint / API / SDK | Use Supabase for cloud data, Google Maps/Mapbox/OpenStreetMap for partner locations, and optional AI image recognition API. |
 | Custom Launcher Icon | Design a ReEvent icon based on event loop, circular arrow, and resource tag. |
 | Originality | More specific and stronger than a generic recycling or marketplace app because it focuses on event lifecycle waste. |
 | Commercial / Civil Potential | Useful for universities, schools, event agencies, NGOs, local councils, conference organisers, and sustainability departments. |
@@ -870,12 +870,12 @@ For an Android mobile development assignment:
 - **UI:** Jetpack Compose
 - **Architecture:** MVVM
 - **Local database:** Room
-- **Cloud backend:** Supabase or Firebase
+- **Cloud backend:** Supabase
 - **API calls:** Retrofit / Ktor
-- **Authentication:** Supabase Auth or Firebase Auth
+- **Authentication:** Supabase Auth
 - **Maps:** Google Maps SDK, Mapbox, or OpenStreetMap API
 - **QR code:** ZXing or ML Kit Barcode Scanning
-- **Image upload:** Cloud storage through Supabase/Firebase
+- **Image upload:** Supabase Storage
 - **Optional AI:** OpenAI Vision API, Google ML Kit, or a simpler mock AI classifier for demo
 
 ### 14.2 Required Assignment Features
@@ -889,7 +889,7 @@ Minimum technical requirements:
    - Room database for events, resources, scan history, user preferences, and draft recovery plans.
 
 3. **External endpoint / REST API / SDK**
-   - Supabase/Firebase for backend data.
+   - Supabase for backend data.
    - Maps API for partner locations.
    - Optional AI API for item classification.
 
@@ -1029,7 +1029,7 @@ Prepare the app's data foundation.
 
 Tasks:
 
-- Create backend project in Supabase or Firebase.
+- Create the Supabase backend project.
 - Set up user authentication.
 - Create database tables.
 - Configure storage for images.
@@ -1469,4 +1469,3 @@ The best version of the project is:
 - UN SDG 12: Responsible Consumption and Production: https://sdgs.un.org/goals/goal12
 - UN Sustainable Consumption and Production: https://www.un.org/sustainabledevelopment/sustainable-consumption-production/
 - ISO 20121 Event Sustainability Management Systems: https://www.iso.org/standard/86389.html
-

@@ -25,7 +25,7 @@
 | Closing the loop | Items can move from organiser/user to repair, refurbishment, resale, donation, take-back, or recycling partners. |
 | Custom launcher icon | ReEvent launcher icon should combine a circular arrow, event ticket, and resource tag. |
 | Mobile device storage | Room database stores users, events, resources, drafts, scan history, and cached partner programmes. |
-| External endpoint / REST API / SDK | Supabase or Firebase backend plus Maps API and optional AI Vision API. |
+| External endpoint / REST API / SDK | Supabase backend plus Maps API and optional AI Vision API. |
 | Functional mobile app | Build with Kotlin, Jetpack Compose, MVVM, local storage, backend sync, QR scan, and dashboard workflows. |
 | Originality and commercial potential | Event waste is a clear domain with real users: universities, schools, councils, event agencies, NGOs, and conference organisers. |
 
@@ -721,7 +721,7 @@ Fallback:
 
 ### 9.2 Backend
 
-Recommended: Supabase
+Selected backend: Supabase
 
 Reasons:
 
@@ -732,20 +732,11 @@ Reasons:
 - Easy demo setup
 - Good for student projects
 
-Alternative: Firebase
-
-Use Firebase if the team is more comfortable with:
-
-- Firebase Auth
-- Firestore
-- Firebase Storage
-- Cloud Messaging
-
 ### 9.3 External APIs / SDKs
 
 Minimum external endpoint:
 
-- Supabase REST API or Firebase SDK
+- Supabase SDK/REST API
 
 Recommended additional endpoint:
 
@@ -778,7 +769,7 @@ flowchart TB
     UC["Use Cases"]
     REP["Repositories"]
     LOCAL["Room + DataStore"]
-    REMOTE["Supabase / Firebase / APIs"]
+    REMOTE["Supabase / external APIs"]
 
     UI --> VM
     VM --> UC
@@ -1058,16 +1049,16 @@ Basic rules:
 
 **Implementation audit:** 14 July 2026
 
-**Status key:** `[x]` verified complete, `[~]` partially complete / UI-only / needs validation, `[ ]` not started or no implementation evidence.
+**Status key:** `[x]` verified complete, `[~]` partially implemented / needs validation, `[ ]` not started or no implementation evidence.
 **Progress bars measure verified delivery, not the presence of a planned design or placeholder.**
 
 | Phase | Progress | Current position |
 |---|---:|---|
 | 0. Team Setup and Scope Lock | `[########--] 80%` | Scope is documented; project is a Git repository; team/board evidence remains. |
 | 1. Proposal and UI Prototype | `[#######---] 70%` | Product, visual system, screen flow, and Compose UI are present; Figma/proposal handoff needs verification. |
-| 2. Android Project Foundation | `[####------] 40%` | Compose app, theme, launcher icon, and custom screen routing exist; core architecture dependencies are absent. |
-| 3. Authentication and Role Onboarding | `[####------] 40%` | Onboarding and sign-in screens exist as UI flows only. |
-| 4. Event and Resource Inventory | `[##--------] 20%` | Dashboard, resource cards, and add-resource form are static UI backed by `MockData`. |
+| 2. Android Project Foundation | `[#######---] 70%` | Hilt, Navigation Compose, Room, DataStore, WorkManager, repository contracts, local configuration, and Supabase client wiring are implemented; migration tests and live backend validation remain. |
+| 3. Authentication and Role Onboarding | `[#######---] 70%` | Email/password and browser-based Google OAuth flows, session gating, immutable role completion, and separated role roots are implemented; live provider/device validation remains. |
+| 4. Event and Resource Inventory | `[####------] 40%` | Shared event/resource models, local persistence, and sync outbox are implemented; the organiser UI remains on transitional `MockData` until its feature track adopts repository state. |
 | 5. Digital Resource Passport and QR | `[##--------] 20%` | Passport screen and visual QR placeholder exist; no real ID, QR, scanner, or history. |
 | 6. Circular Matching Engine | `[##--------] 20%` | Match/recommendation UI exists with fixed sample partners; no matching engine. |
 | 7. Marketplace and Peer-to-Peer Flow | `[##--------] 20%` | Marketplace listing UI exists; search, filters, and transactions are not functional. |
@@ -1142,7 +1133,7 @@ Exit criteria:
 - Proposal can explain the idea in under 2 minutes.
 - Figma screens clearly show ReEvent, not LoopLink.
 
-## Phase 2: Android Project Foundation - `[####------] 40%` `[~]`
+## Phase 2: Android Project Foundation - `[#######---] 70%` `[~]`
 
 Goal:
 
@@ -1175,7 +1166,7 @@ Exit criteria:
 - App launches successfully.
 - Navigation between placeholder screens works.
 
-## Phase 3: Authentication and Role Onboarding - `[####------] 40%` `[~]`
+## Phase 3: Authentication and Role Onboarding - `[#######---] 70%` `[~]`
 
 Goal:
 
@@ -1183,12 +1174,12 @@ Make the app role-based.
 
 Tasks:
 
-- [~] Build onboarding screen (UI implemented; selection is in-memory only).
-- [~] Build role selection (three roles are displayed; the selected role is not carried into a role-specific flow).
-- [~] Build login screen (UI implemented; sign-in directly opens the same home screen).
-- [ ] Connect authentication backend.
-- [ ] Save selected role locally.
-- [ ] Redirect users to correct dashboard.
+- [x] Build onboarding entry flow.
+- [x] Build protected role selection; a role is completed once through the server-side profile RPC.
+- [x] Build email/password and browser-based Google sign-in UI with loading/error/reset/confirmation states.
+- [~] Connect authentication backend (Supabase code and migration are present; live project/provider configuration is pending).
+- [x] Save selected role locally and in the server profile.
+- [x] Redirect users to separate organiser, participant, and partner roots.
 
 Deliverables:
 
@@ -1208,14 +1199,14 @@ Build the core organiser workflow.
 
 Tasks:
 
-- [ ] Create event model.
+- [x] Create shared event model.
 - [ ] Build create event screen.
 - [ ] Build event detail screen.
 - [~] Build organiser dashboard (screen implemented with fixed metrics and resources).
-- [~] Create resource model (display-only `ResourceItem` model and `MockData` exist; no domain/persistence model).
+- [x] Create shared resource model and Room entity; the legacy display model remains until UI migration.
 - [~] Build add resource screen (form preview only; no save or validation).
-- [ ] Save resources locally with Room.
-- [ ] Sync resources to backend.
+- [x] Save resources locally with Room through `ResourceRepository`.
+- [~] Queue resource sync to Supabase through the local outbox; live cloud verification is pending project configuration.
 - [ ] Upload resource photo.
 
 Deliverables:
@@ -1385,7 +1376,7 @@ Tasks:
 - [ ] Call AI or ML classifier.
 - [ ] Detect category/material/condition.
 - [ ] Use result in circular matching.
-- [~] Show confidence and recommendation (static AI-match UI only).
+- [~] Show confidence and recommendation (current UI has fixed content pending matching integration).
 
 Deliverables:
 
@@ -1481,7 +1472,7 @@ Use the following files as the working source of truth for each teammate. They s
 
 | Member | Main Ownership | Details |
 |---|---|---|
-| LIEW KAIY BIN | Backend and architecture | Supabase/Firebase, data models, repositories, API sync, authentication |
+| LIEW KAIY BIN | Backend and architecture | Supabase, data models, repositories, API sync, authentication |
 | WONG JIE YING | UI, resource, and QR module | Event inventory, resource passport, QR generation/scanning, and organiser workflow UI |
 | MAH JUIN HONG | Marketplace and partner module | Marketplace transactions, partner programmes, partner discovery, and pickup/drop-off workflow |
 | WONG LOONG JIE | Matching, impact, and deployment | Circular matching engine, impact dashboard, gamification, QA, and AppGallery deployment |
