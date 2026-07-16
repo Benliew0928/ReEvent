@@ -63,6 +63,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.reevent.app.R
 import com.reevent.app.ui.MockData
+import com.reevent.app.ui.ImpactMetric
+import com.reevent.app.ui.RecoveryStep
 import com.reevent.app.ui.PartnerMatch
 import com.reevent.app.ui.ReEventRole
 import com.reevent.app.ui.ReEventScreen
@@ -105,13 +107,21 @@ import com.reevent.app.ui.theme.ReEventWarm
 import com.reevent.app.ui.theme.*
 
 @Composable
-fun HomeScreen(onNavigate: (ReEventScreen) -> Unit) {
+fun HomeScreen(
+    onNavigate: (ReEventScreen) -> Unit,
+    title: String = "EcoCampus Open Day",
+    subtitle: String = "Live recovery board",
+    metrics: List<ImpactMetric> = MockData.metrics,
+    resources: List<com.reevent.app.ui.ResourceItem> = MockData.resources.take(2),
+    recoverySteps: List<RecoveryStep> = MockData.recoverySteps,
+    onResourceClick: (com.reevent.app.ui.ResourceItem) -> Unit = { onNavigate(ReEventScreen.Passport) }
+) {
     ReEventScaffold(selected = ReEventScreen.Home, onNavigate = onNavigate) { padding ->
         ReEventLazyColumn(paddingValues = padding) {
             item {
                 ScreenHeader(
-                    title = "EcoCampus Open Day",
-                    subtitle = "Live recovery board • 28 July 2026",
+                    title = title,
+                    subtitle = subtitle,
                     onProfile = { onNavigate(ReEventScreen.Profile) }
                 )
             }
@@ -123,35 +133,26 @@ fun HomeScreen(onNavigate: (ReEventScreen) -> Unit) {
                     chip = "Organizer mode"
                 )
             }
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    MetricCard(
-                        value = MockData.metrics[0].value,
-                        label = MockData.metrics[0].label,
-                        detail = MockData.metrics[0].detail,
-                        color = ReEventGreen,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    AdaptiveTwoPane(
-                        first = {
-                            MetricCard(
-                                value = MockData.metrics[1].value,
-                                label = MockData.metrics[1].label,
-                                detail = MockData.metrics[1].detail,
-                                color = ReEventBlue,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        },
-                        second = {
-                            MetricCard(
-                                value = MockData.metrics[2].value,
-                                label = MockData.metrics[2].label,
-                                detail = MockData.metrics[2].detail,
-                                color = ReEventCoral,
-                                modifier = Modifier.fillMaxWidth()
+            if (metrics.isNotEmpty()) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        metrics.firstOrNull()?.let { metric ->
+                            MetricCard(metric.value, metric.label, metric.detail, Modifier.fillMaxWidth(), ReEventGreen)
+                        }
+                        if (metrics.size > 1) {
+                            AdaptiveTwoPane(
+                                first = {
+                                    val metric = metrics[1]
+                                    MetricCard(metric.value, metric.label, metric.detail, Modifier.fillMaxWidth(), ReEventBlue)
+                                },
+                                second = {
+                                    metrics.getOrNull(2)?.let { metric ->
+                                        MetricCard(metric.value, metric.label, metric.detail, Modifier.fillMaxWidth(), ReEventCoral)
+                                    }
+                                }
                             )
                         }
-                    )
+                    }
                 }
             }
             item {
@@ -191,7 +192,11 @@ fun HomeScreen(onNavigate: (ReEventScreen) -> Unit) {
                     color = ReEventPaper,
                     border = BorderStroke(1.dp, ReEventLine)
                 ) {
-                    RecoveryTimeline(modifier = Modifier.padding(16.dp))
+                    if (recoverySteps.isEmpty()) {
+                        EmptyWorkflowMessage()
+                    } else {
+                        RecoveryTimeline(modifier = Modifier.padding(16.dp), steps = recoverySteps)
+                    }
                 }
             }
             item {
@@ -201,10 +206,25 @@ fun HomeScreen(onNavigate: (ReEventScreen) -> Unit) {
                     onAction = { onNavigate(ReEventScreen.Marketplace) }
                 )
             }
-            items(MockData.resources.take(2)) { item ->
-                ResourceCard(item = item, onClick = { onNavigate(ReEventScreen.Passport) })
+            if (resources.isEmpty()) {
+                item { EmptyWorkflowMessage("No resource lots have been added yet.") }
+            }
+            items(resources) { item ->
+                ResourceCard(item = item, onClick = { onResourceClick(item) })
             }
         }
+    }
+}
+
+@Composable
+private fun EmptyWorkflowMessage(message: String = "Your recovery activity will appear here once resources are added.") {
+    Surface(shape = RoundedCornerShape(18.dp), color = ReEventMintSoft) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = ReEventMuted,
+            modifier = Modifier.padding(16.dp)
+        )
     }
 }
 

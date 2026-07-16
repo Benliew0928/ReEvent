@@ -105,7 +105,11 @@ import com.reevent.app.ui.theme.ReEventWarm
 import com.reevent.app.ui.theme.*
 
 @Composable
-fun MarketplaceScreen(onNavigate: (ReEventScreen) -> Unit) {
+fun MarketplaceScreen(
+    onNavigate: (ReEventScreen) -> Unit,
+    resources: List<com.reevent.app.ui.ResourceItem> = MockData.resources,
+    onResourceClick: (com.reevent.app.ui.ResourceItem) -> Unit = { onNavigate(ReEventScreen.Passport) }
+) {
     ReEventScaffold(selected = ReEventScreen.Marketplace, onNavigate = onNavigate) { padding ->
         ReEventLazyColumn(paddingValues = padding) {
             item {
@@ -168,8 +172,24 @@ fun MarketplaceScreen(onNavigate: (ReEventScreen) -> Unit) {
                     }
                 }
             }
-            items(MockData.resources) { item ->
-                ResourceCard(item = item, onClick = { onNavigate(ReEventScreen.Passport) })
+            if (resources.isEmpty()) {
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = ReEventMintSoft,
+                        border = BorderStroke(1.dp, ReEventLine)
+                    ) {
+                        Text(
+                            text = "No available resources yet. New listings will appear here.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = ReEventMuted,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                }
+            }
+            items(resources) { item ->
+                ResourceCard(item = item, onClick = { onResourceClick(item) })
             }
         }
     }

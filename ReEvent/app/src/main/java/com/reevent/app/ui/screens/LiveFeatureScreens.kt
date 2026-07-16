@@ -44,36 +44,141 @@ import com.reevent.app.core.model.ResourceStatus
 import com.reevent.app.core.model.User
 import com.reevent.app.core.data.ProgrammeMatcher
 import com.reevent.app.ui.components.LogoMark
+import com.reevent.app.ui.components.ReEventScaffold
+import com.reevent.app.ui.ReEventScreen
 import com.reevent.app.ui.theme.ReEventBackground
 import java.util.UUID
 
 @Composable
-fun OrganizerHomeLiveScreen(user: User, onAddResource: (String) -> Unit, onPassport: (String) -> Unit, onImpact: (String) -> Unit, onProfile: () -> Unit, viewModel: FeatureViewModel = hiltViewModel()) {
+fun OrganizerHomeLiveScreen(
+    user: User,
+    onAddResource: (String) -> Unit,
+    onPassport: (String) -> Unit,
+    onImpact: (String) -> Unit,
+    onMarketplace: () -> Unit,
+    onPartnerMap: () -> Unit,
+    onProfile: () -> Unit,
+    viewModel: FeatureViewModel = hiltViewModel()
+) {
     LaunchedEffect(user.id) { viewModel.refresh() }
     val events by viewModel.events(user.id).collectAsState(emptyList())
     FeatureScaffold("Organiser workspace", "Account", onProfile, viewModel) {
         if (events.isEmpty()) {
             item {
-                EmptyPanel("Create your first event", "Events organise the resources, handovers and impact you track.") {
+                EmptyPanel(
+                    title = "Create your first event",
+                    detail = "Events organise the resources, handovers and impact you track.",
+                    actionLabel = "Create event"
+                ) {
                     viewModel.createEvent(user) { onAddResource(it.id) }
                 }
             }
         } else {
             items(events, key = Event::id) { event ->
-                EventCard(event, onAddResource, onImpact)
+                val resources by viewModel.resources(event.id).collectAsState(emptyList())
+                val impacts by viewModel.impact(event.id).collectAsState(emptyList())
+                OrganizerOverview(
+                    event = event,
+                    resources = resources,
+                    impacts = impacts,
+                    onAddResource = { onAddResource(event.id) },
+                    onPassport = onPassport,
+                    onImpact = { onImpact(event.id) },
+                    onMarketplace = onMarketplace,
+                    onPartnerMap = onPartnerMap
+                )
             }
         }
     }
 }
 
 @Composable
-fun AddResourceLiveScreen(user: User, eventId: String, onSaved: (String) -> Unit, onBack: () -> Unit, viewModel: FeatureViewModel = hiltViewModel()) {
+private fun OrganizerOverview(
+    event: Event,
+    resources: List<ResourceItem>,
+    impacts: List<ImpactRecord>,
+    onAddResource: () -> Unit,
+    onPassport: (String) -> Unit,
+    onImpact: () -> Unit,
+    onMarketplace: () -> Unit,
+    onPartnerMap: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(event.name, style = MaterialTheme.typography.headlineSmall)
+                Text(event.venue.ifBlank { "Venue to be confirmed" }, style = MaterialTheme.typography.bodyMedium)
+                Text("Live circular recovery board", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            DashboardMetric("${resources.size}", "Resource lots", Modifier.weight(1f))
+            DashboardMetric("${resources.count { it.status == ResourceStatus.AVAILABLE }}", "Available", Modifier.weight(1f))
+            DashboardMetric("${impacts.sumOf { it.materialDivertedKg }.formatDashboard()}", "Kg diverted", Modifier.weight(1f))
+        }
+        Text("Fast actions", style = MaterialTheme.typography.titleLarge)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = onAddResource, modifier = Modifier.weight(1f)) { Text("Add resource") }
+            OutlinedButton(onClick = onPartnerMap, modifier = Modifier.weight(1f)) { Text("Partner map") }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onImpact, modifier = Modifier.weight(1f)) { Text("View impact") }
+            OutlinedButton(onClick = onMarketplace, modifier = Modifier.weight(1f)) { Text("Marketplace") }
+        }
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Circular workflow", style = MaterialTheme.typography.titleMedium)
+                WorkflowRow("Listed", resources.size)
+                WorkflowRow("Available for matching", resources.count { it.status == ResourceStatus.AVAILABLE })
+                WorkflowRow("Recovered or handed over", resources.count { it.status == ResourceStatus.RECOVERED || it.status == ResourceStatus.HANDED_OVER })
+            }
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Recent resource lots", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+            Text("${resources.size} total", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        }
+        if (resources.isEmpty()) {
+            EmptyPanel("No resource lots yet", "Add a traceable resource to start the event recovery flow.", actionLabel = "Add resource", onAction = onAddResource)
+        } else {
+            resources.take(3).forEach { resource -> ResourceLine(resource) { onPassport(resource.id) } }
+        }
+    }
+}
+
+@Composable
+private fun DashboardMetric(value: String, label: String, modifier: Modifier = Modifier) {
+    Card(modifier) { Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) { Text(value, style = MaterialTheme.typography.titleLarge); Text(label, style = MaterialTheme.typography.labelMedium) } }
+}
+
+@Composable
+private fun WorkflowRow(label: String, count: Int) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text(label, modifier = Modifier.weight(1f)); Text(count.toString(), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary) }
+}
+
+private fun Double.formatDashboard(): String = if (this % 1.0 == 0.0) toInt().toString() else "%.1f".format(this)
+
+@Composable
+fun AddResourceLiveScreen(
+    user: User,
+    eventId: String,
+    onSaved: (String) -> Unit,
+    onBack: () -> Unit,
+    onNavigate: (ReEventScreen) -> Unit,
+    viewModel: FeatureViewModel = hiltViewModel()
+) {
     var title by rememberSaveable { mutableStateOf("") }
     var material by rememberSaveable { mutableStateOf("") }
     var quantity by rememberSaveable { mutableStateOf("1") }
     var photoUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { photoUri = it }
-    FeatureScaffold("Add a resource", "Back", onBack, viewModel) {
+    FeatureScaffold(
+        title = "Add a resource",
+        actionLabel = "Back",
+        onAction = onBack,
+        viewModel = viewModel,
+        selected = ReEventScreen.AddResource,
+        onNavigate = onNavigate
+    ) {
         item {
             Text("Create a traceable item for this event. It is saved locally first and syncs when connected.", style = MaterialTheme.typography.bodyMedium)
             OutlinedTextField(title, { title = it }, Modifier.fillMaxWidth(), label = { Text("Resource name") }, singleLine = true)
@@ -183,17 +288,41 @@ fun ImpactLiveScreen(eventId: String, onBack: () -> Unit, viewModel: FeatureView
     }
 }
 
-@Composable private fun FeatureScaffold(title: String, actionLabel: String, onAction: () -> Unit, viewModel: FeatureViewModel, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+@Composable private fun FeatureScaffold(
+    title: String,
+    actionLabel: String,
+    onAction: () -> Unit,
+    viewModel: FeatureViewModel,
+    selected: ReEventScreen? = null,
+    onNavigate: (ReEventScreen) -> Unit = {},
+    content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit
+) {
     val action by viewModel.action.collectAsState()
-    Column(Modifier.fillMaxSize().padding(20.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) { LogoMark(size = 42.dp); Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(title, style = MaterialTheme.typography.headlineMedium); Text("Live workspace", style = MaterialTheme.typography.labelLarge) }; OutlinedButton(onClick = onAction) { Text(actionLabel) } }
-        action.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 8.dp)) }
-        action.notice?.let { Text(it, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(vertical = 8.dp)) }
-        LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
-        if (action.loading) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(Modifier.height(24.dp)) }
+    ReEventScaffold(selected = selected, onNavigate = onNavigate) { innerPadding ->
+        Column(Modifier.fillMaxSize().padding(innerPadding).padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) { LogoMark(size = 42.dp); Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(title, style = MaterialTheme.typography.headlineMedium); Text("Live workspace", style = MaterialTheme.typography.labelLarge) }; OutlinedButton(onClick = onAction) { Text(actionLabel) } }
+            action.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 8.dp)) }
+            action.notice?.let { Text(it, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(vertical = 8.dp)) }
+            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
+            if (action.loading) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(Modifier.height(24.dp)) }
+        }
     }
 }
 
 @Composable private fun EventCard(event: Event, onAddResource: (String) -> Unit, onImpact: (String) -> Unit) = Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Text(event.name, style = MaterialTheme.typography.titleLarge); Text(event.venue.ifBlank { "Venue to be confirmed" }); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { onAddResource(event.id) }) { Text("Add resource") }; OutlinedButton(onClick = { onImpact(event.id) }) { Text("Impact") } } } }
 @Composable private fun ResourceLine(resource: ResourceItem, onClick: () -> Unit) = Card(Modifier.fillMaxWidth()) { Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(resource.title, style = MaterialTheme.typography.titleMedium); Text("${resource.quantity} ${resource.unit} • ${resource.status.name.lowercase()}") }; OutlinedButton(onClick = onClick) { Text("View") } } }
-@Composable private fun EmptyPanel(title: String, detail: String, action: @Composable () -> Unit) = Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Text(title, style = MaterialTheme.typography.titleMedium); Text(detail); action() } }
+@Composable
+private fun EmptyPanel(
+    title: String,
+    detail: String,
+    actionLabel: String? = null,
+    onAction: () -> Unit = {}
+) = Card(Modifier.fillMaxWidth()) {
+    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium)
+        Text(detail)
+        actionLabel?.let { label ->
+            Button(onClick = onAction, modifier = Modifier.fillMaxWidth()) { Text(label) }
+        }
+    }
+}

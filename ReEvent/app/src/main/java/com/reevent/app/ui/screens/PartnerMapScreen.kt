@@ -108,6 +108,20 @@ import com.reevent.app.ui.components.PartnerBottomSheet
 
 @Composable
 fun PartnerMapScreen(onNavigate: (ReEventScreen) -> Unit) {
+    PartnerMapScreen(
+        onNavigate = onNavigate,
+        matches = MockData.matches,
+        partnerCountText = "8 partners within 10 km"
+    )
+}
+
+@Composable
+fun PartnerMapScreen(
+    onNavigate: (ReEventScreen) -> Unit,
+    matches: List<PartnerMatch>,
+    partnerCountText: String,
+    onPartnerAccepted: (PartnerMatch) -> Unit = { onNavigate(ReEventScreen.PartnerWorkbench) }
+) {
     var selectedPartner by rememberSaveable { mutableStateOf<PartnerMatch?>(null) }
     ReEventScaffold(selected = ReEventScreen.PartnerMap, onNavigate = onNavigate) { padding ->
         ReEventLazyColumn(paddingValues = padding) {
@@ -141,7 +155,7 @@ fun PartnerMapScreen(onNavigate: (ReEventScreen) -> Unit) {
                         border = BorderStroke(1.dp, ReEventLine)
                     ) {
                         Text(
-                            text = "8 partners within 10 km",
+                            text = partnerCountText,
                             style = MaterialTheme.typography.labelLarge,
                             color = ReEventGreenDeep,
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp)
@@ -149,10 +163,22 @@ fun PartnerMapScreen(onNavigate: (ReEventScreen) -> Unit) {
                     }
                 }
             }
-            item {
+            if (matches.isNotEmpty()) item {
                 PartnerLogoTile()
             }
-            items(MockData.matches) { match ->
+            if (matches.isEmpty()) {
+                item {
+                    Surface(shape = RoundedCornerShape(18.dp), color = ReEventMintSoft) {
+                        Text(
+                            text = "No active partner programmes yet.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = ReEventMuted,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                }
+            }
+            items(matches) { match ->
                 PartnerMatchCard(match = match, onClick = { selectedPartner = match })
             }
         }
@@ -161,7 +187,9 @@ fun PartnerMapScreen(onNavigate: (ReEventScreen) -> Unit) {
     PartnerBottomSheet(
         partner = selectedPartner,
         onDismiss = { selectedPartner = null },
-        onAccept = { onNavigate(ReEventScreen.PartnerWorkbench) }
+        onAccept = {
+            selectedPartner?.let(onPartnerAccepted)
+        }
     )
 }
 

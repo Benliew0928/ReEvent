@@ -63,6 +63,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.reevent.app.R
 import com.reevent.app.ui.MockData
+import com.reevent.app.ui.ImpactMetric
 import com.reevent.app.ui.PartnerMatch
 import com.reevent.app.ui.ReEventRole
 import com.reevent.app.ui.ReEventScreen
@@ -105,7 +106,13 @@ import com.reevent.app.ui.theme.ReEventWarm
 import com.reevent.app.ui.theme.*
 
 @Composable
-fun ImpactScreen(onNavigate: (ReEventScreen) -> Unit) {
+fun ImpactScreen(
+    onNavigate: (ReEventScreen) -> Unit,
+    metrics: List<ImpactMetric> = MockData.metrics,
+    recoveryRate: Float? = 0.83f,
+    recoveryLabel: String = "83%",
+    chartValues: List<Float> = listOf(0.84f, 0.56f, 0.72f, 0.43f)
+) {
     ReEventScaffold(selected = ReEventScreen.Impact, onNavigate = onNavigate) { padding ->
         ReEventLazyColumn(paddingValues = padding) {
             item {
@@ -126,8 +133,8 @@ fun ImpactScreen(onNavigate: (ReEventScreen) -> Unit) {
                         stackedAlignment = Alignment.CenterHorizontally,
                         first = {
                         ProgressRing(
-                            progress = 0.83f,
-                            centerText = "83%",
+                            progress = recoveryRate ?: 0f,
+                            centerText = recoveryLabel,
                             label = "recovered",
                             modifier = Modifier.size(142.dp)
                         )
@@ -137,7 +144,11 @@ fun ImpactScreen(onNavigate: (ReEventScreen) -> Unit) {
                             StatusChip(text = "SDG 12 aligned", color = ReEventGreen)
                             Spacer(Modifier.height(10.dp))
                             Text(
-                                text = "The event avoided disposal by routing items to reuse, repair and remanufacturing.",
+                                text = if (metrics.isEmpty()) {
+                                    "Impact will appear here after the first verified recovery or handover."
+                                } else {
+                                    "The event avoided disposal by routing items to reuse, repair and remanufacturing."
+                                },
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = ReEventInk
                             )
@@ -158,7 +169,7 @@ fun ImpactScreen(onNavigate: (ReEventScreen) -> Unit) {
                     ) {
                         SectionTitle(title = "Recovery channels")
                         MiniBarChart(
-                            values = listOf(0.84f, 0.56f, 0.72f, 0.43f),
+                            values = chartValues.ifEmpty { listOf(0f, 0f, 0f, 0f) },
                             colors = WarmChartColors
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -177,22 +188,33 @@ fun ImpactScreen(onNavigate: (ReEventScreen) -> Unit) {
                         .clip(RoundedCornerShape(22.dp))
                         .background(ReEventGreenDeep)
                 ) {
-                    Image(
-                        painter = painterResource(R.drawable.impact_badge_high_recovery),
-                        contentDescription = "High recovery badge",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
+                    if (metrics.isEmpty()) {
+                        Text(
+                            text = "A recovery badge will appear after verified impact is recorded.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.White.copy(alpha = 0.82f),
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .padding(24.dp)
+                        )
+                    } else {
+                        Image(
+                            painter = painterResource(R.drawable.impact_badge_high_recovery),
+                            contentDescription = "High recovery badge",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
                 }
             }
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    MockData.metrics.forEachIndexed { index, metric ->
+                    metrics.forEachIndexed { index, metric ->
                         MetricCard(
                             value = metric.value,
                             label = metric.label,
                             detail = metric.detail,
-                            color = WarmChartColors[index],
+                            color = WarmChartColors[index % WarmChartColors.size],
                             modifier = Modifier.fillMaxWidth()
                         )
                     }

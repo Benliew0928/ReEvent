@@ -24,6 +24,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.Locale
 
 @Singleton
@@ -34,6 +36,9 @@ class DefaultAuthRepository @Inject constructor(
     private val accountScope: AccountScope
 ) : AuthRepository {
     private val mutableCurrentUser = MutableStateFlow<User?>(null)
+    // Session restoration and a PKCE callback both touch the same Supabase Auth client. Keep
+    // them serialised so a cold-start restore cannot race the browser callback.
+    private val sessionOperationMutex = Mutex()
     override val currentUser: Flow<User?> = mutableCurrentUser.asStateFlow()
 
     override suspend fun signUp(email: String, password: String, displayName: String): AppResult<SignUpOutcome> {
@@ -79,17 +84,17 @@ class DefaultAuthRepository @Inject constructor(
         return remoteCall { gateway.startGoogleSignIn() }
     }
 
-    override suspend fun handleOAuthCallback(intent: Intent): AppResult<User?> = when (
-        val result = remoteCall {
+    override suspend fun handleOAuthCallback(intent: Intent): AppResult<User?> = sessionOperationMutex.withLock {
+        when (val result = remoteCall {
             gateway.handleDeepLink(intent)
             gateway.currentUserOrNull()
+        }) {
+            is AppResult.Success -> {
+                if (result.value != null) persistAuthenticatedUser(result.value)
+                AppResult.Success(result.value)
+            }
+            is AppResult.Failure -> result
         }
-    ) {
-        is AppResult.Success -> {
-            if (result.value != null) persistAuthenticatedUser(result.value)
-            AppResult.Success(result.value)
-        }
-        is AppResult.Failure -> result
     }
 
     override suspend fun completeRole(role: UserRole): AppResult<User> {
@@ -117,7 +122,7 @@ class DefaultAuthRepository @Inject constructor(
         }
     }
 
-    override suspend fun restoreSession(): AppResult<User?> {
+    override suspend fun restoreSession(): AppResult<User?> = sessionOperationMutex.withLock {
         if (!gateway.isConfigured()) {
             val cached = preferences.cachedUserId.first()?.let { dao.user(it)?.toDomain() }
             cached?.let { accountScope.activate(it.id) }
@@ -133,7 +138,6 @@ class DefaultAuthRepository @Inject constructor(
                     // A Supabase-backed build must not restore a stale local profile after sign-out.
                     preferences.clearAccount()
                     accountScope.clear()
-                    clearProtectedCache()
                     mutableCurrentUser.value = null
                 }
                 AppResult.Success(remote)
@@ -203,12 +207,8 @@ class DefaultAuthRepository @Inject constructor(
         dao.clearOtherOutbox(accountId)
     }
 
-    private suspend fun clearProtectedCache() {
-        dao.clearEvents(); dao.clearResources(); dao.clearPassports(); dao.clearProgrammes()
-        dao.clearTransactions(); dao.clearImpact(); dao.clearOutbox()
-    }
-
-    /** Starts a new identity flow without retaining another account's session or cached data. */
+    /** Starts a new identity flow. Account-scoped feature data remains inaccessible until the
+     * same account authenticates, and is deleted by [clearOtherAccountCache] on an account switch. */
     private suspend fun beginFreshAuthentication() {
         clearLocalAccountState()
     }
@@ -216,7 +216,6 @@ class DefaultAuthRepository @Inject constructor(
     private suspend fun clearLocalAccountState() {
         mutableCurrentUser.value = null
         accountScope.clear()
-        clearProtectedCache()
         dao.clearUsers()
         preferences.clearAccount()
     }

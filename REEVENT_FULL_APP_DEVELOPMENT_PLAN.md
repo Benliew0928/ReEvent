@@ -1057,7 +1057,7 @@ Basic rules:
 | 0. Team Setup and Scope Lock | `[########--] 80%` | Scope is documented; project is a Git repository; team/board evidence remains. |
 | 1. Proposal and UI Prototype | `[#######---] 70%` | Product, visual system, screen flow, and Compose UI are present; Figma/proposal handoff needs verification. |
 | 2. Android Project Foundation | `[#######---] 70%` | Hilt, Navigation Compose, Room, DataStore, WorkManager, repository contracts, local configuration, and Supabase client wiring are implemented; migration tests and live backend validation remain. |
-| 3. Authentication and Role Onboarding | `[#######---] 70%` | Email/password and browser-based Google OAuth flows, session gating, immutable role completion, and separated role roots are implemented; live provider/device validation remains. |
+| 3. Authentication and Role Onboarding | `[########--] 80%` | Email/password and browser-based Google OAuth flows, session gating, immutable role completion, and separated role roots are implemented. Live Google provider/device acceptance returned successfully to the protected organiser home on 16 July 2026; the full three-account regression matrix remains. |
 | 4. Event and Resource Inventory | `[####------] 40%` | Shared event/resource models, local persistence, and sync outbox are implemented; the organiser UI remains on transitional `MockData` until its feature track adopts repository state. |
 | 5. Digital Resource Passport and QR | `[##--------] 20%` | Passport screen and visual QR placeholder exist; no real ID, QR, scanner, or history. |
 | 6. Circular Matching Engine | `[##--------] 20%` | Match/recommendation UI exists with fixed sample partners; no matching engine. |
@@ -1166,7 +1166,7 @@ Exit criteria:
 - App launches successfully.
 - Navigation between placeholder screens works.
 
-## Phase 3: Authentication and Role Onboarding - `[#######---] 70%` `[~]`
+## Phase 3: Authentication and Role Onboarding - `[########--] 80%` `[~]`
 
 Goal:
 
@@ -1177,7 +1177,7 @@ Tasks:
 - [x] Build onboarding entry flow.
 - [x] Build protected role selection; a role is completed once through the server-side profile RPC.
 - [x] Build email/password and browser-based Google sign-in UI with loading/error/reset/confirmation states.
-- [~] Connect authentication backend (Supabase code and migration are present; live project/provider configuration is pending).
+- [x] Connect authentication backend (Supabase live project and Google provider/device acceptance were verified on 16 July 2026).
 - [x] Save selected role locally and in the server profile.
 - [x] Redirect users to separate organiser, participant, and partner roots.
 
@@ -1188,6 +1188,8 @@ Deliverables:
 - Role-based routing
 
 Exit criteria:
+
+- [~] Live Google OAuth acceptance: signing out, choosing `benliew28262826@gmail.com` in the Android emulator account chooser, and returning to the protected organiser home all succeeded on 16 July 2026. The remaining email/password and three-role regression matrix is still required.
 
 - Organiser, participant, and partner users can reach different dashboards.
 

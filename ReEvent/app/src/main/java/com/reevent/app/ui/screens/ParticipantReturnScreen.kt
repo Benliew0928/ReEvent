@@ -106,13 +106,14 @@ import com.reevent.app.ui.theme.*
 
 @Composable
 fun ParticipantReturnScreen(onNavigate: (ReEventScreen) -> Unit) {
-    ReEventScaffold(selected = null, onNavigate = onNavigate) { padding ->
+    ReEventScaffold(selected = ReEventScreen.ParticipantReturn, onNavigate = onNavigate) { padding ->
         ReEventLazyColumn(paddingValues = padding) {
             item {
                 ScreenHeader(
                     title = "Participant return",
                     subtitle = "Swap, return and reward flow",
-                    onBack = { onNavigate(ReEventScreen.Profile) }
+                    // This is the participant's root page, not a child of Account.
+                    onProfile = { onNavigate(ReEventScreen.Profile) }
                 )
             }
             item {
@@ -142,6 +143,14 @@ fun ParticipantReturnScreen(onNavigate: (ReEventScreen) -> Unit) {
                         }
                     )
                 }
+            }
+            item {
+                PrimaryActionButton(
+                    text = "Browse circular marketplace",
+                    icon = Icons.Outlined.ShoppingBag,
+                    onClick = { onNavigate(ReEventScreen.Marketplace) },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

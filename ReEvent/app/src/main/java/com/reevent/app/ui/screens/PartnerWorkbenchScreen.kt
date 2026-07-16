@@ -105,17 +105,22 @@ import com.reevent.app.ui.theme.ReEventWarm
 import com.reevent.app.ui.theme.*
 
 @Composable
-fun PartnerWorkbenchScreen(onNavigate: (ReEventScreen) -> Unit) {
-    ReEventScaffold(selected = null, onNavigate = onNavigate) { padding ->
+fun PartnerWorkbenchScreen(
+    onNavigate: (ReEventScreen) -> Unit,
+    hasIncomingLot: Boolean = true,
+    hasProgramme: Boolean = true
+) {
+    ReEventScaffold(selected = ReEventScreen.PartnerWorkbench, onNavigate = onNavigate) { padding ->
         ReEventLazyColumn(paddingValues = padding) {
             item {
                 ScreenHeader(
                     title = "Partner workbench",
                     subtitle = "Factory and repair partner intake",
-                    onBack = { onNavigate(ReEventScreen.PartnerMap) }
+                    // The workbench is the partner's root page; use Account instead of a fake back path.
+                    onProfile = { onNavigate(ReEventScreen.Profile) }
                 )
             }
-            item {
+            if (hasProgramme) item {
                 PartnerLogoTile()
             }
             item {
@@ -128,25 +133,47 @@ fun PartnerWorkbenchScreen(onNavigate: (ReEventScreen) -> Unit) {
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        StatusChip(text = "Incoming lot", color = ReEventBlue)
-                        Text(
-                            text = "Acrylic signage batch",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = ReEventInk
-                        )
-                        Text(
-                            text = "18 boards, verified clean, ready for remanufacturing quote.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = ReEventMuted
-                        )
-                        HorizontalDivider(color = ReEventLine)
-                        InfoRow("Offer", "RM 1.20/kg")
-                        InfoRow("Pickup", "Tomorrow, 10:30 AM")
-                        InfoRow("Output", "New modular signage sheets")
+                        if (hasIncomingLot) {
+                            StatusChip(text = "Incoming lot", color = ReEventBlue)
+                            Text(
+                                text = "Acrylic signage batch",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = ReEventInk
+                            )
+                            Text(
+                                text = "18 boards, verified clean, ready for remanufacturing quote.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = ReEventMuted
+                            )
+                            HorizontalDivider(color = ReEventLine)
+                            InfoRow("Offer", "RM 1.20/kg")
+                            InfoRow("Pickup", "Tomorrow, 10:30 AM")
+                            InfoRow("Output", "New modular signage sheets")
+                        } else {
+                            StatusChip(text = "No incoming lots", color = ReEventBlue)
+                            Text(
+                                text = "Your partner queue is clear",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = ReEventInk
+                            )
+                            Text(
+                                text = "New authorised handovers will appear here.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = ReEventMuted
+                            )
+                        }
                     }
                 }
             }
             item {
+                SecondaryActionButton(
+                    text = "Open partner network",
+                    icon = Icons.Outlined.Map,
+                    onClick = { onNavigate(ReEventScreen.PartnerMap) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            if (hasIncomingLot) item {
                 PrimaryActionButton(
                     text = "Accept buy-back lot",
                     icon = Icons.Outlined.CheckCircle,

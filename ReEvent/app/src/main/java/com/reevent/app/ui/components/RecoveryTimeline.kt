@@ -73,6 +73,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import com.reevent.app.R
 import com.reevent.app.ui.MockData
+import com.reevent.app.ui.RecoveryStep
 import com.reevent.app.ui.ReEventScreen
 import com.reevent.app.ui.ResourceItem
 import com.reevent.app.ui.ResourceTone
@@ -91,13 +92,14 @@ import com.reevent.app.ui.theme.*
 
 @Composable
 fun RecoveryTimeline(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    steps: List<RecoveryStep> = MockData.recoverySteps
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        MockData.recoverySteps.forEachIndexed { index, step ->
+        steps.forEachIndexed { index, step ->
             Row(verticalAlignment = Alignment.Top) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(
@@ -114,7 +116,7 @@ fun RecoveryTimeline(
                             modifier = Modifier.size(16.dp)
                         )
                     }
-                    if (index != MockData.recoverySteps.lastIndex) {
+                    if (index != steps.lastIndex) {
                         Box(
                             modifier = Modifier
                                 .width(2.dp)

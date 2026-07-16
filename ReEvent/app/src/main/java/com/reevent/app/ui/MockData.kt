@@ -30,7 +30,9 @@ data class ResourceItem(
     val location: String,
     val impact: String,
     val tone: ResourceTone,
-    @DrawableRes val imageRes: Int
+    @DrawableRes val imageRes: Int,
+    /** Repository-backed cards use this to retain the selected resource across visual navigation. */
+    val id: String? = null
 )
 
 data class ImpactMetric(

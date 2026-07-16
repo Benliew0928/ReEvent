@@ -16,6 +16,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -54,16 +57,22 @@ class SessionViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SessionUiState())
 
     init {
+        // A normal sign-in happens after the one-time restore below has already completed.
+        // Refresh for every newly authenticated account so its Room cache never starts empty.
         viewModelScope.launch {
-            val restoredUser = try {
-                (authRepository.restoreSession() as? AppResult.Success)?.value
+            authRepository.currentUser
+                .filterNotNull()
+                .map { user -> user.id }
+                .distinctUntilChanged()
+                .collect { coreSyncRepository.refreshAuthorisedData() }
+        }
+        viewModelScope.launch {
+            try {
+                authRepository.restoreSession()
             } finally {
                 // Cache refresh is optional. A failed or slow sync must never leave the app on
                 // an unbounded startup screen.
                 restored.value = true
-            }
-            if (restoredUser != null) {
-                viewModelScope.launch { coreSyncRepository.refreshAuthorisedData() }
             }
         }
     }

@@ -4,7 +4,7 @@
 
 **Delivery baseline:** ReEvent is a real, deployable Android app. Use Supabase for cloud authentication and the shared MVP data; use Room and DataStore for secure offline-first behaviour; retain demo data only behind repository interfaces. All changes must remain compatible with Huawei AppGallery release requirements.
 
-**Current progress:** `[#########-] 90%` - Typed runtime role graphs, account-scoped Room v2 cache/outbox, remote Supabase reads/writes, offline sync state, deterministic matching, media upload support, repository-backed live screens, and focused unit tests are implemented. Applying the latest staging SQL, seed data, and real-provider/device acceptance evidence remain.
+**Current progress:** `[#########-] 90%` - Typed runtime role graphs, account-scoped Room v2 cache/outbox, remote Supabase reads/writes, offline sync state, deterministic matching, media upload support, repository-backed live screens, and focused unit tests are implemented. Live Google OAuth/device acceptance and cross-account resource persistence/visibility have now been verified. Device database-migration coverage and the remaining staging seed/release matrix still require evidence.
 
 ## Pages and Code Ownership
 
@@ -48,14 +48,16 @@ Do not let another track directly change Gradle, shared models, database migrati
 
 ### Checkpoint 3 - Account and role routing `[~]`
 
-- [~] Keep the existing onboarding and sign-in UI, but connect its controls to real state.
-- [~] Implement sign-up, sign-in, sign-out, Google OAuth, password reset, and session restore using Supabase Auth. Code is implemented; real-provider verification needs Supabase/Google configuration.
+- [x] Keep the existing onboarding and sign-in UI, but connect its controls to real state.
+- [~] Implement sign-up, sign-in, sign-out, Google OAuth, password reset, and session restore using Supabase Auth. The Google OAuth provider was verified on the Android emulator on 2026-07-16; the complete account/reset acceptance matrix remains outstanding.
 - [x] Persist the selected role locally and protect remote role assignment through the Supabase `complete_profile_role` RPC.
 - [x] Route organiser, participant, and partner users to separate intended starting destinations.
 - [x] Add loading, empty, retry/error, sync notice, and signed-out states to the live account/feature graph.
-- [~] Test role routing and session restoration in code; real provider/device evidence remains manual staging work.
+- [~] Test role routing and session restoration in code. The organiser Google OAuth callback and return to the protected home route were verified on an Android emulator on 2026-07-16; the complete three-account acceptance matrix remains outstanding.
 
 **Completion evidence:** three test accounts can sign in, close/reopen the app, and enter the correct role experience.
+
+**Latest acceptance evidence:** signing out, choosing `benliew28262826@gmail.com` through the live Google account chooser, and returning to the signed-in organiser home screen succeeded on the Android emulator on 2026-07-16.
 
 ### Checkpoint 4 - Remote integration and release integration `[~]`
 
@@ -64,6 +66,8 @@ Do not let another track directly change Gradle, shared models, database migrati
 - [x] Store secrets in ignored local configuration; never commit API keys or credentials.
 - [x] Publish migrations and shared contracts before feature integration.
 - [x] Run compile/unit-test verification after the integration change.
+
+**Latest integration evidence:** Supabase timestamp values are normalised before parsing so remote resources persist across sign-out/re-login. Live emulator checks confirmed an organiser-created resource remained after re-login and was visible to another account. The deployed resource read policy was exercised; local migration `0004_marketplace_resource_visibility.sql` remains tracked for environments that still need it applied.
 
 **Completion evidence:** the agreed MVP data synchronises safely with Supabase, failure states are visible, offline behaviour is usable, and the release configuration remains suitable for AppGallery submission.
 
@@ -110,3 +114,4 @@ After every finished checkpoint:
 - 2026-07-14 - Tracker created from the audited full development plan.
 - 2026-07-14 - Implemented the core architecture, role-isolated navigation, Room/DataStore local state, Supabase/Google auth wiring, SQL schema/RLS migration, and sync outbox. `:app:compileDebugKotlin --no-daemon` passed; cloud/device verification is recorded in `../LIEW KAIY BIN Guide.md`.
 - 2026-07-15 - Completed live typed-route migration, account-scoped Room v2 cache/outbox, Supabase RLS snapshot refresh, sync state reconciliation, media upload boundary, deterministic programme matching and repository-backed live screens. `:app:testDebugUnitTest :app:compileDebugKotlin` passed. Apply `0003_public_passport_read.sql`, run the staging seed with real profile IDs, then complete the manual staging matrix in the guide.
+- 2026-07-16 - Fixed Supabase timestamp parsing that caused newly created resources to disappear after re-login, corrected account/navigation restoration, and verified cross-account resource visibility on the Android emulator. Live Google OAuth was tested with `benliew28262826@gmail.com` and returned to the organiser home screen. `:app:assembleDebug :app:testDebugUnitTest --no-daemon --console=plain` passed. Cleaned 34 empty duplicate staging events after an audited, explicit approval; 3 events with related data were retained.

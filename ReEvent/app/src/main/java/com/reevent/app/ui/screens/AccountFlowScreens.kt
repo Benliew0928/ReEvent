@@ -73,7 +73,9 @@ import com.reevent.app.core.auth.AuthViewModel
 import com.reevent.app.core.data.FailureReason
 import com.reevent.app.core.model.User
 import com.reevent.app.core.model.UserRole
+import com.reevent.app.ui.ReEventScreen
 import com.reevent.app.ui.components.LogoMark
+import com.reevent.app.ui.components.ReEventScaffold
 import com.reevent.app.ui.theme.ReEventBackground
 import com.reevent.app.ui.theme.ReEventCoral
 import com.reevent.app.ui.theme.ReEventCoralSoft
@@ -242,13 +244,20 @@ fun CompleteRoleFlowScreen(viewModel: AuthViewModel = hiltViewModel()) {
 }
 
 @Composable
-fun ProfileFlowScreen(user: User, onBack: () -> Unit, viewModel: AuthViewModel = hiltViewModel()) {
-    AccountScaffold(
-        eyebrow = "YOUR ACCOUNT",
-        title = "Account & workspace",
-        subtitle = "Your account is connected to one protected workspace.",
-        onBack = onBack
-    ) {
+fun ProfileFlowScreen(
+    user: User,
+    onBack: () -> Unit,
+    onNavigate: (ReEventScreen) -> Unit,
+    viewModel: AuthViewModel = hiltViewModel()
+) {
+    ReEventScaffold(selected = ReEventScreen.Profile, onNavigate = onNavigate) { padding ->
+        AccountScaffold(
+            eyebrow = "YOUR ACCOUNT",
+            title = "Account & workspace",
+            subtitle = "Your account is connected to one protected workspace.",
+            onBack = onBack,
+            modifier = Modifier.padding(padding)
+        ) {
         AccountCard {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Avatar(user.displayName)
@@ -284,6 +293,7 @@ fun ProfileFlowScreen(user: User, onBack: () -> Unit, viewModel: AuthViewModel =
             Spacer(Modifier.width(8.dp))
             Text("Sign out")
         }
+        }
     }
 }
 
@@ -293,9 +303,10 @@ private fun AccountScaffold(
     title: String,
     subtitle: String,
     onBack: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Surface(color = ReEventBackground, modifier = Modifier.fillMaxSize()) {
+    Surface(color = ReEventBackground, modifier = modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxSize()) {
             Box(
                 modifier = Modifier

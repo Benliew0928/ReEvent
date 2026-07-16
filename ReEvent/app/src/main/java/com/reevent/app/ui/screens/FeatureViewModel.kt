@@ -46,7 +46,10 @@ class FeatureViewModel @Inject constructor(
     private val mutableAction = MutableStateFlow(FeatureActionState())
     val action: StateFlow<FeatureActionState> = mutableAction
 
-    fun refresh() = launchAction("Data is up to date") { sync.refreshAuthorisedData() }
+    /** Initial workspace refresh is best-effort: an offline server must not look like a failed user action. */
+    fun refresh() {
+        viewModelScope.launch { sync.refreshAuthorisedData() }
+    }
     fun events(ownerId: String): Flow<List<Event>> = events.observeOwnedEvents(ownerId)
     fun resources(eventId: String): Flow<List<ResourceItem>> = resources.observeEventResources(eventId)
     fun marketplace(): Flow<List<ResourceItem>> = resources.observeMarketplace()
@@ -99,11 +102,14 @@ class FeatureViewModel @Inject constructor(
 
     private fun launchAction(success: String, block: suspend () -> AppResult<*>) {
         viewModelScope.launch {
-        mutableAction.value = FeatureActionState(loading = true)
-        mutableAction.value = when (val result = block()) {
-            is AppResult.Success -> FeatureActionState(notice = success)
-            is AppResult.Failure -> FeatureActionState(error = "Unable to complete this action. Check your connection and try again.")
-        }
+            // A button can receive more than one tap before its loading state is recomposed.
+            // Only the first action is allowed to navigate or enqueue a write.
+            if (mutableAction.value.loading) return@launch
+            mutableAction.value = FeatureActionState(loading = true)
+            mutableAction.value = when (val result = block()) {
+                is AppResult.Success -> FeatureActionState(notice = success)
+                is AppResult.Failure -> FeatureActionState(error = "Unable to complete this action. Check your connection and try again.")
+            }
         }
     }
 }

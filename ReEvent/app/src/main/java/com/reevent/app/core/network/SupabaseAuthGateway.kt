@@ -20,6 +20,9 @@ import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.storage.Storage
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.JsonObject
@@ -127,7 +130,27 @@ class SupabaseAuthGateway @Inject constructor() {
             intent.data?.host == AUTH_CALLBACK_HOST &&
             intent.data?.path == AUTH_CALLBACK_PATH
         ) {
-            client.handleDeeplinks(intent)
+            val callback = requireNotNull(intent.data)
+            callback.getQueryParameter("error")?.let { errorCode ->
+                error(callback.getQueryParameter("error_description") ?: errorCode)
+            }
+            check(!callback.getQueryParameter("code").isNullOrBlank()) {
+                "The authentication callback did not include an authorization code"
+            }
+            // Supabase-kt starts the PKCE exchange in its own coroutine. Await its completion
+            // before asking for currentUser(), otherwise this method observes a null session and
+            // leaves the user at the credentials screen even though OAuth completed successfully.
+            suspendCancellableCoroutine { continuation ->
+                client.handleDeeplinks(
+                    intent = intent,
+                    onSessionSuccess = {
+                        if (continuation.isActive) continuation.resume(Unit)
+                    },
+                    onError = { error ->
+                        if (continuation.isActive) continuation.resumeWithException(error)
+                    }
+                )
+            }
         }
     }
 
@@ -143,6 +166,7 @@ class SupabaseAuthGateway @Inject constructor() {
 
     internal suspend fun <T> withConfiguredClient(block: suspend (SupabaseClient) -> T): T {
         check(configured) { "Supabase is not configured" }
+        client.auth.awaitInitialization()
         return block(client)
     }
 
@@ -182,10 +206,15 @@ class SupabaseAuthGateway @Inject constructor() {
 
     private suspend inline fun <T> withClient(block: suspend () -> T): T {
         check(configured) { "Supabase is not configured" }
+        client.auth.awaitInitialization()
         return block()
     }
 
-    private suspend inline fun <T> withClientOrNull(block: suspend () -> T): T? = if (configured) block() else null
+    private suspend inline fun <T> withClientOrNull(block: suspend () -> T): T? {
+        if (!configured) return null
+        client.auth.awaitInitialization()
+        return block()
+    }
 
     private companion object {
         const val AUTH_CALLBACK_SCHEME = "reevent"

@@ -1,5 +1,6 @@
 package com.reevent.app.core.data
 
+import android.util.Log
 import com.reevent.app.core.database.CoreDao
 import com.reevent.app.core.database.EventEntity
 import com.reevent.app.core.database.ImpactEntity
@@ -22,6 +23,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Room is the source of truth for all feature reads. Writes are indexed by owner/event in Room,
@@ -34,6 +37,7 @@ class LocalFirstCoreRepository @Inject constructor(
     private val accountScope: AccountScope,
     private val remote: SupabaseCoreGateway
 ) : EventRepository, ResourceRepository, PassportRepository, PartnerRepository, TransactionRepository, ImpactRepository, CoreSyncRepository {
+    private val refreshMutex = Mutex()
 
     override fun observeOwnedEvents(ownerId: String): Flow<List<Event>> = dao.observeEvents(accountScope.requireId(), ownerId).map(List<EventEntity>::toEvents)
     override fun observeEvent(eventId: String): Flow<Event?> = dao.observeEvent(accountScope.requireId(), eventId).map { it?.toDomain() }
@@ -84,18 +88,31 @@ class LocalFirstCoreRepository @Inject constructor(
         dao.upsertImpact(record.copy(syncState = com.reevent.app.core.model.SyncState.PENDING).toEntity(accountScope.requireId()))
     }
 
-    override suspend fun refreshAuthorisedData(): AppResult<Unit> = try {
-        val accountId = accountScope.requireId()
-        val snapshot = remote.fetchAuthorisedSnapshot()
-        snapshot.events.forEach { dao.upsertEvent(it.toEntity(accountId)) }
-        snapshot.resources.forEach { dao.upsertResource(it.toEntity(accountId)) }
-        snapshot.passports.forEach { dao.upsertPassport(it.toEntity(accountId)) }
-        snapshot.programmes.forEach { dao.upsertProgramme(it.toEntity(accountId)) }
-        snapshot.transactions.forEach { dao.upsertTransaction(it.toEntity(accountId)) }
-        snapshot.impact.forEach { dao.upsertImpact(it.toEntity(accountId)) }
-        AppResult.Success(Unit)
-    } catch (error: Throwable) {
-        AppResult.Failure(FailureReason.SERVER, error)
+    override suspend fun refreshAuthorisedData(): AppResult<Unit> = refreshMutex.withLock {
+        try {
+            val accountId = accountScope.requireId()
+            // Pending local-first writes survive a same-account sign-out and are retried as soon
+            // as that account authenticates again.
+            syncScheduler.requestSync()
+            val snapshot = remote.fetchAuthorisedSnapshot()
+            // A sign-out or account switch can happen while a request is in flight. Never write
+            // the response into a different account's cache.
+            check(accountScope.accountId.value == accountId) { "The active account changed during refresh" }
+            snapshot.events.forEach { dao.upsertEvent(it.toEntity(accountId)) }
+            snapshot.resources.forEach { dao.upsertResource(it.toEntity(accountId)) }
+            snapshot.passports.forEach { dao.upsertPassport(it.toEntity(accountId)) }
+            snapshot.programmes.forEach { dao.upsertProgramme(it.toEntity(accountId)) }
+            snapshot.transactions.forEach { dao.upsertTransaction(it.toEntity(accountId)) }
+            snapshot.impact.forEach { dao.upsertImpact(it.toEntity(accountId)) }
+            Log.i(
+                TAG,
+                "Authorised refresh complete: events=${snapshot.events.size}, resources=${snapshot.resources.size}, passports=${snapshot.passports.size}"
+            )
+            AppResult.Success(Unit)
+        } catch (error: Throwable) {
+            Log.e(TAG, "Authorised refresh failed", error)
+            AppResult.Failure(FailureReason.SERVER, error)
+        }
     }
 
     private suspend fun <T> persist(value: T, table: String, id: String, action: suspend () -> Unit): AppResult<T> = try {
@@ -126,6 +143,10 @@ class LocalFirstCoreRepository @Inject constructor(
             )
         )
         syncScheduler.requestSync()
+    }
+
+    private companion object {
+        const val TAG = "ReEventCoreSync"
     }
 }
 

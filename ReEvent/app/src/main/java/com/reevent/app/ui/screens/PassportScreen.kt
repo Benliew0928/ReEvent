@@ -63,6 +63,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.reevent.app.R
 import com.reevent.app.ui.MockData
+import com.reevent.app.ui.RecoveryStep
 import com.reevent.app.ui.PartnerMatch
 import com.reevent.app.ui.ReEventRole
 import com.reevent.app.ui.ReEventScreen
@@ -105,14 +106,17 @@ import com.reevent.app.ui.theme.ReEventWarm
 import com.reevent.app.ui.theme.*
 
 @Composable
-fun PassportScreen(onNavigate: (ReEventScreen) -> Unit) {
-    val item = MockData.resources.first()
+fun PassportScreen(
+    onNavigate: (ReEventScreen) -> Unit,
+    item: com.reevent.app.ui.ResourceItem? = MockData.resources.firstOrNull(),
+    recoverySteps: List<RecoveryStep> = MockData.recoverySteps
+) {
     ReEventScaffold(selected = ReEventScreen.Marketplace, onNavigate = onNavigate) { padding ->
         ReEventLazyColumn(paddingValues = padding) {
             item {
                 ScreenHeader(
                     title = "Digital passport",
-                    subtitle = "Verified route for ${item.title}",
+                    subtitle = item?.let { "Verified route for ${it.title}" } ?: "Select a resource to view its verified route",
                     onBack = { onNavigate(ReEventScreen.Marketplace) },
                     onProfile = { onNavigate(ReEventScreen.Profile) }
                 )
@@ -125,19 +129,28 @@ fun PassportScreen(onNavigate: (ReEventScreen) -> Unit) {
                         .clip(RoundedCornerShape(22.dp))
                         .background(ReEventMintSoft)
                 ) {
-                    Image(
-                        painter = painterResource(item.imageRes),
-                        contentDescription = item.title,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                    StatusChip(
-                        text = item.tone.label,
-                        color = item.tone.color,
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(14.dp)
-                    )
+                    if (item == null) {
+                        Text(
+                            text = "No resource selected",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = ReEventMuted,
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    } else {
+                        Image(
+                            painter = painterResource(item.imageRes),
+                            contentDescription = item.title,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                        StatusChip(
+                            text = item.tone.label,
+                            color = item.tone.color,
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(14.dp)
+                        )
+                    }
                 }
             }
             item {
@@ -150,19 +163,39 @@ fun PassportScreen(onNavigate: (ReEventScreen) -> Unit) {
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(text = item.title, style = MaterialTheme.typography.titleLarge, color = ReEventInk)
-                        LocationLine(text = "${item.location} • ${item.owner}")
-                        HorizontalDivider(color = ReEventLine)
-                        InfoRow("Quantity", item.quantity)
-                        InfoRow("Condition", "Reusable, cleaned, 98% complete")
-                        InfoRow("Material", "PP reusable cup + stackable crate")
-                        InfoRow("Current value", item.price)
+                        if (item == null) {
+                            Text("Resource details will appear here.", color = ReEventMuted)
+                        } else {
+                            Text(text = item.title, style = MaterialTheme.typography.titleLarge, color = ReEventInk)
+                            LocationLine(text = "${item.location} • ${item.owner}")
+                            HorizontalDivider(color = ReEventLine)
+                            InfoRow("Quantity", item.quantity)
+                            InfoRow("Condition", item.tone.label)
+                            InfoRow("Material", item.category)
+                            InfoRow("Current value", item.price)
+                        }
                     }
                 }
             }
             item {
                 AdaptiveTwoPane(
-                    first = { FakeQrPanel(modifier = Modifier.fillMaxWidth()) },
+                    first = {
+                        if (item == null) {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(18.dp),
+                                color = ReEventMintSoft
+                            ) {
+                                Text(
+                                    text = "QR code pending",
+                                    color = ReEventMuted,
+                                    modifier = Modifier.padding(16.dp)
+                                )
+                            }
+                        } else {
+                            FakeQrPanel(modifier = Modifier.fillMaxWidth())
+                        }
+                    },
                     second = {
                         Surface(
                         modifier = Modifier.fillMaxWidth(),
@@ -179,12 +212,12 @@ fun PassportScreen(onNavigate: (ReEventScreen) -> Unit) {
                                 color = Color.White.copy(alpha = 0.68f)
                             )
                             Text(
-                                text = "RE-CUP-0728",
+                                text = item?.id ?: "Not generated",
                                 style = MaterialTheme.typography.titleLarge,
                                 color = Color.White
                             )
                             Text(
-                                text = "Signed by organizer, available to partners and buyers.",
+                                text = if (item == null) "A passport ID will be created when the resource is saved." else "Available to authorised partners and buyers.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Color.White.copy(alpha = 0.78f)
                             )
@@ -202,14 +235,18 @@ fun PassportScreen(onNavigate: (ReEventScreen) -> Unit) {
                     color = ReEventPaper,
                     border = BorderStroke(1.dp, ReEventLine)
                 ) {
-                    RecoveryTimeline(modifier = Modifier.padding(16.dp))
+                    if (recoverySteps.isEmpty()) {
+                        Text("No recovery route has been recorded yet.", color = ReEventMuted, modifier = Modifier.padding(16.dp))
+                    } else {
+                        RecoveryTimeline(modifier = Modifier.padding(16.dp), steps = recoverySteps)
+                    }
                 }
             }
             item {
                 PrimaryActionButton(
                     text = "Find partner matches",
                     icon = Icons.Outlined.Star,
-                    onClick = { onNavigate(ReEventScreen.AiMatch) },
+                    onClick = { if (item != null) onNavigate(ReEventScreen.AiMatch) },
                     modifier = Modifier.fillMaxWidth()
                 )
             }

@@ -37,6 +37,7 @@ import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.ShoppingBag
@@ -55,6 +56,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -74,6 +76,7 @@ import androidx.compose.ui.unit.dp
 import com.reevent.app.R
 import com.reevent.app.ui.MockData
 import com.reevent.app.ui.ReEventScreen
+import com.reevent.app.ui.ReEventRole
 import com.reevent.app.ui.ResourceItem
 import com.reevent.app.ui.ResourceTone
 import com.reevent.app.ui.theme.ReEventBlue
@@ -96,18 +99,34 @@ data class BottomDestination(
     val icon: ImageVector
 )
 
+/** The visual shell is shared, but each authenticated role owns a different information architecture. */
+val LocalReEventRole = staticCompositionLocalOf { ReEventRole.Organizer }
+
 @Composable
 fun ReEventBottomBar(
     selected: ReEventScreen,
     onNavigate: (ReEventScreen) -> Unit
 ) {
-    val destinations = listOf(
-        BottomDestination(ReEventScreen.Home, "Home", Icons.Outlined.Home),
-        BottomDestination(ReEventScreen.Marketplace, "Market", Icons.Outlined.Search),
-        BottomDestination(ReEventScreen.AddResource, "Add", Icons.Outlined.Add),
-        BottomDestination(ReEventScreen.PartnerMap, "Partners", Icons.Outlined.Map),
-        BottomDestination(ReEventScreen.Impact, "Impact", Icons.Outlined.BarChart)
-    )
+    val destinations = when (LocalReEventRole.current) {
+        ReEventRole.Organizer -> listOf(
+            BottomDestination(ReEventScreen.Home, "Home", Icons.Outlined.Home),
+            BottomDestination(ReEventScreen.Marketplace, "Market", Icons.Outlined.Search),
+            BottomDestination(ReEventScreen.AddResource, "Add", Icons.Outlined.Add),
+            BottomDestination(ReEventScreen.PartnerMap, "Partners", Icons.Outlined.Map),
+            BottomDestination(ReEventScreen.Impact, "Impact", Icons.Outlined.BarChart)
+        )
+        ReEventRole.Participant -> listOf(
+            BottomDestination(ReEventScreen.ParticipantReturn, "Returns", Icons.Outlined.Refresh),
+            BottomDestination(ReEventScreen.Marketplace, "Resources", Icons.Outlined.Search),
+            BottomDestination(ReEventScreen.Profile, "Account", Icons.Outlined.Person)
+        )
+        ReEventRole.Partner -> listOf(
+            BottomDestination(ReEventScreen.PartnerWorkbench, "Workbench", Icons.Outlined.Settings),
+            BottomDestination(ReEventScreen.Marketplace, "Resources", Icons.Outlined.ShoppingBag),
+            BottomDestination(ReEventScreen.PartnerMap, "Network", Icons.Outlined.Map),
+            BottomDestination(ReEventScreen.Profile, "Account", Icons.Outlined.Person)
+        )
+    }
 
     Surface(
         color = ReEventPaper,
