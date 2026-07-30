@@ -62,7 +62,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.reevent.app.R
-import com.reevent.app.ui.MockData
 import com.reevent.app.ui.PartnerMatch
 import com.reevent.app.ui.ReEventRole
 import com.reevent.app.ui.ReEventScreen
@@ -107,7 +106,7 @@ import com.reevent.app.ui.theme.*
 @Composable
 fun MarketplaceScreen(
     onNavigate: (ReEventScreen) -> Unit,
-    resources: List<com.reevent.app.ui.ResourceItem> = MockData.resources,
+    resources: List<com.reevent.app.ui.ResourceItem> = emptyList(),
     onResourceClick: (com.reevent.app.ui.ResourceItem) -> Unit = { onNavigate(ReEventScreen.Passport) }
 ) {
     ReEventScaffold(selected = ReEventScreen.Marketplace, onNavigate = onNavigate) { padding ->

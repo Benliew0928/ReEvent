@@ -1,6 +1,7 @@
 -- Public marketplace resources may expose their passport read-only to authenticated participants.
 -- Writes remain restricted to the owning organiser through the original policy.
 drop policy if exists passports_owner_read on public.resource_passports;
+drop policy if exists passports_authorized_read on public.resource_passports;
 create policy passports_authorized_read on public.resource_passports
 for select to authenticated using (
   exists (

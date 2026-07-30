@@ -62,7 +62,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.reevent.app.R
-import com.reevent.app.ui.MockData
 import com.reevent.app.ui.PartnerMatch
 import com.reevent.app.ui.ReEventRole
 import com.reevent.app.ui.ReEventScreen
@@ -75,7 +74,6 @@ import com.reevent.app.ui.components.InfoRow
 import com.reevent.app.ui.components.LocationLine
 import com.reevent.app.ui.components.MetricCard
 import com.reevent.app.ui.components.MiniBarChart
-import com.reevent.app.ui.components.PartnerLogoTile
 import com.reevent.app.ui.components.PrimaryActionButton
 import com.reevent.app.ui.components.ProgressRing
 import com.reevent.app.ui.components.QuickActionTile
@@ -105,15 +103,6 @@ import com.reevent.app.ui.theme.ReEventWarm
 import com.reevent.app.ui.theme.*
 
 import com.reevent.app.ui.components.PartnerBottomSheet
-
-@Composable
-fun PartnerMapScreen(onNavigate: (ReEventScreen) -> Unit) {
-    PartnerMapScreen(
-        onNavigate = onNavigate,
-        matches = MockData.matches,
-        partnerCountText = "8 partners within 10 km"
-    )
-}
 
 @Composable
 fun PartnerMapScreen(
@@ -164,7 +153,18 @@ fun PartnerMapScreen(
                 }
             }
             if (matches.isNotEmpty()) item {
-                PartnerLogoTile()
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = ReEventPaper,
+                    border = BorderStroke(1.dp, ReEventLine)
+                ) {
+                    Text(
+                        text = "${matches.size} active programmes are available for matching.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = ReEventInk,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
             }
             if (matches.isEmpty()) {
                 item {

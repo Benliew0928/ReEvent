@@ -4,7 +4,7 @@
 
 **Delivery baseline:** ReEvent is a real, deployable Android app. Use Supabase for cloud authentication and the shared MVP data; use Room and DataStore for secure offline-first behaviour; retain demo data only behind repository interfaces. All changes must remain compatible with Huawei AppGallery release requirements.
 
-**Current progress:** `[#########-] 90%` - Typed runtime role graphs, account-scoped Room v2 cache/outbox, remote Supabase reads/writes, offline sync state, deterministic matching, media upload support, repository-backed live screens, and focused unit tests are implemented. Live Google OAuth/device acceptance and cross-account resource persistence/visibility have now been verified. Device database-migration coverage and the remaining staging seed/release matrix still require evidence.
+**Current progress:** `[#########-] 90%` - Typed runtime role graphs, account-scoped Room v2 cache/outbox, remote Supabase reads/writes, offline sync state, deterministic matching, media upload support, and repository-backed visual screens are implemented. Runtime visual components no longer fall back to `MockData`; staging policies and seed data are applied. The full acceptance matrix remains intentionally deferred.
 
 ## Pages and Code Ownership
 
@@ -31,10 +31,10 @@ Do not let another track directly change Gradle, shared models, database migrati
 - [x] Add Navigation Compose and replace runtime manual routes with typed destinations. The live graph passes only record IDs; the retained legacy enum is compile-only support for archived mock/previews.
 - [x] Define the shared domain models from the main plan: `User`, `Event`, `ResourceItem`, `ResourcePassport`, `CircularProgramme`, `CircularTransaction`, and `ImpactRecord`.
 - [x] Define repository interfaces that feature tracks can use without knowing whether data comes from Room, a fake repository, or the backend.
-- [~] Provide repeatable staging seed data in `ReEvent/supabase/seeds/staging_seed.sql`; it needs the three real profile IDs before use.
+- [x] Provide repeatable staging seed data in `ReEvent/supabase/seeds/staging_seed.sql`; its three targets were verified against `public.profiles` and applied to the current staging project on 2026-07-30.
 - [x] Publish repository methods and typed live-route ownership in the coordination contract.
 
-**Completion evidence:** the app compiles, all existing screens still navigate, and each feature track can obtain its data through an interface rather than importing `MockData` directly.
+**Completion evidence:** the app compiles, all existing screens still navigate, and runtime paths obtain their data through an interface rather than importing `MockData` directly. `MockData` is a deprecated preview-fixture boundary only.
 
 ### Checkpoint 2 - Local-first persistence `[~]`
 
@@ -67,7 +67,7 @@ Do not let another track directly change Gradle, shared models, database migrati
 - [x] Publish migrations and shared contracts before feature integration.
 - [x] Run compile/unit-test verification after the integration change.
 
-**Latest integration evidence:** Supabase timestamp values are normalised before parsing so remote resources persist across sign-out/re-login. Live emulator checks confirmed an organiser-created resource remained after re-login and was visible to another account. The deployed resource read policy was exercised; local migration `0004_marketplace_resource_visibility.sql` remains tracked for environments that still need it applied.
+**Latest integration evidence:** Supabase timestamp values are normalised before parsing so remote resources persist across sign-out/re-login. Live emulator checks confirmed an organiser-created resource remained after re-login and was visible to another account. On 2026-07-30, staging applied `0003_public_passport_read.sql` and `0004_marketplace_resource_visibility.sql`, then verified one repeatable seed record exists in each of events, resources, passports, programmes, transactions, and impact records.
 
 **Completion evidence:** the agreed MVP data synchronises safely with Supabase, failure states are visible, offline behaviour is usable, and the release configuration remains suitable for AppGallery submission.
 
@@ -82,6 +82,7 @@ Update this table whenever a shared contract changes. Feature teammates should p
 | `PartnerRepository` and `TransactionRepository` | MAH JUIN HONG, WONG LOONG JIE | `[x]` Programmes, deterministic matching and assigned transaction flows. |
 | `ImpactRepository` | WONG LOONG JIE | `[x]` Event-ID impact observation and local-first persistence. |
 | Navigation routes and argument rules | WONG JIE YING, MAH JUIN HONG, WONG LOONG JIE | `[x]` Role-specific typed destinations; no cross-role graph is registered. |
+| Original visual layouts | All feature owners | `[x]` `RestoredVisualLiveScreens` maps repository state into the established Compose visuals; preview fixtures are not a runtime data source. |
 
 ## AI Agent Working Rules
 
@@ -115,3 +116,4 @@ After every finished checkpoint:
 - 2026-07-14 - Implemented the core architecture, role-isolated navigation, Room/DataStore local state, Supabase/Google auth wiring, SQL schema/RLS migration, and sync outbox. `:app:compileDebugKotlin --no-daemon` passed; cloud/device verification is recorded in `../LIEW KAIY BIN Guide.md`.
 - 2026-07-15 - Completed live typed-route migration, account-scoped Room v2 cache/outbox, Supabase RLS snapshot refresh, sync state reconciliation, media upload boundary, deterministic programme matching and repository-backed live screens. `:app:testDebugUnitTest :app:compileDebugKotlin` passed. Apply `0003_public_passport_read.sql`, run the staging seed with real profile IDs, then complete the manual staging matrix in the guide.
 - 2026-07-16 - Fixed Supabase timestamp parsing that caused newly created resources to disappear after re-login, corrected account/navigation restoration, and verified cross-account resource visibility on the Android emulator. Live Google OAuth was tested with `benliew28262826@gmail.com` and returned to the organiser home screen. `:app:assembleDebug :app:testDebugUnitTest --no-daemon --console=plain` passed. Cleaned 34 empty duplicate staging events after an audited, explicit approval; 3 events with related data were retained.
+- 2026-07-30 - Removed `MockData` fallbacks from the visual dashboard, marketplace, passport, impact, map, matching, and timeline components. Participant and partner visual roots now render their repository-backed transactions/programmes instead of fixed activity examples. `:app:compileDebugKotlin --no-daemon --console=plain` passed. The restored staging project then applied migrations `0003` and `0004` plus the repeatable seed; a read-only count query returned `1` for each seeded entity.

@@ -155,8 +155,11 @@ fun ImpactVisualScreen(
 ) {
     val resources by viewModel.resources(eventId).collectAsState(emptyList())
     val records by viewModel.impact(eventId).collectAsState(emptyList())
-    val rate = if (resources.isEmpty() || records.isEmpty()) null else {
-        (records.mapNotNull { it.resourceId }.distinct().size.toFloat() / resources.size).coerceIn(0f, 1f)
+    val recoveredLots = resources.count {
+        it.status == ResourceStatus.RECOVERED || it.status == ResourceStatus.HANDED_OVER
+    }
+    val rate = if (resources.isEmpty()) null else {
+        (recoveredLots.toFloat() / resources.size).coerceIn(0f, 1f)
     }
 
     ImpactScreen(
@@ -227,7 +230,8 @@ fun ParticipantReturnVisualScreen(
     viewModel: FeatureViewModel = hiltViewModel()
 ) {
     LaunchedEffect(user.id) { viewModel.refresh() }
-    ParticipantReturnScreen(onNavigate)
+    val transactions by viewModel.transactions(user.id).collectAsState(emptyList())
+    ParticipantReturnScreen(onNavigate, transactions)
 }
 
 @Composable
@@ -241,8 +245,9 @@ fun PartnerWorkbenchVisualScreen(
     val transactions by viewModel.transactions(user.id).collectAsState(emptyList())
     PartnerWorkbenchScreen(
         onNavigate = onNavigate,
-        hasIncomingLot = transactions.isNotEmpty(),
-        hasProgramme = programmes.isNotEmpty()
+        programmes = programmes,
+        transactions = transactions,
+        onCreateProgramme = { viewModel.createProgramme(user) }
     )
 }
 

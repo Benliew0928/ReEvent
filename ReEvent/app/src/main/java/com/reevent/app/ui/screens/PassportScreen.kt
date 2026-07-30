@@ -62,7 +62,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.reevent.app.R
-import com.reevent.app.ui.MockData
 import com.reevent.app.ui.RecoveryStep
 import com.reevent.app.ui.PartnerMatch
 import com.reevent.app.ui.ReEventRole
@@ -108,8 +107,8 @@ import com.reevent.app.ui.theme.*
 @Composable
 fun PassportScreen(
     onNavigate: (ReEventScreen) -> Unit,
-    item: com.reevent.app.ui.ResourceItem? = MockData.resources.firstOrNull(),
-    recoverySteps: List<RecoveryStep> = MockData.recoverySteps
+    item: com.reevent.app.ui.ResourceItem? = null,
+    recoverySteps: List<RecoveryStep> = emptyList()
 ) {
     ReEventScaffold(selected = ReEventScreen.Marketplace, onNavigate = onNavigate) { padding ->
         ReEventLazyColumn(paddingValues = padding) {

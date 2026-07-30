@@ -62,7 +62,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.reevent.app.R
-import com.reevent.app.ui.MockData
+import com.reevent.app.core.model.CircularTransaction
+import com.reevent.app.core.model.TransactionStatus
 import com.reevent.app.ui.PartnerMatch
 import com.reevent.app.ui.ReEventRole
 import com.reevent.app.ui.ReEventScreen
@@ -105,7 +106,10 @@ import com.reevent.app.ui.theme.ReEventWarm
 import com.reevent.app.ui.theme.*
 
 @Composable
-fun ParticipantReturnScreen(onNavigate: (ReEventScreen) -> Unit) {
+fun ParticipantReturnScreen(
+    onNavigate: (ReEventScreen) -> Unit,
+    transactions: List<CircularTransaction> = emptyList()
+) {
     ReEventScaffold(selected = ReEventScreen.ParticipantReturn, onNavigate = onNavigate) { padding ->
         ReEventLazyColumn(paddingValues = padding) {
             item {
@@ -152,11 +156,25 @@ fun ParticipantReturnScreen(onNavigate: (ReEventScreen) -> Unit) {
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    RewardStep("Return reusable cup", "+60 pts", ResourceTone.Ready)
-                    RewardStep("Swap unwanted merch", "+45 pts", ResourceTone.Hot)
-                    RewardStep("Donate fabric tote", "+35 pts", ResourceTone.Repair)
+            item { SectionTitle(title = "Your return activity") }
+            if (transactions.isEmpty()) {
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = ReEventMintSoft,
+                        border = BorderStroke(1.dp, ReEventLine)
+                    ) {
+                        Text(
+                            text = "You have no return requests yet. Browse the marketplace to start a circular handover.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = ReEventMuted,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                }
+            } else {
+                items(transactions.take(3), key = CircularTransaction::id) { transaction ->
+                    ReturnActivityCard(transaction)
                 }
             }
         }
@@ -164,9 +182,21 @@ fun ParticipantReturnScreen(onNavigate: (ReEventScreen) -> Unit) {
 }
 
 @Composable
+private fun ReturnActivityCard(transaction: CircularTransaction) {
+    val tone = when (transaction.status) {
+        TransactionStatus.COMPLETED -> ResourceTone.Recycle
+        TransactionStatus.CANCELLED -> ResourceTone.Hot
+        else -> ResourceTone.Ready
+    }
+    val status = transaction.status.name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)
+    val type = transaction.type.name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)
+    RewardStep("$type request", status, tone)
+}
+
+@Composable
 private fun RewardStep(
     title: String,
-    points: String,
+    status: String,
     tone: ResourceTone
 ) {
     Surface(
@@ -198,7 +228,7 @@ private fun RewardStep(
                 color = ReEventInk,
                 modifier = Modifier.weight(1f)
             )
-            StatusChip(text = points, color = tone.color)
+            StatusChip(text = status, color = tone.color)
         }
     }
 }

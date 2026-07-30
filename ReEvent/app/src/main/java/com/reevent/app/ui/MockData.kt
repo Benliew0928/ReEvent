@@ -58,6 +58,11 @@ data class RecoveryStep(
     val tone: ResourceTone
 )
 
+/**
+ * Design-time fixtures only. Production navigation must source data through a ViewModel and
+ * repository; see RestoredVisualLiveScreens and LiveFeatureScreens.
+ */
+@Deprecated("Preview fixtures only; do not use from runtime screens")
 object MockData {
     val resources = listOf(
         ResourceItem(

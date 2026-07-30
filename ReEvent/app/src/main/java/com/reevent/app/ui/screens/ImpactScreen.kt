@@ -62,7 +62,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.reevent.app.R
-import com.reevent.app.ui.MockData
 import com.reevent.app.ui.ImpactMetric
 import com.reevent.app.ui.PartnerMatch
 import com.reevent.app.ui.ReEventRole
@@ -108,10 +107,10 @@ import com.reevent.app.ui.theme.*
 @Composable
 fun ImpactScreen(
     onNavigate: (ReEventScreen) -> Unit,
-    metrics: List<ImpactMetric> = MockData.metrics,
-    recoveryRate: Float? = 0.83f,
-    recoveryLabel: String = "83%",
-    chartValues: List<Float> = listOf(0.84f, 0.56f, 0.72f, 0.43f)
+    metrics: List<ImpactMetric> = emptyList(),
+    recoveryRate: Float? = null,
+    recoveryLabel: String = "—",
+    chartValues: List<Float> = emptyList()
 ) {
     ReEventScaffold(selected = ReEventScreen.Impact, onNavigate = onNavigate) { padding ->
         ReEventLazyColumn(paddingValues = padding) {

@@ -62,7 +62,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.reevent.app.R
-import com.reevent.app.ui.MockData
 import com.reevent.app.ui.PartnerMatch
 import com.reevent.app.ui.ReEventRole
 import com.reevent.app.ui.ReEventScreen
@@ -104,8 +103,15 @@ import com.reevent.app.ui.theme.ReEventPaper
 import com.reevent.app.ui.theme.ReEventWarm
 import com.reevent.app.ui.theme.*
 
+/**
+ * Legacy visual shell retained for previews only. Runtime matching uses [MatchingLiveScreen].
+ */
+@Deprecated("Use MatchingLiveScreen in runtime navigation")
 @Composable
-fun AiMatchScreen(onNavigate: (ReEventScreen) -> Unit) {
+fun AiMatchScreen(
+    onNavigate: (ReEventScreen) -> Unit,
+    matches: List<PartnerMatch> = emptyList()
+) {
     ReEventScaffold(selected = ReEventScreen.AddResource, onNavigate = onNavigate) { padding ->
         ReEventLazyColumn(paddingValues = padding) {
             item {
@@ -151,7 +157,7 @@ fun AiMatchScreen(onNavigate: (ReEventScreen) -> Unit) {
                     )
                 }
             }
-            items(MockData.matches) { match ->
+            items(matches) { match ->
                 PartnerMatchCard(match = match, onClick = { onNavigate(ReEventScreen.PartnerMap) })
             }
             item {

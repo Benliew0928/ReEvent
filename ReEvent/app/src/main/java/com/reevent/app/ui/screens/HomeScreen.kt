@@ -62,7 +62,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.reevent.app.R
-import com.reevent.app.ui.MockData
 import com.reevent.app.ui.ImpactMetric
 import com.reevent.app.ui.RecoveryStep
 import com.reevent.app.ui.PartnerMatch
@@ -111,9 +110,9 @@ fun HomeScreen(
     onNavigate: (ReEventScreen) -> Unit,
     title: String = "EcoCampus Open Day",
     subtitle: String = "Live recovery board",
-    metrics: List<ImpactMetric> = MockData.metrics,
-    resources: List<com.reevent.app.ui.ResourceItem> = MockData.resources.take(2),
-    recoverySteps: List<RecoveryStep> = MockData.recoverySteps,
+    metrics: List<ImpactMetric> = emptyList(),
+    resources: List<com.reevent.app.ui.ResourceItem> = emptyList(),
+    recoverySteps: List<RecoveryStep> = emptyList(),
     onResourceClick: (com.reevent.app.ui.ResourceItem) -> Unit = { onNavigate(ReEventScreen.Passport) }
 ) {
     ReEventScaffold(selected = ReEventScreen.Home, onNavigate = onNavigate) { padding ->

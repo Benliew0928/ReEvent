@@ -1133,7 +1133,7 @@ Exit criteria:
 - Proposal can explain the idea in under 2 minutes.
 - Figma screens clearly show ReEvent, not LoopLink.
 
-## Phase 2: Android Project Foundation - `[#######---] 70%` `[~]`
+## Phase 2: Android Project Foundation - `[#########-] 90%` `[~]`
 
 Goal:
 
@@ -1145,11 +1145,11 @@ Tasks:
 - [x] Set Kotlin and Gradle versions.
 - [x] Add Jetpack Compose.
 - [x] Add Material 3.
-- [ ] Add Navigation Compose (the app uses a custom `rememberSaveable` route instead).
-- [ ] Add Hilt.
-- [ ] Add Room.
-- [ ] Add DataStore.
-- [ ] Add Retrofit/Ktor.
+- [x] Add Navigation Compose with typed, ID-only routes and separate role graphs.
+- [x] Add Hilt.
+- [x] Add Room with account-scoped cache/outbox entities and versioned migrations.
+- [x] Add DataStore for onboarding and safe local preferences.
+- [x] Add Supabase Kotlin network client behind repository interfaces.
 - [ ] Add QR scanner dependency.
 - [x] Build app theme based on Figma tokens.
 - [x] Create launcher icon.
@@ -1164,9 +1164,9 @@ Deliverables:
 Exit criteria:
 
 - App launches successfully.
-- Navigation between placeholder screens works.
+- Typed role-specific navigation and repository-backed workspace screens work; final device acceptance is tracked separately.
 
-## Phase 3: Authentication and Role Onboarding - `[########--] 80%` `[~]`
+## Phase 3: Authentication and Role Onboarding - `[#########-] 90%` `[~]`
 
 Goal:
 
@@ -1193,7 +1193,7 @@ Exit criteria:
 
 - Organiser, participant, and partner users can reach different dashboards.
 
-## Phase 4: Event and Resource Inventory - `[##--------] 20%` `[~]`
+## Phase 4: Event and Resource Inventory - `[######----] 60%` `[~]`
 
 Goal:
 
@@ -1202,14 +1202,14 @@ Build the core organiser workflow.
 Tasks:
 
 - [x] Create shared event model.
-- [ ] Build create event screen.
+- [~] Create an initial organiser event through the repository-backed organiser workflow; dedicated event detail/edit UI remains outstanding.
 - [ ] Build event detail screen.
-- [~] Build organiser dashboard (screen implemented with fixed metrics and resources).
-- [x] Create shared resource model and Room entity; the legacy display model remains until UI migration.
-- [~] Build add resource screen (form preview only; no save or validation).
+- [x] Build organiser dashboard from Room/Supabase repository data while retaining the established visual layout.
+- [x] Create shared resource model and Room entity; visual display data is mapped only at the ViewModel/UI boundary.
+- [x] Build repository-backed add-resource form with validation and a local-first save.
 - [x] Save resources locally with Room through `ResourceRepository`.
-- [~] Queue resource sync to Supabase through the local outbox; live cloud verification is pending project configuration.
-- [ ] Upload resource photo.
+- [x] Queue resource sync to Supabase through the local outbox; marketplace/passport staging RLS evidence was applied and recorded on 2026-07-30.
+- [x] Upload resource photo through the Android photo picker and owner-scoped Supabase Storage path.
 
 Deliverables:
 
@@ -1222,7 +1222,7 @@ Exit criteria:
 
 - Organiser can create an event and add resources to it.
 
-## Phase 5: Digital Resource Passport and QR - `[##--------] 20%` `[~]`
+## Phase 5: Digital Resource Passport and QR - `[####------] 40%` `[~]`
 
 Goal:
 
@@ -1230,9 +1230,9 @@ Build the main innovation.
 
 Tasks:
 
-- [ ] Generate unique item IDs.
-- [ ] Generate QR code values (only a visual `FakeQrPanel` exists).
-- [~] Build passport detail screen (static sample passport implemented).
+- [x] Generate unique item IDs and persistent passport payloads.
+- [~] Generate QR code values; the UI still uses a visual QR panel rather than an encoded QR bitmap.
+- [x] Build passport detail screen from repository-backed resource/passport state.
 - [ ] Build QR scanner screen.
 - [ ] Open item passport after scanning.
 - [ ] Add scan actions:
@@ -1254,7 +1254,7 @@ Exit criteria:
 
 - Scanning a QR code opens the correct resource passport.
 
-## Phase 6: Circular Matching Engine - `[##--------] 20%` `[~]`
+## Phase 6: Circular Matching Engine - `[######----] 60%` `[~]`
 
 Goal:
 
@@ -1262,13 +1262,12 @@ Make the app feel smart and assignment-worthy.
 
 Tasks:
 
-- [ ] Create partner programme model.
+- [x] Create partner programme model.
 - [ ] Create circular action enum.
-- [ ] Build rule-based matching logic.
-- [ ] Match resource to suitable programmes.
-- [~] Show best recommendation (fixed recommendation UI).
-- [~] Show alternative recommendations (fixed partner cards).
-- [~] Explain recommendation reason (static explanatory text).
+- [x] Build deterministic rule-based matching logic.
+- [x] Match resources to eligible partner programmes.
+- [x] Show the best recommendation and alternatives from repository data.
+- [x] Explain recommendation reason from material/status/programme compatibility.
 - [ ] Allow user to create recovery request.
 
 Deliverables:
@@ -1281,7 +1280,7 @@ Exit criteria:
 
 - App can recommend a circular pathway based on item condition and material.
 
-## Phase 7: Marketplace and Peer-to-Peer Flow - `[##--------] 20%` `[~]`
+## Phase 7: Marketplace and Peer-to-Peer Flow - `[####------] 40%` `[~]`
 
 Goal:
 
@@ -1289,11 +1288,11 @@ Fulfill peer-to-peer resource optimisation.
 
 Tasks:
 
-- [~] Build marketplace list (static resource cards from `MockData`).
+- [x] Build marketplace list from RLS-filtered repository data; it no longer uses `MockData` at runtime.
 - [ ] Add search (visual field only).
 - [ ] Add filters (visual chips only).
-- [~] Build item detail (routes to a static passport view).
-- [ ] Create transaction request.
+- [x] Build item detail with a repository-backed passport view.
+- [~] Create return transaction records through the repository; complete marketplace request controls remain outstanding.
 - [ ] Approve/reject request.
 - [ ] Complete transaction.
 - [ ] Support organiser-to-organiser transfer.
@@ -1309,7 +1308,7 @@ Exit criteria:
 
 - A user can request an item and the owner can approve it.
 
-## Phase 8: Circular Partner Module and Map - `[##--------] 20%` `[~]`
+## Phase 8: Circular Partner Module and Map - `[#####-----] 50%` `[~]`
 
 Goal:
 
@@ -1317,9 +1316,9 @@ Connect event resources with real recovery pathways.
 
 Tasks:
 
-- [~] Build partner profile (a static partner workbench is present).
-- [ ] Build create programme screen.
-- [~] Build programme list (static matched-partner cards).
+- [x] Build a partner workbench that renders the current partner's programmes and assigned transactions.
+- [~] Create a default programme through the repository; dedicated programme editing remains outstanding.
+- [x] Build programme list and matching cards from repository data.
 - [~] Add map screen (mock map image, not a map SDK).
 - [~] Show partner pins (baked into the mock map image).
 - [x] Show partner detail bottom sheet.
@@ -1336,7 +1335,7 @@ Exit criteria:
 
 - Organiser can find a suitable partner for a resource.
 
-## Phase 9: Impact Dashboard and Gamification - `[##--------] 20%` `[~]`
+## Phase 9: Impact Dashboard and Gamification - `[####------] 40%` `[~]`
 
 Goal:
 
@@ -1344,7 +1343,7 @@ Show behavioural transformation and SDG 12 impact.
 
 Tasks:
 
-- [ ] Calculate event recovery rate.
+- [x] Calculate event recovery rate from recovered/handover impact records.
 - [ ] Count reused items.
 - [ ] Count repaired items.
 - [ ] Count donated items.
@@ -1352,7 +1351,7 @@ Tasks:
 - [ ] Estimate waste avoided.
 - [ ] Estimate money saved.
 - [ ] Estimate CO2e saved.
-- [~] Build dashboard charts (static visualisation using fixed data).
+- [~] Build dashboard charts from live impact summaries; per-channel breakdown remains outstanding.
 - [~] Add badges and challenges (badge visual exists; no rule/award system).
 
 Deliverables:

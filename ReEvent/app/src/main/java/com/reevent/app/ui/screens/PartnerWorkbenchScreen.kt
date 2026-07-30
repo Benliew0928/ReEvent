@@ -62,7 +62,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.reevent.app.R
-import com.reevent.app.ui.MockData
+import com.reevent.app.core.model.CircularProgramme
+import com.reevent.app.core.model.CircularTransaction
+import com.reevent.app.core.model.TransactionStatus
 import com.reevent.app.ui.PartnerMatch
 import com.reevent.app.ui.ReEventRole
 import com.reevent.app.ui.ReEventScreen
@@ -107,8 +109,9 @@ import com.reevent.app.ui.theme.*
 @Composable
 fun PartnerWorkbenchScreen(
     onNavigate: (ReEventScreen) -> Unit,
-    hasIncomingLot: Boolean = true,
-    hasProgramme: Boolean = true
+    programmes: List<CircularProgramme> = emptyList(),
+    transactions: List<CircularTransaction> = emptyList(),
+    onCreateProgramme: () -> Unit = {}
 ) {
     ReEventScaffold(selected = ReEventScreen.PartnerWorkbench, onNavigate = onNavigate) { padding ->
         ReEventLazyColumn(paddingValues = padding) {
@@ -120,8 +123,22 @@ fun PartnerWorkbenchScreen(
                     onProfile = { onNavigate(ReEventScreen.Profile) }
                 )
             }
-            if (hasProgramme) item {
-                PartnerLogoTile()
+            if (programmes.isNotEmpty()) item {
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = ReEventMintSoft,
+                    border = BorderStroke(1.dp, ReEventLine)
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Active programmes", style = MaterialTheme.typography.labelLarge, color = ReEventGreenDeep)
+                        Text(programmes.first().name, style = MaterialTheme.typography.titleMedium, color = ReEventInk)
+                        Text(
+                            "${programmes.count { it.active }} active programme${if (programmes.count { it.active } == 1) "" else "s"}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = ReEventMuted
+                        )
+                    }
+                }
             }
             item {
                 Surface(
@@ -133,22 +150,23 @@ fun PartnerWorkbenchScreen(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        if (hasIncomingLot) {
+                        val incoming = transactions.firstOrNull { it.status != TransactionStatus.COMPLETED && it.status != TransactionStatus.CANCELLED }
+                        if (incoming != null) {
                             StatusChip(text = "Incoming lot", color = ReEventBlue)
                             Text(
-                                text = "Acrylic signage batch",
+                                text = "${incoming.type.name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)} handover",
                                 style = MaterialTheme.typography.titleLarge,
                                 color = ReEventInk
                             )
                             Text(
-                                text = "18 boards, verified clean, ready for remanufacturing quote.",
+                                text = "${incoming.quantity} item${if (incoming.quantity == 1) "" else "s"} awaiting your programme decision.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = ReEventMuted
                             )
                             HorizontalDivider(color = ReEventLine)
-                            InfoRow("Offer", "RM 1.20/kg")
-                            InfoRow("Pickup", "Tomorrow, 10:30 AM")
-                            InfoRow("Output", "New modular signage sheets")
+                            InfoRow("Status", incoming.status.name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase))
+                            InfoRow("Reference", incoming.id.take(8))
+                            InfoRow("Programmes", programmes.count { it.active }.toString())
                         } else {
                             StatusChip(text = "No incoming lots", color = ReEventBlue)
                             Text(
@@ -173,11 +191,19 @@ fun PartnerWorkbenchScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-            if (hasIncomingLot) item {
+            if (programmes.isEmpty()) item {
                 PrimaryActionButton(
-                    text = "Accept buy-back lot",
+                    text = "Create circular programme",
+                    icon = Icons.Outlined.Add,
+                    onClick = onCreateProgramme,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            if (transactions.any { it.status != TransactionStatus.COMPLETED && it.status != TransactionStatus.CANCELLED }) item {
+                PrimaryActionButton(
+                    text = "Review incoming handover",
                     icon = Icons.Outlined.CheckCircle,
-                    onClick = { onNavigate(ReEventScreen.Impact) },
+                    onClick = { onNavigate(ReEventScreen.PartnerMap) },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
