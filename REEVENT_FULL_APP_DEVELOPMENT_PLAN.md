@@ -1222,7 +1222,7 @@ Exit criteria:
 
 - Organiser can create an event and add resources to it.
 
-## Phase 5: Digital Resource Passport and QR - `[####------] 40%` `[~]`
+## Phase 5: Digital Resource Passport and QR - `[########--] 80%` `[~]`
 
 Goal:
 
@@ -1231,17 +1231,18 @@ Build the main innovation.
 Tasks:
 
 - [x] Generate unique item IDs and persistent passport payloads.
-- [~] Generate QR code values; the UI still uses a visual QR panel rather than an encoded QR bitmap.
-- [x] Build passport detail screen from repository-backed resource/passport state.
-- [ ] Build QR scanner screen.
-- [ ] Open item passport after scanning.
-- [ ] Add scan actions:
-  - [ ] Check out
-  - [ ] Return
-  - [ ] Mark damaged
-  - [ ] Request repair
-  - [ ] Transfer
-- [ ] Save scan history.
+- [x] Generate QR code values with a real locally encoded ZXing bitmap from the persisted `reevent://passport/<resourceId>` payload; device/restart verification passed.
+- [x] Build passport detail screen from repository-backed resource/passport state, including actual event context, condition, owner ID, recommendation, and persisted history; device/restart verification passed.
+- [x] Record creation and organiser status-change history entries in the existing passport `historyJson`; return/scan lifecycle history remains pending.
+- [x] Build CameraX/ML Kit QR scanner screen with permission, invalid-code, cancellation, and local/offline handling; organiser device acceptance passed.
+- [x] Open the exact item passport after the strict ReEvent payload resolves through repository data; organiser device acceptance passed with two resources.
+- [~] Add scan actions through repository commands (organiser owner: check out, damage, repair, transfer; participant: return):
+  - [x] Check out
+  - [~] Return — Participant cross-account verification deferred.
+  - [x] Mark damaged
+  - [x] Request repair
+  - [x] Transfer
+- [x] Save QR scan and lifecycle history in the existing passport `historyJson`; organiser device/restart acceptance passed.
 
 Deliverables:
 

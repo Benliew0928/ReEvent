@@ -68,7 +68,6 @@ import com.reevent.app.ui.ReEventRole
 import com.reevent.app.ui.ReEventScreen
 import com.reevent.app.ui.ResourceTone
 import com.reevent.app.ui.components.BrandLockup
-import com.reevent.app.ui.components.FakeQrPanel
 import com.reevent.app.ui.components.FormFieldPreview
 import com.reevent.app.ui.components.HeroImageCard
 import com.reevent.app.ui.components.InfoRow
@@ -77,8 +76,10 @@ import com.reevent.app.ui.components.MetricCard
 import com.reevent.app.ui.components.MiniBarChart
 import com.reevent.app.ui.components.PartnerLogoTile
 import com.reevent.app.ui.components.PrimaryActionButton
+import com.reevent.app.ui.components.ResourcePhotoImage
 import com.reevent.app.ui.components.ProgressRing
 import com.reevent.app.ui.components.QuickActionTile
+import com.reevent.app.ui.components.QrCodePanel
 import com.reevent.app.ui.components.ReEventLazyColumn
 import com.reevent.app.ui.components.ReEventScaffold
 import com.reevent.app.ui.components.RecoveryTimeline
@@ -107,7 +108,12 @@ import com.reevent.app.ui.theme.*
 @Composable
 fun PassportScreen(
     onNavigate: (ReEventScreen) -> Unit,
+    onBack: () -> Unit,
     item: com.reevent.app.ui.ResourceItem? = null,
+    passportId: String? = null,
+    qrPayload: String? = null,
+    ownerId: String? = null,
+    recommendedAction: String? = null,
     recoverySteps: List<RecoveryStep> = emptyList()
 ) {
     ReEventScaffold(selected = ReEventScreen.Marketplace, onNavigate = onNavigate) { padding ->
@@ -116,7 +122,7 @@ fun PassportScreen(
                 ScreenHeader(
                     title = "Digital passport",
                     subtitle = item?.let { "Verified route for ${it.title}" } ?: "Select a resource to view its verified route",
-                    onBack = { onNavigate(ReEventScreen.Marketplace) },
+                    onBack = onBack,
                     onProfile = { onNavigate(ReEventScreen.Profile) }
                 )
             }
@@ -136,12 +142,7 @@ fun PassportScreen(
                             modifier = Modifier.align(Alignment.Center)
                         )
                     } else {
-                        Image(
-                            painter = painterResource(item.imageRes),
-                            contentDescription = item.title,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
+                        ResourcePhotoImage(item.photoPath, item.imageRes, item.title, Modifier.fillMaxSize())
                         StatusChip(
                             text = item.tone.label,
                             color = item.tone.color,
@@ -172,6 +173,9 @@ fun PassportScreen(
                             InfoRow("Condition", item.tone.label)
                             InfoRow("Material", item.category)
                             InfoRow("Current value", item.price)
+                            InfoRow("Owner", ownerId?.take(8)?.let { "ID $it" } ?: "Not available")
+                            Text("Recommended action", style = MaterialTheme.typography.bodyMedium, color = ReEventMuted)
+                            Text(recommendedAction ?: "Review resource details", style = MaterialTheme.typography.titleMedium, color = ReEventInk)
                         }
                     }
                 }
@@ -179,7 +183,7 @@ fun PassportScreen(
             item {
                 AdaptiveTwoPane(
                     first = {
-                        if (item == null) {
+                        if (item == null || qrPayload.isNullOrBlank()) {
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(18.dp),
@@ -192,7 +196,7 @@ fun PassportScreen(
                                 )
                             }
                         } else {
-                            FakeQrPanel(modifier = Modifier.fillMaxWidth())
+                            QrCodePanel(payload = qrPayload.orEmpty(), modifier = Modifier.fillMaxWidth())
                         }
                     },
                     second = {
@@ -211,12 +215,12 @@ fun PassportScreen(
                                 color = Color.White.copy(alpha = 0.68f)
                             )
                             Text(
-                                text = item?.id ?: "Not generated",
+                                text = passportId ?: "Not generated",
                                 style = MaterialTheme.typography.titleLarge,
                                 color = Color.White
                             )
                             Text(
-                                text = if (item == null) "A passport ID will be created when the resource is saved." else "Available to authorised partners and buyers.",
+                                text = if (passportId == null) "A passport ID will be created when the resource is saved." else "Read-only verification record for authorised partners and buyers.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Color.White.copy(alpha = 0.78f)
                             )
@@ -226,7 +230,7 @@ fun PassportScreen(
                 )
             }
             item {
-                SectionTitle(title = "Recommended route")
+                SectionTitle(title = "Passport history")
             }
             item {
                 Surface(

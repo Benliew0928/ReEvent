@@ -27,5 +27,11 @@ class SupabaseMediaRepository @Inject constructor(
         AppResult.Failure(FailureReason.SERVER, error)
     }
 
+    override suspend fun downloadResourcePhoto(path: String): AppResult<ByteArray> = try {
+        AppResult.Success(gateway.withConfiguredClient { it.storage.from("resource-photos").downloadAuthenticated(path) })
+    } catch (error: Throwable) {
+        AppResult.Failure(FailureReason.SERVER, error)
+    }
+
     private companion object { const val MAX_UPLOAD_BYTES = 8 * 1024 * 1024 }
 }

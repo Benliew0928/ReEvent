@@ -110,15 +110,13 @@ fun ResourceCard(
                 modifier = Modifier.padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Image(
-                    painter = painterResource(item.imageRes),
-                    contentDescription = item.title,
+                ResourceCardImage(
+                    item = item,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(154.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(ReEventMintSoft),
-                    contentScale = ContentScale.Crop
+                        .background(ReEventMintSoft)
                 )
                 ResourceCardDetails(item)
             }
@@ -127,20 +125,23 @@ fun ResourceCard(
                 modifier = Modifier.padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Image(
-                    painter = painterResource(item.imageRes),
-                    contentDescription = item.title,
+                ResourceCardImage(
+                    item = item,
                     modifier = Modifier
                         .size(106.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(ReEventMintSoft),
-                    contentScale = ContentScale.Crop
+                        .background(ReEventMintSoft)
                 )
                 Spacer(Modifier.width(14.dp))
                 ResourceCardDetails(item, Modifier.weight(1f))
             }
         }
     }
+}
+
+@Composable
+private fun ResourceCardImage(item: ResourceItem, modifier: Modifier) {
+    ResourcePhotoImage(item.photoPath, item.imageRes, item.title, modifier)
 }
 
 @Composable

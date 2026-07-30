@@ -1,5 +1,7 @@
 package com.reevent.app.core.model
 
+import kotlinx.serialization.Serializable
+
 /** Server-authorised role. A mobile client may display this value but never elevate it. */
 enum class UserRole {
     ORGANIZER,
@@ -66,6 +68,16 @@ data class ResourcePassport(
     val createdAt: Long,
     val updatedAt: Long,
     val syncState: SyncState = SyncState.PENDING
+)
+
+@Serializable
+data class PassportHistoryEntry(
+    val occurredAt: Long,
+    val action: String,
+    val actorId: String,
+    val previousStatus: ResourceStatus? = null,
+    val newStatus: ResourceStatus,
+    val note: String? = null
 )
 
 data class CircularProgramme(

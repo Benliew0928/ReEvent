@@ -108,6 +108,7 @@ import com.reevent.app.ui.theme.*
 @Composable
 fun ParticipantReturnScreen(
     onNavigate: (ReEventScreen) -> Unit,
+    onScanResourceQr: () -> Unit,
     transactions: List<CircularTransaction> = emptyList()
 ) {
     ReEventScaffold(selected = ReEventScreen.ParticipantReturn, onNavigate = onNavigate) { padding ->
@@ -147,6 +148,14 @@ fun ParticipantReturnScreen(
                         }
                     )
                 }
+            }
+            item {
+                PrimaryActionButton(
+                    text = "Scan resource QR",
+                    icon = Icons.Outlined.PhotoCamera,
+                    onClick = onScanResourceQr,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
             item {
                 PrimaryActionButton(

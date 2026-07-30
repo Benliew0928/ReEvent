@@ -78,6 +78,14 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
     implementation("io.github.jan-tennert.supabase:storage-kt")
     implementation("io.ktor:ktor-client-android:3.5.0")
+    implementation("com.google.zxing:core:3.5.4")
+    // Bundled model keeps QR recognition available when the device has no network connection.
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    val cameraXVersion = "1.5.3"
+    implementation("androidx.camera:camera-core:$cameraXVersion")
+    implementation("androidx.camera:camera-camera2:$cameraXVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraXVersion")
+    implementation("androidx.camera:camera-view:$cameraXVersion")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 
     implementation("androidx.compose.foundation:foundation")

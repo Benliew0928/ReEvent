@@ -113,6 +113,7 @@ fun HomeScreen(
     metrics: List<ImpactMetric> = emptyList(),
     resources: List<com.reevent.app.ui.ResourceItem> = emptyList(),
     recoverySteps: List<RecoveryStep> = emptyList(),
+    onManageEvents: (() -> Unit)? = null,
     onResourceClick: (com.reevent.app.ui.ResourceItem) -> Unit = { onNavigate(ReEventScreen.Passport) }
 ) {
     ReEventScaffold(selected = ReEventScreen.Home, onNavigate = onNavigate) { padding ->
@@ -165,6 +166,13 @@ fun HomeScreen(
                         icon = Icons.Outlined.Add,
                         color = ReEventGreen,
                         onClick = { onNavigate(ReEventScreen.AddResource) }
+                    )
+                    QuickActionTile(
+                        title = "Manage events",
+                        detail = "Create, edit and switch event workspaces",
+                        icon = Icons.Outlined.DateRange,
+                        color = ReEventCoral,
+                        onClick = { onManageEvents?.invoke() }
                     )
                     QuickActionTile(
                         title = "Run AI recovery match",

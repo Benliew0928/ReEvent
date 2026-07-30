@@ -74,4 +74,5 @@ interface CoreSyncRepository {
 /** Uses Android's system picker; no broad media permission is required. */
 interface MediaRepository {
     suspend fun uploadResourcePhoto(resourceId: String, uri: Uri): AppResult<String>
+    suspend fun downloadResourcePhoto(path: String): AppResult<ByteArray>
 }

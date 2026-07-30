@@ -23,16 +23,21 @@ class AppPreferences @Inject constructor(@ApplicationContext private val context
         val distanceUnit = stringPreferencesKey("distance_unit")
         val cachedUserId = stringPreferencesKey("cached_user_id")
         val cachedRole = stringPreferencesKey("cached_role")
+        fun resourceDraft(userId: String, eventId: String) = stringPreferencesKey("resource_draft_${userId}_${eventId}")
     }
 
     val onboardingComplete: Flow<Boolean> = context.appPreferencesDataStore.data.map { it[Keys.onboardingComplete] ?: false }
     val cachedUserId: Flow<String?> = context.appPreferencesDataStore.data.map { it[Keys.cachedUserId] }
     val cachedRole: Flow<UserRole?> = context.appPreferencesDataStore.data.map { it[Keys.cachedRole]?.let(UserRole::valueOf) }
+    val lastOpenedEventId: Flow<String?> = context.appPreferencesDataStore.data.map { it[Keys.lastOpenedEventId] }
 
     suspend fun setOnboardingComplete(value: Boolean) = context.appPreferencesDataStore.edit { it[Keys.onboardingComplete] = value }
     suspend fun setLastOpenedEvent(eventId: String) = context.appPreferencesDataStore.edit { it[Keys.lastOpenedEventId] = eventId }
     suspend fun setThemeMode(mode: String) = context.appPreferencesDataStore.edit { it[Keys.themeMode] = mode }
     suspend fun setDistanceUnit(unit: String) = context.appPreferencesDataStore.edit { it[Keys.distanceUnit] = unit }
+    fun resourceDraft(userId: String, eventId: String): Flow<String?> = context.appPreferencesDataStore.data.map { it[Keys.resourceDraft(userId, eventId)] }
+    suspend fun saveResourceDraft(userId: String, eventId: String, draft: String) = context.appPreferencesDataStore.edit { it[Keys.resourceDraft(userId, eventId)] = draft }
+    suspend fun clearResourceDraft(userId: String, eventId: String) = context.appPreferencesDataStore.edit { it.remove(Keys.resourceDraft(userId, eventId)) }
 
     suspend fun cacheAccount(userId: String, role: UserRole?) = context.appPreferencesDataStore.edit {
         it[Keys.cachedUserId] = userId
@@ -42,5 +47,7 @@ class AppPreferences @Inject constructor(@ApplicationContext private val context
     suspend fun clearAccount() = context.appPreferencesDataStore.edit {
         it.remove(Keys.cachedUserId)
         it.remove(Keys.cachedRole)
+        it.remove(Keys.lastOpenedEventId)
+        it.asMap().keys.filter { key -> key.name.startsWith("resource_draft_") }.forEach { key -> it.remove(key) }
     }
 }

@@ -21,6 +21,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.reevent.app.R
 import com.reevent.app.core.model.CircularProgramme
 import com.reevent.app.core.model.ImpactRecord
+import com.reevent.app.core.model.PassportHistoryEntry
 import com.reevent.app.core.model.ProgrammeType
 import com.reevent.app.core.model.ResourceCondition
 import com.reevent.app.core.model.ResourceStatus
@@ -32,6 +33,8 @@ import com.reevent.app.ui.RecoveryStep
 import com.reevent.app.ui.ResourceItem as VisualResourceItem
 import com.reevent.app.ui.ResourceTone
 import java.util.Locale
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
 import kotlinx.coroutines.flow.flowOf
 
 /**
@@ -46,12 +49,15 @@ fun OrganizerHomeVisualScreen(
     onImpact: (String) -> Unit,
     onMarketplace: () -> Unit,
     onPartnerMap: () -> Unit,
+    onManageEvents: () -> Unit,
     onProfile: () -> Unit,
     viewModel: FeatureViewModel = hiltViewModel()
 ) {
     LaunchedEffect(user.id) { viewModel.refresh() }
     val events by viewModel.events(user.id).collectAsState(emptyList())
-    val event = events.firstOrNull()
+    val selectedEventId by viewModel.selectedEventId.collectAsState(null)
+    val event = events.firstOrNull { it.id == selectedEventId } ?: events.firstOrNull()
+    LaunchedEffect(event?.id) { event?.id?.let(viewModel::selectEvent) }
     val resources by (event?.let { viewModel.resources(it.id) } ?: flowOf(emptyList())).collectAsState(emptyList())
     val impact by (event?.let { viewModel.impact(it.id) } ?: flowOf(emptyList())).collectAsState(emptyList())
     val visualResources = resources.map { it.toVisualResource(event?.name, event?.venue) }
@@ -79,6 +85,7 @@ fun OrganizerHomeVisualScreen(
         metrics = resources.toDashboardMetrics(impact),
         resources = visualResources.take(2),
         recoverySteps = resources.toRecoverySteps(impact),
+        onManageEvents = onManageEvents,
         onResourceClick = { it.id?.let(onPassport) }
     )
 }
@@ -191,19 +198,31 @@ fun MarketplaceVisualScreen(
 fun PassportVisualScreen(
     resourceId: String,
     onMatch: (String) -> Unit,
+    onBack: () -> Unit,
     onNavigate: (ReEventScreen) -> Unit,
     viewModel: FeatureViewModel = hiltViewModel()
 ) {
     val resource by viewModel.resource(resourceId).collectAsState(null)
+    val passport by viewModel.passport(resourceId).collectAsState(null)
+    val event by (resource?.eventId?.let(viewModel::event)
+        ?: flowOf<com.reevent.app.core.model.Event?>(null)).collectAsState(null)
+    val historySteps = resource?.let { item ->
+        passport?.historyJson?.toPassportHistorySteps(item.condition).orEmpty()
+    }.orEmpty()
     PassportScreen(
+        onBack = onBack,
         onNavigate = { screen ->
             when (screen) {
                 ReEventScreen.AiMatch -> onMatch(resourceId)
                 else -> onNavigate(screen)
             }
         },
-        item = resource?.toVisualResource(),
-        recoverySteps = resource?.let { listOf(it.toPassportRecoveryStep()) }.orEmpty()
+        item = resource?.toVisualResource(event?.name, event?.venue),
+        passportId = passport?.id,
+        qrPayload = passport?.qrPayload,
+        ownerId = resource?.ownerId,
+        recommendedAction = resource?.recommendedAction(),
+        recoverySteps = historySteps.ifEmpty { resource?.let { listOf(it.toPassportRecoveryStep()) }.orEmpty() }
     )
 }
 
@@ -226,12 +245,13 @@ fun PartnerMapVisualScreen(
 @Composable
 fun ParticipantReturnVisualScreen(
     user: User,
+    onScanResourceQr: () -> Unit,
     onNavigate: (ReEventScreen) -> Unit,
     viewModel: FeatureViewModel = hiltViewModel()
 ) {
     LaunchedEffect(user.id) { viewModel.refresh() }
     val transactions by viewModel.transactions(user.id).collectAsState(emptyList())
-    ParticipantReturnScreen(onNavigate, transactions)
+    ParticipantReturnScreen(onNavigate, onScanResourceQr, transactions)
 }
 
 @Composable
@@ -264,6 +284,7 @@ private fun com.reevent.app.core.model.ResourceItem.toVisualResource(
     impact = "${material.ifBlank { "Material pending" }} • ${status.visualLabel()}",
     tone = status.toVisualTone(condition),
     imageRes = R.drawable.resource_display_stand,
+    photoPath = imageUrls.firstOrNull(),
     id = id
 )
 
@@ -304,6 +325,32 @@ private fun com.reevent.app.core.model.ResourceItem.toPassportRecoveryStep() = R
     status = status.visualLabel(),
     tone = status.toVisualTone(condition)
 )
+
+private val passportHistoryJson = Json { ignoreUnknownKeys = true }
+
+private fun String.toPassportHistorySteps(condition: ResourceCondition): List<RecoveryStep> = runCatching {
+    passportHistoryJson.decodeFromString(ListSerializer(PassportHistoryEntry.serializer()), this)
+}.getOrDefault(emptyList()).sortedBy(PassportHistoryEntry::occurredAt).map { entry ->
+    val transition = entry.previousStatus?.let { previous ->
+        "Changed from ${previous.visualLabel()} to ${entry.newStatus.visualLabel()}"
+    } ?: "Recorded as ${entry.newStatus.visualLabel()}"
+    RecoveryStep(
+        title = entry.action,
+        detail = listOfNotNull(entry.note, transition, "Actor ${entry.actorId.take(8)}").joinToString(" â€¢ "),
+        status = entry.newStatus.visualLabel(),
+        tone = entry.newStatus.toVisualTone(condition)
+    )
+}
+
+private fun com.reevent.app.core.model.ResourceItem.recommendedAction() = when {
+    status == ResourceStatus.ARCHIVED -> "No action needed â€” this resource is archived"
+    status == ResourceStatus.RECOVERED || status == ResourceStatus.HANDED_OVER -> "Recovery route completed"
+    condition == ResourceCondition.RECYCLE_ONLY -> "Send to a verified recycling partner"
+    condition == ResourceCondition.NEEDS_REPAIR -> "Request a repair-partner assessment"
+    status == ResourceStatus.RESERVED -> "Prepare the reserved handover"
+    status == ResourceStatus.AVAILABLE -> "Match with a reuse partner"
+    else -> "Review the resource status"
+}
 
 private fun CircularProgramme.toPartnerMatch() = PartnerMatch(
     name = name,

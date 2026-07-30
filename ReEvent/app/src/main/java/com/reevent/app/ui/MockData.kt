@@ -31,6 +31,8 @@ data class ResourceItem(
     val impact: String,
     val tone: ResourceTone,
     @DrawableRes val imageRes: Int,
+    /** Private Supabase Storage path for a real uploaded photo, if available. */
+    val photoPath: String? = null,
     /** Repository-backed cards use this to retain the selected resource across visual navigation. */
     val id: String? = null
 )
