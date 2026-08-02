@@ -13,6 +13,7 @@ import com.reevent.app.core.data.PartnerRepository
 import com.reevent.app.core.data.PassportRepository
 import com.reevent.app.core.data.ResourceRepository
 import com.reevent.app.core.data.TransactionRepository
+import com.reevent.app.core.data.TransactionWorkflow
 import com.reevent.app.core.data.preferences.AppPreferences
 import com.reevent.app.core.model.CircularProgramme
 import com.reevent.app.core.model.CircularTransaction
@@ -298,6 +299,139 @@ class FeatureViewModel @Inject constructor(
         )
     }
 
+    fun requestMarketplaceResource(
+        user: User,
+        resource: ResourceItem,
+        type: TransactionType,
+        quantity: Int
+    ) = launchAction("Marketplace request created") {
+        TransactionWorkflow.validateMarketplaceRequest(user.id, resource, quantity)?.let {
+            return@launchAction AppResult.Failure(it)
+        }
+        val now = System.currentTimeMillis()
+        transactions.saveTransaction(
+            CircularTransaction(
+                id = UUID.randomUUID().toString(),
+                eventId = resource.eventId,
+                resourceId = resource.id,
+                senderId = user.id,
+                receiverId = resource.ownerId,
+                partnerId = null,
+                type = type,
+                status = TransactionStatus.PENDING,
+                quantity = quantity,
+                createdAt = now,
+                updatedAt = now
+            )
+        )
+    }
+
+    fun createPartnerHandover(
+        user: User,
+        resource: ResourceItem,
+        programme: CircularProgramme
+    ) = launchAction("Partner handover request created") {
+        TransactionWorkflow.validatePartnerHandover(user.id, resource, programme)?.let {
+            return@launchAction AppResult.Failure(it)
+        }
+        val now = System.currentTimeMillis()
+        when (val transactionResult = transactions.saveTransaction(
+            CircularTransaction(
+                id = UUID.randomUUID().toString(),
+                eventId = resource.eventId,
+                resourceId = resource.id,
+                senderId = user.id,
+                receiverId = programme.partnerId,
+                partnerId = programme.partnerId,
+                type = TransactionWorkflow.transactionTypeForProgramme(programme),
+                status = TransactionStatus.PENDING,
+                quantity = resource.quantity.coerceAtLeast(1),
+                createdAt = now,
+                updatedAt = now
+            )
+        )) {
+            is AppResult.Failure -> transactionResult
+            is AppResult.Success -> resources.saveResource(
+                resource.copy(status = TransactionWorkflow.resourceStatusAfterApproval(), updatedAt = now)
+            )
+        }
+    }
+
+    fun approveTransaction(user: User, transaction: CircularTransaction) = launchAction("Request approved") {
+        if (!TransactionWorkflow.canApprove(transaction)) return@launchAction AppResult.Failure(FailureReason.CONFLICT)
+        val resource = resources.observeResource(transaction.resourceId).first()
+        if (transaction.partnerId == user.id && transaction.receiverId == user.id) {
+            return@launchAction transactions.saveTransaction(
+                transaction.copy(status = TransactionWorkflow.statusAfterApproval(), updatedAt = System.currentTimeMillis())
+            )
+        }
+        if (resource == null) return@launchAction AppResult.Failure(FailureReason.CONFLICT)
+        TransactionWorkflow.validateOwnerAction(user.id, resource, transaction)?.let {
+            return@launchAction AppResult.Failure(it)
+        }
+        val now = System.currentTimeMillis()
+        when (val resourceResult = resources.saveResource(
+            resource.copy(status = TransactionWorkflow.resourceStatusAfterApproval(), updatedAt = now)
+        )) {
+            is AppResult.Failure -> resourceResult
+            is AppResult.Success -> transactions.saveTransaction(
+                transaction.copy(status = TransactionWorkflow.statusAfterApproval(), updatedAt = now)
+            )
+        }
+    }
+
+    fun cancelTransaction(user: User, transaction: CircularTransaction) = launchAction("Request cancelled") {
+        if (!TransactionWorkflow.canCancel(transaction)) return@launchAction AppResult.Failure(FailureReason.CONFLICT)
+        val resource = resources.observeResource(transaction.resourceId).first()
+        val actorAllowed = transaction.senderId == user.id ||
+            transaction.receiverId == user.id ||
+            transaction.partnerId == user.id ||
+            resource?.ownerId == user.id
+        if (!actorAllowed) return@launchAction AppResult.Failure(FailureReason.CONFLICT)
+        val now = System.currentTimeMillis()
+        val cancelled = transaction.copy(status = TransactionWorkflow.statusAfterCancellation(), updatedAt = now)
+        if (resource == null) {
+            return@launchAction transactions.saveTransaction(cancelled)
+        }
+        when (val transactionResult = transactions.saveTransaction(cancelled)) {
+            is AppResult.Failure -> transactionResult
+            is AppResult.Success -> {
+                val released = TransactionWorkflow.resourceStatusAfterCancellation(resource.status)
+                if (released == resource.status) transactionResult
+                else resources.saveResource(resource.copy(status = released, updatedAt = now))
+            }
+        }
+    }
+
+    fun moveTransactionInTransit(user: User, transaction: CircularTransaction) = launchAction("Handover marked in transit") {
+        if (!TransactionWorkflow.canMoveInTransit(transaction)) return@launchAction AppResult.Failure(FailureReason.CONFLICT)
+        val actorAllowed = transaction.receiverId == user.id || transaction.partnerId == user.id
+        if (!actorAllowed) return@launchAction AppResult.Failure(FailureReason.CONFLICT)
+        transactions.saveTransaction(
+            transaction.copy(status = TransactionWorkflow.statusAfterInTransit(), updatedAt = System.currentTimeMillis())
+        )
+    }
+
+    fun completeTransaction(user: User, transaction: CircularTransaction) = launchAction("Transaction completed") {
+        if (!TransactionWorkflow.canComplete(transaction)) return@launchAction AppResult.Failure(FailureReason.CONFLICT)
+        val resource = resources.observeResource(transaction.resourceId).first()
+        val actorAllowed = transaction.receiverId == user.id || transaction.partnerId == user.id || resource?.ownerId == user.id
+        if (!actorAllowed) return@launchAction AppResult.Failure(FailureReason.CONFLICT)
+        val now = System.currentTimeMillis()
+        val completed = transaction.copy(status = TransactionWorkflow.statusAfterCompletion(), updatedAt = now)
+        if (resource == null) {
+            return@launchAction transactions.saveTransaction(completed)
+        }
+        val completedResource = resource.copy(
+            status = TransactionWorkflow.resourceStatusAfterCompletion(transaction.type),
+            updatedAt = now
+        )
+        when (val transactionResult = transactions.saveTransaction(completed)) {
+            is AppResult.Failure -> transactionResult
+            is AppResult.Success -> resources.saveResource(completedResource)
+        }
+    }
+
     private suspend fun saveLifecycleTransaction(
         user: User,
         resource: ResourceItem,
@@ -358,6 +492,48 @@ class FeatureViewModel @Inject constructor(
     fun createProgramme(user: User) = launchAction("Programme added") {
         val now = System.currentTimeMillis()
         partners.saveProgramme(CircularProgramme(UUID.randomUUID().toString(), user.id, "New circular programme", ProgrammeType.REUSE, emptyList(), "", true, now, now))
+    }
+
+    fun saveProgramme(
+        user: User,
+        existing: CircularProgramme?,
+        name: String,
+        type: ProgrammeType,
+        acceptedMaterials: List<String>,
+        location: String,
+        active: Boolean
+    ) = launchAction(if (existing == null) "Programme added" else "Programme updated") {
+        if (user.role != UserRole.PARTNER || name.trim().length < 2) {
+            return@launchAction AppResult.Failure(FailureReason.VALIDATION)
+        }
+        val now = System.currentTimeMillis()
+        val programme = existing?.copy(
+            name = name.trim(),
+            type = type,
+            acceptedMaterials = acceptedMaterials.map(String::trim).filter(String::isNotBlank).distinctBy(String::lowercase),
+            location = location.trim(),
+            active = active,
+            updatedAt = now
+        ) ?: CircularProgramme(
+            id = UUID.randomUUID().toString(),
+            partnerId = user.id,
+            name = name.trim(),
+            type = type,
+            acceptedMaterials = acceptedMaterials.map(String::trim).filter(String::isNotBlank).distinctBy(String::lowercase),
+            location = location.trim(),
+            active = active,
+            createdAt = now,
+            updatedAt = now
+        )
+        if (programme.partnerId != user.id) return@launchAction AppResult.Failure(FailureReason.CONFLICT)
+        partners.saveProgramme(programme)
+    }
+
+    fun deactivateProgramme(user: User, programme: CircularProgramme) = launchAction("Programme deactivated") {
+        if (user.role != UserRole.PARTNER || programme.partnerId != user.id) {
+            return@launchAction AppResult.Failure(FailureReason.CONFLICT)
+        }
+        partners.saveProgramme(programme.copy(active = false, updatedAt = System.currentTimeMillis()))
     }
 
     fun saveImpact(record: ImpactRecord) = launchAction("Impact record saved") { impact.saveImpact(record) }

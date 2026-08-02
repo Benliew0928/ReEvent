@@ -637,14 +637,28 @@ fun PassportLiveScreen(resourceId: String, onMatch: (String) -> Unit, onBack: ()
 }
 
 @Composable
-fun MatchingLiveScreen(resourceId: String, onBack: () -> Unit, viewModel: FeatureViewModel = hiltViewModel()) {
+fun MatchingLiveScreen(user: User, resourceId: String, onBack: () -> Unit, viewModel: FeatureViewModel = hiltViewModel()) {
     val resource by viewModel.resource(resourceId).collectAsState(null)
     val programmes by viewModel.programmes().collectAsState(emptyList())
     val matches = resource?.let { ProgrammeMatcher.rank(it, programmes) }.orEmpty()
     FeatureScaffold("Circular matches", "Back", onBack, viewModel) {
         if (matches.isEmpty()) item { EmptyPanel("No eligible partner yet", "Add a partner programme or refresh when you are online.") {} }
         items(matches, key = { it.id }) { programme ->
-            Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text(programme.name, style = MaterialTheme.typography.titleMedium); Text(programme.location.ifBlank { "Location to be confirmed" }); Text("Accepts: ${programme.acceptedMaterials.ifEmpty { listOf("all materials") }.joinToString()}") } }
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(programme.name, style = MaterialTheme.typography.titleMedium)
+                    Text(programme.location.ifBlank { "Location to be confirmed" })
+                    Text("Accepts: ${programme.acceptedMaterials.ifEmpty { listOf("all materials") }.joinToString()}")
+                    Text("Reason: material compatibility and active partner programme.")
+                    Button(
+                        onClick = { resource?.let { viewModel.createPartnerHandover(user, it, programme) } },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = resource != null && resource!!.ownerId == user.id && resource!!.status == ResourceStatus.AVAILABLE
+                    ) {
+                        Text("Create partner handover")
+                    }
+                }
+            }
         }
     }
 }

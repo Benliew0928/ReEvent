@@ -191,7 +191,7 @@ private fun androidx.navigation.NavGraphBuilder.organiserGraph(
     composable<QrScannerRoute> {
         QrScannerLiveScreen(user, { nav.openDetail(PassportRoute(it)) }, nav::popBackStack)
     }
-    composable<MatchingRoute> { entry -> MatchingLiveScreen(entry.toRoute<MatchingRoute>().resourceId, { nav.popBackStack() }) }
+    composable<MatchingRoute> { entry -> MatchingLiveScreen(user, entry.toRoute<MatchingRoute>().resourceId, { nav.popBackStack() }) }
     composable<OrganizerImpactRoute> { OrganizerImpactVisualScreen(user, nav::openOrganiserVisualDestination) }
     composable<MarketplaceRoute> { MarketplaceVisualScreen(user, { nav.openDetail(PassportRoute(it)) }, nav::openOrganiserVisualDestination) }
     composable<PartnerMapRoute> { PartnerMapVisualScreen(nav::openOrganiserVisualDestination) }

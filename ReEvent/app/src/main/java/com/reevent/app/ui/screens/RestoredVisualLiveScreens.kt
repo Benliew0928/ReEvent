@@ -4,27 +4,47 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.reevent.app.R
+import com.reevent.app.core.data.ProgrammeMatcher
+import com.reevent.app.core.data.TransactionWorkflow
 import com.reevent.app.core.model.CircularProgramme
+import com.reevent.app.core.model.CircularTransaction
 import com.reevent.app.core.model.ImpactRecord
 import com.reevent.app.core.model.PassportHistoryEntry
 import com.reevent.app.core.model.ProgrammeType
 import com.reevent.app.core.model.ResourceCondition
 import com.reevent.app.core.model.ResourceStatus
+import com.reevent.app.core.model.TransactionStatus
+import com.reevent.app.core.model.TransactionType
 import com.reevent.app.core.model.User
 import com.reevent.app.ui.ImpactMetric
 import com.reevent.app.ui.PartnerMatch
@@ -32,6 +52,22 @@ import com.reevent.app.ui.ReEventScreen
 import com.reevent.app.ui.RecoveryStep
 import com.reevent.app.ui.ResourceItem as VisualResourceItem
 import com.reevent.app.ui.ResourceTone
+import com.reevent.app.ui.components.PrimaryActionButton
+import com.reevent.app.ui.components.ReEventLazyColumn
+import com.reevent.app.ui.components.ReEventScaffold
+import com.reevent.app.ui.components.ResourceCard
+import com.reevent.app.ui.components.ScreenHeader
+import com.reevent.app.ui.components.SecondaryActionButton
+import com.reevent.app.ui.components.StatusChip
+import com.reevent.app.ui.theme.ReEventBlue
+import com.reevent.app.ui.theme.ReEventCoral
+import com.reevent.app.ui.theme.ReEventGreen
+import com.reevent.app.ui.theme.ReEventGreenDeep
+import com.reevent.app.ui.theme.ReEventInk
+import com.reevent.app.ui.theme.ReEventLine
+import com.reevent.app.ui.theme.ReEventMintSoft
+import com.reevent.app.ui.theme.ReEventMuted
+import com.reevent.app.ui.theme.ReEventPaper
 import java.util.Locale
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -187,11 +223,95 @@ fun MarketplaceVisualScreen(
 ) {
     LaunchedEffect(user.id) { viewModel.refresh() }
     val resources by viewModel.marketplace().collectAsState(emptyList())
-    MarketplaceScreen(
-        onNavigate = onNavigate,
-        resources = resources.map { it.toVisualResource() },
-        onResourceClick = { it.id?.let(onPassport) }
-    )
+    val transactions by viewModel.transactions(user.id).collectAsState(emptyList())
+    var query by rememberSaveable { mutableStateOf("") }
+    var typeFilter by rememberSaveable { mutableStateOf("All actions") }
+    var categoryFilter by rememberSaveable { mutableStateOf("All categories") }
+    var selectedRequest by remember { mutableStateOf<com.reevent.app.core.model.ResourceItem?>(null) }
+    val categories = listOf("All categories") + resources.map { it.category.ifBlank { "Uncategorised" } }.distinct().sorted()
+    val visibleResources = resources.filter { resource ->
+        val matchesQuery = query.trim().let { typed ->
+            typed.isBlank() || listOf(resource.title, resource.category, resource.material).any { it.contains(typed, ignoreCase = true) }
+        }
+        val matchesCategory = categoryFilter == "All categories" || resource.category.ifBlank { "Uncategorised" } == categoryFilter
+        val matchesAction = typeFilter == "All actions" || resource.suggestedMarketplaceTypes().any { it.displayLabel() == typeFilter }
+        matchesQuery && matchesCategory && matchesAction
+    }
+
+    ReEventScaffold(selected = ReEventScreen.Marketplace, onNavigate = onNavigate) { padding ->
+        ReEventLazyColumn(paddingValues = padding) {
+            item {
+                ScreenHeader(
+                    title = "Circular marketplace",
+                    subtitle = "Request reusable, repairable, and recoverable event resources",
+                    onProfile = { onNavigate(ReEventScreen.Profile) }
+                )
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Search") },
+                        placeholder = { Text("Item, category, or material") },
+                        singleLine = true
+                    )
+                    ChoiceField("Action", typeFilter, listOf("All actions") + TransactionType.entries.map(TransactionType::displayLabel)) {
+                        typeFilter = it
+                    }
+                    ChoiceField("Category", categoryFilter, categories) { categoryFilter = it }
+                    if (query.isNotBlank() || typeFilter != "All actions" || categoryFilter != "All categories") {
+                        SecondaryActionButton(
+                            text = "Clear search and filters",
+                            onClick = { query = ""; typeFilter = "All actions"; categoryFilter = "All categories" },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
+            if (resources.isEmpty()) {
+                item { EmptyMarketplacePanel("No available resources yet", "Resources marked available by organisers will appear here.") }
+            } else if (visibleResources.isEmpty()) {
+                item { EmptyMarketplacePanel("No matching resources", "Try a different search term, action, or category.") }
+            }
+            items(visibleResources, key = { it.id }) { resource ->
+                MarketplaceResourceCard(
+                    user = user,
+                    resource = resource,
+                    onPassport = { onPassport(resource.id) },
+                    onRequest = { selectedRequest = resource }
+                )
+            }
+            if (transactions.isNotEmpty()) {
+                item { Text("Requests and handovers", style = MaterialTheme.typography.titleLarge, color = ReEventInk) }
+            }
+            items(transactions, key = { it.id }) { transaction ->
+                val resource by viewModel.resource(transaction.resourceId).collectAsState(null)
+                TransactionCard(
+                    user = user,
+                    transaction = transaction,
+                    resource = resource,
+                    onApprove = { viewModel.approveTransaction(user, transaction) },
+                    onCancel = { viewModel.cancelTransaction(user, transaction) },
+                    onComplete = { viewModel.completeTransaction(user, transaction) },
+                    onInTransit = { viewModel.moveTransactionInTransit(user, transaction) },
+                    onPassport = { onPassport(transaction.resourceId) }
+                )
+            }
+        }
+    }
+
+    selectedRequest?.let { resource ->
+        MarketplaceRequestDialog(
+            resource = resource,
+            onDismiss = { selectedRequest = null },
+            onSubmit = { type, quantity ->
+                viewModel.requestMarketplaceResource(user, resource, type, quantity)
+                selectedRequest = null
+            }
+        )
+    }
 }
 
 @Composable
@@ -263,12 +383,295 @@ fun PartnerWorkbenchVisualScreen(
     LaunchedEffect(user.id) { viewModel.refresh() }
     val programmes by viewModel.programmes(user.id).collectAsState(emptyList())
     val transactions by viewModel.transactions(user.id).collectAsState(emptyList())
-    PartnerWorkbenchScreen(
-        onNavigate = onNavigate,
-        programmes = programmes,
-        transactions = transactions,
-        onCreateProgramme = { viewModel.createProgramme(user) }
+    var editingProgramme by remember { mutableStateOf<CircularProgramme?>(null) }
+    var creatingProgramme by rememberSaveable { mutableStateOf(false) }
+
+    ReEventScaffold(selected = ReEventScreen.PartnerWorkbench, onNavigate = onNavigate) { padding ->
+        ReEventLazyColumn(paddingValues = padding) {
+            item {
+                ScreenHeader(
+                    title = "Partner workbench",
+                    subtitle = "Manage programmes and assigned handovers",
+                    onProfile = { onNavigate(ReEventScreen.Profile) }
+                )
+            }
+            item {
+                PrimaryActionButton(
+                    text = "Create circular programme",
+                    onClick = { creatingProgramme = true },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            item {
+                SecondaryActionButton(
+                    text = "Open partner network",
+                    onClick = { onNavigate(ReEventScreen.PartnerMap) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            if (programmes.isEmpty()) {
+                item { EmptyMarketplacePanel("No programmes yet", "Create a programme so organisers can find your circular services.") }
+            } else {
+                item { Text("Programmes", style = MaterialTheme.typography.titleLarge, color = ReEventInk) }
+            }
+            items(programmes, key = { it.id }) { programme ->
+                ProgrammeCard(
+                    programme = programme,
+                    onEdit = { editingProgramme = programme },
+                    onDeactivate = { viewModel.deactivateProgramme(user, programme) }
+                )
+            }
+            if (transactions.isEmpty()) {
+                item { EmptyMarketplacePanel("No assigned handovers", "Accepted marketplace and partner requests will appear here.") }
+            } else {
+                item { Text("Assigned handovers", style = MaterialTheme.typography.titleLarge, color = ReEventInk) }
+            }
+            items(transactions, key = { it.id }) { transaction ->
+                val resource by viewModel.resource(transaction.resourceId).collectAsState(null)
+                TransactionCard(
+                    user = user,
+                    transaction = transaction,
+                    resource = resource,
+                    onApprove = { viewModel.approveTransaction(user, transaction) },
+                    onCancel = { viewModel.cancelTransaction(user, transaction) },
+                    onComplete = { viewModel.completeTransaction(user, transaction) },
+                    onInTransit = { viewModel.moveTransactionInTransit(user, transaction) },
+                    onPassport = {}
+                )
+            }
+        }
+    }
+
+    if (creatingProgramme) {
+        ProgrammeEditorDialog(
+            programme = null,
+            onDismiss = { creatingProgramme = false },
+            onSave = { name, type, materials, location, active ->
+                viewModel.saveProgramme(user, null, name, type, materials, location, active)
+                creatingProgramme = false
+            }
+        )
+    }
+    editingProgramme?.let { programme ->
+        ProgrammeEditorDialog(
+            programme = programme,
+            onDismiss = { editingProgramme = null },
+            onSave = { name, type, materials, location, active ->
+                viewModel.saveProgramme(user, programme, name, type, materials, location, active)
+                editingProgramme = null
+            }
+        )
+    }
+}
+
+@Composable
+private fun MarketplaceResourceCard(
+    user: User,
+    resource: com.reevent.app.core.model.ResourceItem,
+    onPassport: () -> Unit,
+    onRequest: () -> Unit
+) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(resource.title, style = MaterialTheme.typography.titleMedium, color = ReEventInk)
+                    Text("${resource.quantity} ${resource.unit} • ${resource.material.ifBlank { "Material pending" }}", color = ReEventMuted)
+                }
+                StatusChip(resource.status.visualLabel(), resource.status.toVisualTone(resource.condition).color)
+            }
+            Text(resource.category.ifBlank { "Uncategorised" }, style = MaterialTheme.typography.bodyMedium, color = ReEventMuted)
+            Text("Suggested actions: ${resource.suggestedMarketplaceTypes().joinToString { it.displayLabel() }}", style = MaterialTheme.typography.bodyMedium)
+            PrimaryActionButton("Open passport", onPassport, Modifier.fillMaxWidth())
+            if (resource.ownerId == user.id) {
+                Text("This is your own listing. Other users can request it from the marketplace.", color = ReEventMuted)
+            } else {
+                SecondaryActionButton("Request resource", onRequest, Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+@Composable
+private fun MarketplaceRequestDialog(
+    resource: com.reevent.app.core.model.ResourceItem,
+    onDismiss: () -> Unit,
+    onSubmit: (TransactionType, Int) -> Unit
+) {
+    var type by rememberSaveable(resource.id) { mutableStateOf(resource.suggestedMarketplaceTypes().first()) }
+    var quantity by rememberSaveable(resource.id) { mutableStateOf("1") }
+    val quantityValue = quantity.toIntOrNull()
+    val valid = quantityValue != null && quantityValue in 1..resource.quantity
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Request ${resource.title}") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("This creates a pending transaction for the owner to approve.")
+                ChoiceField("Action", type.displayLabel(), resource.suggestedMarketplaceTypes().map(TransactionType::displayLabel)) { selected ->
+                    type = TransactionType.entries.first { it.displayLabel() == selected }
+                }
+                OutlinedTextField(
+                    value = quantity,
+                    onValueChange = { quantity = it.filter(Char::isDigit).take(5) },
+                    label = { Text("Quantity, max ${resource.quantity}") },
+                    isError = quantity.isNotBlank() && !valid,
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = valid, onClick = { onSubmit(type, quantityValue ?: 1) }) { Text("Submit request") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
+}
+
+@Composable
+private fun TransactionCard(
+    user: User,
+    transaction: CircularTransaction,
+    resource: com.reevent.app.core.model.ResourceItem?,
+    onApprove: () -> Unit,
+    onCancel: () -> Unit,
+    onComplete: () -> Unit,
+    onInTransit: () -> Unit,
+    onPassport: () -> Unit
+) {
+    val isSender = transaction.senderId == user.id
+    val isReceiver = transaction.receiverId == user.id || transaction.partnerId == user.id
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(resource?.title ?: "Resource ${transaction.resourceId.take(8)}", style = MaterialTheme.typography.titleMedium)
+                    Text("${transaction.type.displayLabel()} • ${transaction.quantity} item${if (transaction.quantity == 1) "" else "s"}", color = ReEventMuted)
+                }
+                StatusChip(transaction.status.displayLabel(), transaction.status.toUiColor())
+            }
+            Text(
+                text = if (isSender) "You requested this item." else "This request needs action from your workspace.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = ReEventMuted
+            )
+            if (resource != null) {
+                SecondaryActionButton("Open passport", onPassport, Modifier.fillMaxWidth())
+            }
+            if (isReceiver && TransactionWorkflow.canApprove(transaction)) {
+                PrimaryActionButton("Approve request", onApprove, Modifier.fillMaxWidth())
+            }
+            if (isReceiver && TransactionWorkflow.canMoveInTransit(transaction)) {
+                SecondaryActionButton("Mark in transit", onInTransit, Modifier.fillMaxWidth())
+            }
+            if (isReceiver && TransactionWorkflow.canComplete(transaction)) {
+                PrimaryActionButton("Complete transaction", onComplete, Modifier.fillMaxWidth())
+            }
+            if ((isSender || isReceiver) && TransactionWorkflow.canCancel(transaction)) {
+                SecondaryActionButton("Cancel request", onCancel, Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgrammeCard(
+    programme: CircularProgramme,
+    onEdit: () -> Unit,
+    onDeactivate: () -> Unit
+) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(programme.name, style = MaterialTheme.typography.titleMedium, color = ReEventInk)
+                    Text(programme.type.displayLabel(), color = ReEventMuted)
+                }
+                StatusChip(if (programme.active) "Active" else "Inactive", if (programme.active) ReEventGreen else ReEventMuted)
+            }
+            Text(programme.location.ifBlank { "Location pending" }, color = ReEventMuted)
+            Text("Accepts: ${programme.acceptedMaterials.ifEmpty { listOf("all materials") }.joinToString()}")
+            PrimaryActionButton("Edit programme", onEdit, Modifier.fillMaxWidth())
+            if (programme.active) {
+                SecondaryActionButton("Deactivate programme", onDeactivate, Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgrammeEditorDialog(
+    programme: CircularProgramme?,
+    onDismiss: () -> Unit,
+    onSave: (String, ProgrammeType, List<String>, String, Boolean) -> Unit
+) {
+    var name by rememberSaveable(programme?.id) { mutableStateOf(programme?.name.orEmpty()) }
+    var type by rememberSaveable(programme?.id) { mutableStateOf(programme?.type ?: ProgrammeType.REUSE) }
+    var materials by rememberSaveable(programme?.id) { mutableStateOf(programme?.acceptedMaterials?.joinToString(", ").orEmpty()) }
+    var location by rememberSaveable(programme?.id) { mutableStateOf(programme?.location.orEmpty()) }
+    var active by rememberSaveable(programme?.id) { mutableStateOf(programme?.active ?: true) }
+    val valid = name.trim().length >= 2
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (programme == null) "Create programme" else "Edit programme") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text("Programme name *") }, isError = name.isNotBlank() && !valid)
+                ChoiceField("Type", type.displayLabel(), ProgrammeType.entries.map(ProgrammeType::displayLabel)) { selected ->
+                    type = ProgrammeType.entries.first { it.displayLabel() == selected }
+                }
+                OutlinedTextField(materials, { materials = it }, Modifier.fillMaxWidth(), label = { Text("Accepted materials") }, placeholder = { Text("Acrylic, Fabric") })
+                OutlinedTextField(location, { location = it }, Modifier.fillMaxWidth(), label = { Text("Location") })
+                ChoiceField("Status", if (active) "Active" else "Inactive", listOf("Active", "Inactive")) { active = it == "Active" }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = valid,
+                onClick = { onSave(name, type, materials.split(","), location, active) }
+            ) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@Composable
+private fun ChoiceField(
+    label: String,
+    selected: String,
+    options: List<String>,
+    onSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Column {
+        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
+            Text("$label: $selected")
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option) },
+                    onClick = {
+                        onSelected(option)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyMarketplacePanel(title: String, detail: String) {
+    Surface(
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+        color = ReEventMintSoft,
+        border = androidx.compose.foundation.BorderStroke(1.dp, ReEventLine)
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = ReEventGreenDeep)
+            Text(detail, style = MaterialTheme.typography.bodyMedium, color = ReEventMuted)
+        }
+    }
 }
 
 private fun com.reevent.app.core.model.ResourceItem.toVisualResource(
@@ -376,6 +779,23 @@ private fun ProgrammeType.toVisualTone() = when (this) {
     ProgrammeType.BUY_BACK -> ResourceTone.Hot
 }
 
+private fun com.reevent.app.core.model.ResourceItem.suggestedMarketplaceTypes(): List<TransactionType> = when {
+    condition == ResourceCondition.NEEDS_REPAIR -> listOf(TransactionType.REPAIR)
+    condition == ResourceCondition.RECYCLE_ONLY -> listOf(TransactionType.RECYCLE, TransactionType.BUY_BACK)
+    valueCents > 0 -> listOf(TransactionType.RESALE, TransactionType.DONATION)
+    else -> listOf(TransactionType.DONATION, TransactionType.RETURN)
+}
+
 private fun ResourceStatus.visualLabel() = name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)
+private fun TransactionStatus.displayLabel() = name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)
+private fun TransactionType.displayLabel() = name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)
+private fun ProgrammeType.displayLabel() = name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)
+private fun TransactionStatus.toUiColor() = when (this) {
+    TransactionStatus.PENDING -> ReEventCoral
+    TransactionStatus.ACCEPTED -> ReEventGreen
+    TransactionStatus.IN_TRANSIT -> ReEventBlue
+    TransactionStatus.COMPLETED -> ReEventGreenDeep
+    TransactionStatus.CANCELLED -> ReEventMuted
+}
 private fun Double.formatQuantity() = if (this % 1.0 == 0.0) toInt().toString() else "%.1f".format(Locale.US, this)
 private fun Long.toMoney() = "RM %.2f".format(Locale.US, this / 100.0)
