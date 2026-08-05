@@ -58,7 +58,8 @@ import com.reevent.app.core.model.ResourceCondition
 import com.reevent.app.core.model.ResourceItem
 import com.reevent.app.core.model.ResourceStatus
 import com.reevent.app.core.model.User
-import com.reevent.app.core.data.ProgrammeMatcher
+import com.reevent.app.feature.matching.CircularRecommendationEngine
+import com.reevent.app.feature.matching.RecommendationCandidate
 import com.reevent.app.ui.components.LogoMark
 import com.reevent.app.ui.components.PrimaryActionButton
 import com.reevent.app.ui.components.ReEventScaffold
@@ -640,24 +641,69 @@ fun PassportLiveScreen(resourceId: String, onMatch: (String) -> Unit, onBack: ()
 fun MatchingLiveScreen(user: User, resourceId: String, onBack: () -> Unit, viewModel: FeatureViewModel = hiltViewModel()) {
     val resource by viewModel.resource(resourceId).collectAsState(null)
     val programmes by viewModel.programmes().collectAsState(emptyList())
-    val matches = resource?.let { ProgrammeMatcher.rank(it, programmes) }.orEmpty()
+    val recommendation = resource?.let { CircularRecommendationEngine.recommend(it, programmes) }
     FeatureScaffold("Circular matches", "Back", onBack, viewModel) {
-        if (matches.isEmpty()) item { EmptyPanel("No eligible partner yet", "Add a partner programme or refresh when you are online.") {} }
-        items(matches, key = { it.id }) { programme ->
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(programme.name, style = MaterialTheme.typography.titleMedium)
-                    Text(programme.location.ifBlank { "Location to be confirmed" })
-                    Text("Accepts: ${programme.acceptedMaterials.ifEmpty { listOf("all materials") }.joinToString()}")
-                    Text("Reason: material compatibility and active partner programme.")
-                    Button(
-                        onClick = { resource?.let { viewModel.createPartnerHandover(user, it, programme) } },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = resource != null && resource!!.ownerId == user.id && resource!!.status == ResourceStatus.AVAILABLE
-                    ) {
-                        Text("Create partner handover")
+        when {
+            resource == null -> item { EmptyPanel("Resource not found", "Return to the passport and choose a current resource.") {} }
+            recommendation?.primary == null -> item {
+                EmptyPanel(
+                    "No eligible partner route",
+                    recommendation?.ineligibilityReason ?: "Add a partner programme or refresh when you are online."
+                ) {}
+            }
+            else -> {
+                item {
+                    RecommendationRouteCard(
+                        heading = "Recommended route",
+                        candidate = recommendation.primary,
+                        programmes = programmes,
+                        resource = resource!!,
+                        user = user,
+                        onCreateHandover = { programme -> viewModel.createPartnerHandover(user, resource!!, programme) }
+                    )
+                }
+                if (recommendation.alternatives.isNotEmpty()) {
+                    item { Text("Alternative routes", style = MaterialTheme.typography.titleMedium) }
+                    items(recommendation.alternatives, key = { it.action.name }) { candidate ->
+                        RecommendationRouteCard(
+                            heading = "Alternative",
+                            candidate = candidate,
+                            programmes = programmes,
+                            resource = resource!!,
+                            user = user,
+                            onCreateHandover = { programme -> viewModel.createPartnerHandover(user, resource!!, programme) }
+                        )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecommendationRouteCard(
+    heading: String,
+    candidate: RecommendationCandidate,
+    programmes: List<com.reevent.app.core.model.CircularProgramme>,
+    resource: ResourceItem,
+    user: User,
+    onCreateHandover: (com.reevent.app.core.model.CircularProgramme) -> Unit
+) {
+    val compatible = programmes.filter { it.id in candidate.compatibleProgrammeIds }
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(heading, style = MaterialTheme.typography.labelLarge, color = ReEventMuted)
+            Text(candidate.action.name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase), style = MaterialTheme.typography.titleMedium)
+            Text(candidate.explanation)
+            Text("Match score: ${candidate.score}", style = MaterialTheme.typography.bodySmall, color = ReEventMuted)
+            compatible.forEach { programme ->
+                Text(programme.name, fontWeight = FontWeight.SemiBold)
+                Text(programme.location.ifBlank { "Location to be confirmed" }, color = ReEventMuted)
+                Button(
+                    onClick = { onCreateHandover(programme) },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = resource.ownerId == user.id && resource.status == ResourceStatus.AVAILABLE
+                ) { Text("Create partner handover") }
             }
         }
     }

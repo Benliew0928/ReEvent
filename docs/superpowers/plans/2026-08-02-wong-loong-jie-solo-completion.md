@@ -19,6 +19,7 @@
 - Use transaction UUID as impact-record UUID. A retry must update the same record, never create a duplicate.
 - No remote AI service, secret, photo upload, fake privacy-policy URL, fake release account, or fake AppGallery approval.
 - A checkmark means the specified test/build/manual evidence exists. Until Gradle 9.6.1 and Android Gradle Plugin 9.2.1 can be resolved, retain static-review wording only.
+- Before the first Gradle verification on this workstation, use the Android Studio JBR (Java 21) rather than the default Java 8 shim and set the wrapper download timeout to 900000 ms. The checked-in 10000 ms timeout cannot reliably fetch the 140 MB Gradle 9.6.1 distribution on the observed connection.
 
 ---
 
@@ -49,6 +50,7 @@
 | docs/release/appgallery/store-listing.md | Store metadata, screenshot, reviewer-instruction, and regional-release template. |
 | docs/release/appgallery/data-permission-inventory.md | Actual data, permission, SDK, retention, and disclosure inventory. |
 | docs/release/appgallery/privacy-policy-draft.md | Draft policy content to publish only after a public HTTPS owner is supplied. |
+| gradle/wrapper/gradle-wrapper.properties | Reproducible Gradle bootstrap timeout for the required distribution. |
 
 ## Interfaces
 
@@ -184,6 +186,35 @@ private val policy = ImpactEstimatePolicy(
 )
 ~~~
 
+### Task 0: Establish a reproducible Gradle verification baseline
+
+**Files:**
+
+- Modify: gradle/wrapper/gradle-wrapper.properties
+- Modify: docs/qa/WONG_LOONG_JIE_E2E_TEST_MATRIX.md only if a build verification is still blocked after the retry.
+
+**Consumes:** Android Studio JBR (Java 21), the checked-in Gradle wrapper, and the reachable Gradle distribution URL.
+
+**Produces:** A repeatable local command that can resolve Gradle 9.6.1 and run the existing unit-test task without relying on the machine-wide Java 8 shim.
+
+- [x] **Step 1: Use the Android Studio JBR for Gradle commands**
+
+Set `JAVA_HOME` to the Android Studio JBR only for the current command shell;
+do not alter the machine-wide Java configuration.
+
+- [x] **Step 2: Increase only the wrapper download timeout**
+
+Change `networkTimeout` from 10000 to 900000 milliseconds. Do not alter the
+distribution URL, Gradle version, retry count, or application dependencies.
+
+- [x] **Step 3: Verify the baseline before feature tests**
+
+Run: gradlew.bat :app:testDebugUnitTest --no-daemon --console=plain
+
+Expected: Gradle can resolve its distribution and reach the existing test task.
+If the build itself then fails, record the exact failure as a pre-existing
+baseline issue before changing application logic.
+
 ### Task 1: Build and test the deterministic matching engine
 
 **Files:**
@@ -197,7 +228,7 @@ private val policy = ImpactEstimatePolicy(
 
 **Produces:** RecommendationResult with a primary action, alternatives, stable score, compatible partner-programme IDs, explanation, and ineligibility reason.
 
-- [ ] **Step 1: Write the failing matching tests**
+- [x] **Step 1: Write the failing matching tests**
 
 ~~~kotlin
 @Test fun good_available_acrylic_prefers_reuse_and_exact_partner() {
@@ -245,13 +276,13 @@ private val policy = ImpactEstimatePolicy(
 }
 ~~~
 
-- [ ] **Step 2: Run the new unit-test class and confirm it fails because the feature types do not yet exist**
+- [x] **Step 2: Run the new unit-test class and confirm it fails because the feature types do not yet exist**
 
 Run: gradlew.bat :app:testDebugUnitTest --no-daemon --console=plain
 
 Expected: the matching test source fails to compile before implementation. If Gradle cannot resolve its required distribution/plugins, record that environment blocker in the test matrix and do not mark this step complete.
 
-- [ ] **Step 3: Implement action eligibility, programme-type mapping, and deterministic scores**
+- [x] **Step 3: Implement action eligibility, programme-type mapping, and deterministic scores**
 
 ~~~kotlin
 private val eligibleStatuses = setOf(ResourceStatus.AVAILABLE)
@@ -279,7 +310,7 @@ place exact material before generic material, sort equal candidates by
 lower-cased programme name then ID, and write the displayed explanation from
 actual resource/programme fields.
 
-- [ ] **Step 4: Re-run matching tests, run existing ProgrammeMatcherTest, and inspect a good, repair, recycle-only, unknown-material, and no-match case**
+- [x] **Step 4: Re-run matching tests, run existing ProgrammeMatcherTest, and inspect a good, repair, recycle-only, unknown-material, and no-match case**
 
 Run: gradlew.bat :app:testDebugUnitTest --no-daemon --console=plain
 
@@ -323,7 +354,7 @@ handover contract.
 }
 ~~~
 
-- [ ] **Step 2: Run the new matcher test with the existing transaction-workflow coverage**
+- [x] **Step 2: Run the new matcher test with the existing transaction-workflow coverage**
 
 Run: gradlew.bat :app:testDebugUnitTest --no-daemon --console=plain
 
@@ -332,7 +363,7 @@ implemented, it passes together with TransactionWorkflowTest. The latter is
 the shared source of truth for handover validation, programme-type mapping,
 approval/cancellation, and completion transitions.
 
-- [ ] **Step 3: Connect the live matching screen without duplicating transaction logic**
+- [x] **Step 3: Connect the live matching screen without duplicating transaction logic**
 
 Update MatchingLiveScreen to display the primary action, score, explanation,
 alternatives, and a compatible-programme selector. For a selected eligible
@@ -629,7 +660,7 @@ git commit -m "feat: add transparent offline prototype insight"
 
 Include one row each for: sign-in; organiser event/resource creation; QR
 passport; invalid/cancelled/offline scan; good/fair/needs-repair/recycle-only
-matching; no-match; recovery request; partner transaction completion; restart
+ matching; no-match; partner-handover request; partner transaction completion; restart
 persistence; impact record idempotency; no-factor display; optional prototype
 fallback; small-screen overflow; denied camera; offline sync; Huawei/HMS
 device; and non-Huawei Android device. Each row must have preconditions,
