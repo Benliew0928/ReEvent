@@ -603,7 +603,7 @@ git commit -m "feat: persist completed-action impact and render dashboard"
 
 **Produces:** A clearly labelled prototype insight that enriches, but cannot replace, the rule-based recommendation.
 
-- [ ] **Step 1: Write failing prototype tests**
+- [x] **Step 1: Write failing prototype tests**
 
 ~~~kotlin
 @Test fun confirmed_fields_generate_an_explainable_prototype_insight() {
@@ -617,7 +617,7 @@ git commit -m "feat: persist completed-action impact and render dashboard"
 }
 ~~~
 
-- [ ] **Step 2: Implement deterministic local assessment**
+- [x] **Step 2: Implement deterministic local assessment**
 
 Use only values already confirmed in the resource form. Display the suggested
 category/material/condition, confidence label, method disclosure, and
