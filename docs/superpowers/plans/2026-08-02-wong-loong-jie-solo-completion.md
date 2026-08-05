@@ -409,7 +409,7 @@ ImpactRecord values.
 
 **Produces:** An account-safe event transaction flow and an ImpactDashboardState with recovery rate, channel counts, totals, chart data, badge result, and explicit unavailable-estimate state.
 
-- [ ] **Step 1: Write the failing calculation tests**
+- [x] **Step 1: Write the failing calculation tests**
 
 ~~~kotlin
 @Test fun summary_counts_only_completed_supported_channels() {
@@ -481,7 +481,7 @@ class CoreDaoEventTransactionTest {
 }
 ~~~
 
-- [ ] **Step 3: Implement transparent summary rules**
+- [x] **Step 3: Implement transparent summary rules**
 
 Count only COMPLETED transactions. Map RESALE and RETURN to reused, REPAIR to
 repaired, DONATION to donated, RECYCLE to recycled, and BUY_BACK to take-back
