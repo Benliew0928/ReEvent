@@ -1,9 +1,9 @@
 # Stage 3 — Server-authoritative lifecycle
 
-**Date:** 2026-08-09  
-**Base commit:** `0edc3ba2591202d8e9eb4a917768b0c7cb38f921`  
-**Implementation commit:** `3721aa5efe0bfc597e4a2e02c0fee19bb561ec78` (`feat: enforce server-authoritative lifecycle`)  
-**Evidence state:** Local verification is tied to the implementation commit. This is not yet release-checklist acceptance evidence because the migrations have not been applied and independently exercised on the official Supabase staging project.
+- **Date:** 2026-08-09
+- **Base commit:** `0edc3ba2591202d8e9eb4a917768b0c7cb38f921`
+- **Implementation commit:** `3721aa5efe0bfc597e4a2e02c0fee19bb561ec78` (`feat: enforce server-authoritative lifecycle`)
+- **Evidence state:** Local verification is tied to the implementation commit. This is not yet release-checklist acceptance evidence because the migrations have not been applied and independently exercised on the official Supabase staging project.
 
 ## Outcome
 

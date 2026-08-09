@@ -1,11 +1,11 @@
 # Stage 2B account/environment sync acceptance evidence
 
-**Date:** 2026-08-09  
-**Base commit:** `fedebae1` plus the current Stage 1/Stage 2A/Stage 2B working tree  
-**Runtime environment:** typed `AppEnvironment.LOCAL` (`local`)  
-**Device:** Android Studio `Medium_Tablet` AVD, Android API 35  
-**Backend:** fake `SyncGateway`; no Supabase migration or live backend mutation belongs to Stage 2B  
-**Account fixtures:** `account-a` and `account-b`
+- **Date:** 2026-08-09
+- **Base commit:** `fedebae1` plus the current Stage 1/Stage 2A/Stage 2B working tree
+- **Runtime environment:** typed `AppEnvironment.LOCAL` (`local`)
+- **Device:** Android Studio `Medium_Tablet` AVD, Android API 35
+- **Backend:** fake `SyncGateway`; no Supabase migration or live backend mutation belongs to Stage 2B
+- **Account fixtures:** `account-a` and `account-b`
 
 ## Accepted gates
 
