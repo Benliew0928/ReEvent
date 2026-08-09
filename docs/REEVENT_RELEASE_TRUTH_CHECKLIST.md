@@ -1,5 +1,7 @@
 # ReEvent Release Truth Checklist
 
+> **Archived from day-to-day use.** This is a production-release audit, not the assignment tracker. Use [`REEVENT_ASSIGNMENT_PROGRESS.md`](REEVENT_ASSIGNMENT_PROGRESS.md) for modules, pages, visible functions, and next product work. This file may be deleted if a future production-release plan is not needed.
+
 **Authority:** This is the single source of truth for ReEvent release completion from 2026-08-09 onward. Older member, deployment, solo-completion, and superpowers progress files are historical references only. Their percentages and completion claims do not count toward release readiness.
 
 **Current decision:** **NO-GO — prototype foundation exists, but the app is not safe or complete enough to release.**
