@@ -32,7 +32,7 @@ create or replace function public.begin_idempotent_command(
   command_request jsonb
 )
 returns jsonb
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, extensions
 as $$
 declare
   current_actor_id uuid := public.require_verified_actor();
