@@ -42,50 +42,51 @@ class LocalFirstCoreRepository @Inject constructor(
     override fun observeOwnedEvents(ownerId: String): Flow<List<Event>> = dao.observeEvents(accountScope.requireId(), ownerId).map(List<EventEntity>::toEvents)
     override fun observeEvent(eventId: String): Flow<Event?> = dao.observeEvent(accountScope.requireId(), eventId).map { it?.toDomain() }
 
-    override suspend fun saveEvent(event: Event): AppResult<Event> = persist(event, "events", event.id) {
-        dao.upsertEvent(event.copy(syncState = com.reevent.app.core.model.SyncState.PENDING).toEntity(accountScope.requireId()))
+    override suspend fun saveEvent(event: Event): AppResult<Event> = persist(event, "events", event.id) { accountId ->
+        dao.upsertEvent(event.copy(syncState = com.reevent.app.core.model.SyncState.PENDING).toEntity(accountId))
     }
 
-    override suspend fun archiveEvent(eventId: String): AppResult<Unit> = persistUnit("events", eventId, "archive") {
-        dao.archiveEvent(eventId, System.currentTimeMillis())
+    override suspend fun archiveEvent(eventId: String): AppResult<Unit> = persistUnit("events", eventId, "archive") { accountId ->
+        dao.archiveEvent(accountId, eventId, System.currentTimeMillis())
     }
 
     override fun observeEventResources(eventId: String): Flow<List<ResourceItem>> = dao.observeResources(accountScope.requireId(), eventId).map(List<ResourceEntity>::toResources)
     override fun observeMarketplace(): Flow<List<ResourceItem>> = dao.observeMarketplace(accountScope.requireId()).map(List<ResourceEntity>::toResources)
     override fun observeResource(resourceId: String): Flow<ResourceItem?> = dao.observeResource(accountScope.requireId(), resourceId).map { it?.toDomain() }
 
-    override suspend fun saveResource(resource: ResourceItem): AppResult<ResourceItem> = persist(resource, "resource_items", resource.id) {
-        dao.upsertResource(resource.copy(syncState = com.reevent.app.core.model.SyncState.PENDING).toEntity(accountScope.requireId()))
+    override suspend fun saveResource(resource: ResourceItem): AppResult<ResourceItem> = persist(resource, "resource_items", resource.id) { accountId ->
+        dao.upsertResource(resource.copy(syncState = com.reevent.app.core.model.SyncState.PENDING).toEntity(accountId))
     }
 
-    override suspend fun archiveResource(resourceId: String): AppResult<Unit> = persistUnit("resource_items", resourceId, "archive") {
-        dao.archiveResource(resourceId, System.currentTimeMillis())
+    override suspend fun archiveResource(resourceId: String): AppResult<Unit> = persistUnit("resource_items", resourceId, "archive") { accountId ->
+        dao.archiveResource(accountId, resourceId, System.currentTimeMillis())
     }
 
     override fun observePassport(resourceId: String): Flow<ResourcePassport?> = dao.observePassport(accountScope.requireId(), resourceId).map { it?.toDomain() }
-    override suspend fun savePassport(passport: ResourcePassport): AppResult<ResourcePassport> = persist(passport, "resource_passports", passport.id) {
-        dao.upsertPassport(passport.copy(syncState = com.reevent.app.core.model.SyncState.PENDING).toEntity(accountScope.requireId()))
+    override suspend fun savePassport(passport: ResourcePassport): AppResult<ResourcePassport> = persist(passport, "resource_passports", passport.id) { accountId ->
+        dao.upsertPassport(passport.copy(syncState = com.reevent.app.core.model.SyncState.PENDING).toEntity(accountId))
     }
 
     override fun observeProgrammes(partnerId: String?): Flow<List<CircularProgramme>> =
         (partnerId?.let { dao.observePartnerProgrammes(accountScope.requireId(), it) } ?: dao.observeProgrammes(accountScope.requireId())).map(List<ProgrammeEntity>::toProgrammes)
 
-    override suspend fun saveProgramme(programme: CircularProgramme): AppResult<CircularProgramme> = persist(programme, "circular_programmes", programme.id) {
-        dao.upsertProgramme(programme.copy(syncState = com.reevent.app.core.model.SyncState.PENDING).toEntity(accountScope.requireId()))
+    override suspend fun saveProgramme(programme: CircularProgramme): AppResult<CircularProgramme> = persist(programme, "circular_programmes", programme.id) { accountId ->
+        dao.upsertProgramme(programme.copy(syncState = com.reevent.app.core.model.SyncState.PENDING).toEntity(accountId))
     }
 
     override fun observeTransactions(userId: String): Flow<List<CircularTransaction>> = dao.observeTransactions(accountScope.requireId(), userId).map(List<TransactionEntity>::toTransactions)
-    override suspend fun saveTransaction(transaction: CircularTransaction): AppResult<CircularTransaction> = persist(transaction, "circular_transactions", transaction.id) {
-        dao.upsertTransaction(transaction.copy(syncState = com.reevent.app.core.model.SyncState.PENDING).toEntity(accountScope.requireId()))
+    override fun observeEventTransactions(eventId: String): Flow<List<CircularTransaction>> = dao.observeEventTransactions(accountScope.requireId(), eventId).map(List<TransactionEntity>::toTransactions)
+    override suspend fun saveTransaction(transaction: CircularTransaction): AppResult<CircularTransaction> = persist(transaction, "circular_transactions", transaction.id) { accountId ->
+        dao.upsertTransaction(transaction.copy(syncState = com.reevent.app.core.model.SyncState.PENDING).toEntity(accountId))
     }
 
-    override suspend fun archiveTransaction(transactionId: String): AppResult<Unit> = persistUnit("circular_transactions", transactionId, "archive") {
-        dao.archiveTransaction(transactionId, System.currentTimeMillis())
+    override suspend fun archiveTransaction(transactionId: String): AppResult<Unit> = persistUnit("circular_transactions", transactionId, "archive") { accountId ->
+        dao.archiveTransaction(accountId, transactionId, System.currentTimeMillis())
     }
 
     override fun observeImpact(eventId: String): Flow<List<ImpactRecord>> = dao.observeImpact(accountScope.requireId(), eventId).map(List<ImpactEntity>::toImpact)
-    override suspend fun saveImpact(record: ImpactRecord): AppResult<ImpactRecord> = persist(record, "impact_records", record.id) {
-        dao.upsertImpact(record.copy(syncState = com.reevent.app.core.model.SyncState.PENDING).toEntity(accountScope.requireId()))
+    override suspend fun saveImpact(record: ImpactRecord): AppResult<ImpactRecord> = persist(record, "impact_records", record.id) { accountId ->
+        dao.upsertImpact(record.copy(syncState = com.reevent.app.core.model.SyncState.PENDING).toEntity(accountId))
     }
 
     override suspend fun refreshAuthorisedData(): AppResult<Unit> = refreshMutex.withLock {
@@ -115,27 +116,29 @@ class LocalFirstCoreRepository @Inject constructor(
         }
     }
 
-    private suspend fun <T> persist(value: T, table: String, id: String, action: suspend () -> Unit): AppResult<T> = try {
-        action()
-        enqueue(table, id, "upsert")
+    private suspend fun <T> persist(value: T, table: String, id: String, action: suspend (String) -> Unit): AppResult<T> = try {
+        val accountId = accountScope.requireId()
+        action(accountId)
+        enqueue(accountId, table, id, "upsert")
         AppResult.Success(value)
     } catch (error: Throwable) {
         AppResult.Failure(FailureReason.UNKNOWN, error)
     }
 
-    private suspend fun persistUnit(table: String, id: String, operation: String, action: suspend () -> Unit): AppResult<Unit> = try {
-        action()
-        enqueue(table, id, operation)
+    private suspend fun persistUnit(table: String, id: String, operation: String, action: suspend (String) -> Unit): AppResult<Unit> = try {
+        val accountId = accountScope.requireId()
+        action(accountId)
+        enqueue(accountId, table, id, operation)
         AppResult.Success(Unit)
     } catch (error: Throwable) {
         AppResult.Failure(FailureReason.UNKNOWN, error)
     }
 
-    private suspend fun enqueue(table: String, recordId: String, operation: String) {
+    private suspend fun enqueue(accountId: String, table: String, recordId: String, operation: String) {
         dao.upsertOutbox(
             SyncOperationEntity(
                 tableName = table,
-                accountId = accountScope.requireId(),
+                accountId = accountId,
                 recordId = recordId,
                 operation = operation,
                 payload = "{\"id\":\"$recordId\"}",

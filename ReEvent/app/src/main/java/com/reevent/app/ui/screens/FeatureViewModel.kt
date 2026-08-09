@@ -3,6 +3,7 @@ package com.reevent.app.ui.screens
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.net.Uri
+import android.util.Log
 import com.reevent.app.core.data.AppResult
 import com.reevent.app.core.data.FailureReason
 import com.reevent.app.core.data.CoreSyncRepository
@@ -29,6 +30,8 @@ import com.reevent.app.core.model.TransactionType
 import com.reevent.app.core.model.TransactionStatus
 import com.reevent.app.core.model.User
 import com.reevent.app.core.model.UserRole
+import com.reevent.app.feature.impact.ImpactEstimatePolicies
+import com.reevent.app.feature.impact.ImpactRecordFactory
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
 import javax.inject.Inject
@@ -84,6 +87,7 @@ class FeatureViewModel @Inject constructor(
     }
     fun programmes(partnerId: String? = null): Flow<List<CircularProgramme>> = partners.observeProgrammes(partnerId)
     fun transactions(userId: String): Flow<List<CircularTransaction>> = transactions.observeTransactions(userId)
+    fun eventTransactions(eventId: String): Flow<List<CircularTransaction>> = transactions.observeEventTransactions(eventId)
     fun impact(eventId: String): Flow<List<ImpactRecord>> = impact.observeImpact(eventId)
     fun resourceDraft(userId: String, eventId: String): Flow<String?> = preferences.resourceDraft(userId, eventId)
 
@@ -248,23 +252,26 @@ class FeatureViewModel @Inject constructor(
         when (val resourceResult = resources.saveResource(updated)) {
             is AppResult.Failure -> resourceResult
             is AppResult.Success -> {
-                val transactionResult = when (action) {
+                val transactionResult: AppResult<CircularTransaction?> = when (action) {
                     ResourceLifecycleAction.CHECK_OUT -> saveLifecycleTransaction(user, resource, TransactionType.RESALE, TransactionStatus.PENDING, now)
                     ResourceLifecycleAction.RETURN -> saveLifecycleTransaction(user, resource, TransactionType.RETURN, TransactionStatus.COMPLETED, now)
                     ResourceLifecycleAction.REQUEST_REPAIR -> saveLifecycleTransaction(user, resource, TransactionType.REPAIR, TransactionStatus.PENDING, now)
                     ResourceLifecycleAction.TRANSFER -> saveLifecycleTransaction(user, resource, TransactionType.RESALE, TransactionStatus.COMPLETED, now)
-                    ResourceLifecycleAction.MARK_DAMAGED -> AppResult.Success(Unit)
+                    ResourceLifecycleAction.MARK_DAMAGED -> AppResult.Success(null)
                 }
                 when (transactionResult) {
                     is AppResult.Failure -> transactionResult
-                    is AppResult.Success -> appendPassportHistory(
-                        resource = updated,
-                        action = action.label,
-                        actorId = user.id,
-                        previousStatus = resource.status,
-                        note = lifecycleNote(resource, updated, action),
-                        occurredAt = now
-                    )
+                    is AppResult.Success -> {
+                        transactionResult.value?.let { persistImpactIfEstimated(it, updated, now) }
+                        appendPassportHistory(
+                            resource = updated,
+                            action = action.label,
+                            actorId = user.id,
+                            previousStatus = resource.status,
+                            note = lifecycleNote(resource, updated, action),
+                            occurredAt = now
+                        )
+                    }
                 }
             }
         }
@@ -428,7 +435,13 @@ class FeatureViewModel @Inject constructor(
         )
         when (val transactionResult = transactions.saveTransaction(completed)) {
             is AppResult.Failure -> transactionResult
-            is AppResult.Success -> resources.saveResource(completedResource)
+            is AppResult.Success -> when (val resourceResult = resources.saveResource(completedResource)) {
+                is AppResult.Failure -> resourceResult
+                is AppResult.Success -> {
+                    persistImpactIfEstimated(completed, completedResource, now)
+                    AppResult.Success(Unit)
+                }
+            }
         }
     }
 
@@ -438,15 +451,26 @@ class FeatureViewModel @Inject constructor(
         type: com.reevent.app.core.model.TransactionType,
         status: TransactionStatus,
         now: Long
-    ): AppResult<Unit> = when (val result = transactions.saveTransaction(
-        CircularTransaction(
+    ): AppResult<CircularTransaction> {
+        val transaction = CircularTransaction(
             id = UUID.randomUUID().toString(), eventId = resource.eventId, resourceId = resource.id,
             senderId = user.id, receiverId = resource.ownerId, partnerId = null, type = type,
             status = status, quantity = resource.quantity, createdAt = now, updatedAt = now
         )
-    )) {
-        is AppResult.Success -> AppResult.Success(Unit)
-        is AppResult.Failure -> result
+        return transactions.saveTransaction(transaction)
+    }
+
+    /** Impact must not block a completed recovery transaction; unsupported inputs remain visible as unavailable on the dashboard. */
+    private suspend fun persistImpactIfEstimated(
+        transaction: CircularTransaction,
+        resource: ResourceItem,
+        now: Long
+    ) {
+        val record = ImpactRecordFactory.create(transaction, resource, ImpactEstimatePolicies.documentedDemo, now)
+            ?: return
+        if (impact.saveImpact(record) is AppResult.Failure) {
+            Log.w("FeatureViewModel", "Completed transaction ${transaction.id} could not persist its impact estimate")
+        }
     }
 
     private suspend fun appendPassportHistory(

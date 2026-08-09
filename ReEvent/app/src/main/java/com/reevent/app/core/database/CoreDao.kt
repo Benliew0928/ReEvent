@@ -15,7 +15,7 @@ interface CoreDao {
     @Query("SELECT * FROM events WHERE accountId = :accountId AND ownerId = :ownerId AND archived = 0 ORDER BY startsAt DESC") fun observeEvents(accountId: String, ownerId: String): Flow<List<EventEntity>>
     @Query("SELECT * FROM events WHERE accountId = :accountId AND id = :id") fun observeEvent(accountId: String, id: String): Flow<EventEntity?>
     @Query("SELECT * FROM events WHERE accountId = :accountId AND id = :id") suspend fun event(accountId: String, id: String): EventEntity?
-    @Query("UPDATE events SET archived = 1, syncState = 'PENDING', updatedAt = :updatedAt WHERE id = :id") suspend fun archiveEvent(id: String, updatedAt: Long)
+    @Query("UPDATE events SET archived = 1, syncState = 'PENDING', updatedAt = :updatedAt WHERE accountId = :accountId AND id = :id") suspend fun archiveEvent(accountId: String, id: String, updatedAt: Long)
     @Query("UPDATE events SET syncState = :state WHERE accountId = :accountId AND id = :id") suspend fun setEventSyncState(accountId: String, id: String, state: String)
 
     @Upsert suspend fun upsertResource(resource: ResourceEntity)
@@ -23,7 +23,7 @@ interface CoreDao {
     @Query("SELECT * FROM resource_items WHERE accountId = :accountId AND status = 'AVAILABLE' AND archived = 0 ORDER BY updatedAt DESC") fun observeMarketplace(accountId: String): Flow<List<ResourceEntity>>
     @Query("SELECT * FROM resource_items WHERE accountId = :accountId AND id = :id") fun observeResource(accountId: String, id: String): Flow<ResourceEntity?>
     @Query("SELECT * FROM resource_items WHERE accountId = :accountId AND id = :id") suspend fun resource(accountId: String, id: String): ResourceEntity?
-    @Query("UPDATE resource_items SET archived = 1, syncState = 'PENDING', updatedAt = :updatedAt WHERE id = :id") suspend fun archiveResource(id: String, updatedAt: Long)
+    @Query("UPDATE resource_items SET archived = 1, syncState = 'PENDING', updatedAt = :updatedAt WHERE accountId = :accountId AND id = :id") suspend fun archiveResource(accountId: String, id: String, updatedAt: Long)
     @Query("UPDATE resource_items SET syncState = :state WHERE accountId = :accountId AND id = :id") suspend fun setResourceSyncState(accountId: String, id: String, state: String)
 
     @Upsert suspend fun upsertPassport(passport: PassportEntity)
@@ -39,7 +39,8 @@ interface CoreDao {
 
     @Upsert suspend fun upsertTransaction(transaction: TransactionEntity)
     @Query("SELECT * FROM circular_transactions WHERE accountId = :accountId AND (senderId = :userId OR receiverId = :userId OR partnerId = :userId) AND archived = 0 ORDER BY updatedAt DESC") fun observeTransactions(accountId: String, userId: String): Flow<List<TransactionEntity>>
-    @Query("UPDATE circular_transactions SET archived = 1, syncState = 'PENDING', updatedAt = :updatedAt WHERE id = :id") suspend fun archiveTransaction(id: String, updatedAt: Long)
+    @Query("SELECT * FROM circular_transactions WHERE accountId = :accountId AND eventId = :eventId AND archived = 0 ORDER BY updatedAt DESC") fun observeEventTransactions(accountId: String, eventId: String): Flow<List<TransactionEntity>>
+    @Query("UPDATE circular_transactions SET archived = 1, syncState = 'PENDING', updatedAt = :updatedAt WHERE accountId = :accountId AND id = :id") suspend fun archiveTransaction(accountId: String, id: String, updatedAt: Long)
     @Query("SELECT * FROM circular_transactions WHERE accountId = :accountId AND id = :id") suspend fun transaction(accountId: String, id: String): TransactionEntity?
     @Query("UPDATE circular_transactions SET syncState = :state WHERE accountId = :accountId AND id = :id") suspend fun setTransactionSyncState(accountId: String, id: String, state: String)
 
@@ -50,8 +51,8 @@ interface CoreDao {
 
     @Upsert suspend fun upsertOutbox(operation: SyncOperationEntity)
     @Query("SELECT * FROM sync_outbox ORDER BY updatedAt LIMIT :limit") suspend fun pendingOperations(limit: Int): List<SyncOperationEntity>
-    @Query("DELETE FROM sync_outbox WHERE id = :id") suspend fun deleteOutbox(id: Long)
-    @Query("UPDATE sync_outbox SET attempts = attempts + 1, lastError = :error, updatedAt = :updatedAt WHERE id = :id") suspend fun markOutboxFailed(id: Long, error: String, updatedAt: Long)
+    @Query("DELETE FROM sync_outbox WHERE accountId = :accountId AND id = :id") suspend fun deleteOutbox(accountId: String, id: Long)
+    @Query("UPDATE sync_outbox SET attempts = attempts + 1, lastError = :error, updatedAt = :updatedAt WHERE accountId = :accountId AND id = :id") suspend fun markOutboxFailed(accountId: String, id: Long, error: String, updatedAt: Long)
     @Query("DELETE FROM users WHERE id != :userId") suspend fun deleteOtherUsers(userId: String)
     @Query("DELETE FROM users") suspend fun clearUsers()
     @Query("DELETE FROM events WHERE accountId != :accountId") suspend fun clearOtherEvents(accountId: String)

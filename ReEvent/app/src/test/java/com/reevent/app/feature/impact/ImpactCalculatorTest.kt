@@ -42,6 +42,32 @@ class ImpactCalculatorTest {
         assertNull(summary.materialDivertedKg)
     }
 
+    @Test
+    fun summary_marks_completed_outcomes_without_a_documented_estimate() {
+        val summary = ImpactCalculator.summarize(
+            resources = listOf(resource("recovered", ResourceStatus.RECOVERED)),
+            transactions = listOf(
+                transaction("estimated", TransactionType.RECYCLE, TransactionStatus.COMPLETED),
+                transaction("unavailable", TransactionType.REPAIR, TransactionStatus.COMPLETED)
+            ),
+            records = listOf(record().copy(transactionId = "estimated"))
+        )
+
+        assertEquals("Some completed outcomes have no documented mass and factor.", summary.unavailableEstimateReason)
+    }
+
+    @Test
+    fun summary_excludes_non_finite_estimates() {
+        val summary = ImpactCalculator.summarize(
+            resources = listOf(resource("recovered", ResourceStatus.RECOVERED)),
+            transactions = listOf(transaction("recycle", TransactionType.RECYCLE, TransactionStatus.COMPLETED)),
+            records = listOf(record().copy(materialDivertedKg = Double.NaN))
+        )
+
+        assertNull(summary.materialDivertedKg)
+        assertEquals("No documented mass and factor are available for these completed outcomes.", summary.unavailableEstimateReason)
+    }
+
     private fun resource(id: String, status: ResourceStatus = ResourceStatus.AVAILABLE) = ResourceItem(
         id, "event", "owner", id, "Signage", "Acrylic", ResourceCondition.GOOD,
         1, "item", status, 0, emptyList(), NOW, NOW

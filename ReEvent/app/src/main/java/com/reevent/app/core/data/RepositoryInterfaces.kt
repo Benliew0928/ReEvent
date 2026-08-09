@@ -57,6 +57,7 @@ interface PartnerRepository {
 
 interface TransactionRepository {
     fun observeTransactions(userId: String): Flow<List<CircularTransaction>>
+    fun observeEventTransactions(eventId: String): Flow<List<CircularTransaction>>
     suspend fun saveTransaction(transaction: CircularTransaction): AppResult<CircularTransaction>
     suspend fun archiveTransaction(transactionId: String): AppResult<Unit>
 }

@@ -46,6 +46,8 @@ import com.reevent.app.core.model.ResourceStatus
 import com.reevent.app.core.model.TransactionStatus
 import com.reevent.app.core.model.TransactionType
 import com.reevent.app.core.model.User
+import com.reevent.app.feature.impact.ImpactCalculator
+import com.reevent.app.feature.impact.ImpactDashboardState
 import com.reevent.app.ui.ImpactMetric
 import com.reevent.app.ui.PartnerMatch
 import com.reevent.app.ui.ReEventScreen
@@ -197,20 +199,21 @@ fun ImpactVisualScreen(
     viewModel: FeatureViewModel = hiltViewModel()
 ) {
     val resources by viewModel.resources(eventId).collectAsState(emptyList())
+    val transactions by viewModel.eventTransactions(eventId).collectAsState(emptyList())
     val records by viewModel.impact(eventId).collectAsState(emptyList())
-    val recoveredLots = resources.count {
-        it.status == ResourceStatus.RECOVERED || it.status == ResourceStatus.HANDED_OVER
+    val summary = remember(resources, transactions, records) {
+        ImpactCalculator.summarize(resources, transactions, records)
     }
-    val rate = if (resources.isEmpty()) null else {
-        (recoveredLots.toFloat() / resources.size).coerceIn(0f, 1f)
-    }
+    val rate = summary.recoveryRate
 
     ImpactScreen(
         onNavigate = onNavigate,
-        metrics = records.toImpactMetrics(),
+        metrics = summary.toImpactMetrics(),
         recoveryRate = rate,
         recoveryLabel = rate?.let { "${(it * 100).toInt()}%" } ?: "—",
-        chartValues = emptyList()
+        chartValues = summary.chartValues,
+        badge = summary.badge,
+        unavailableEstimateReason = summary.unavailableEstimateReason
     )
 }
 
@@ -709,6 +712,25 @@ private fun List<ImpactRecord>.toImpactMetrics(): List<ImpactMetric> {
         ImpactMetric(sumOf { it.emissionsAvoidedKg }.formatQuantity() + " kg", "Emissions avoided", "Estimated CO₂e avoided"),
         ImpactMetric(sumOf { it.valueRecoveredCents }.toMoney(), "Value recovered", "Resale, repair and buy-back")
     )
+}
+
+private fun ImpactDashboardState.toImpactMetrics(): List<ImpactMetric> {
+    val completedOutcomes = reusedCount + repairedCount + donatedCount + recycledCount
+    if (completedOutcomes == 0 && materialDivertedKg == null && emissionsAvoidedKg == null && valueRecoveredCents == null) {
+        return emptyList()
+    }
+    return buildList {
+        add(ImpactMetric("$completedOutcomes", "Completed outcomes", "Reuse, repair, donation, and recycling"))
+        materialDivertedKg?.let {
+            add(ImpactMetric(it.formatQuantity() + " kg", "Materials diverted", "Mass-based documented estimate"))
+        }
+        emissionsAvoidedKg?.let {
+            add(ImpactMetric(it.formatQuantity() + " kg", "CO₂e avoided", "MVP demonstration estimate"))
+        }
+        valueRecoveredCents?.let {
+            add(ImpactMetric(it.toMoney(), "Value recovered", "Proportion of the entered item value"))
+        }
+    }
 }
 
 private fun List<com.reevent.app.core.model.ResourceItem>.toRecoverySteps(records: List<ImpactRecord>): List<RecoveryStep> {

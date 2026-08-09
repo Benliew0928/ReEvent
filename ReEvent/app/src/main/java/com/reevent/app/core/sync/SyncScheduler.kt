@@ -72,10 +72,15 @@ class SyncCoordinator @Inject constructor(
                     val payload = payloadFor(operation.tableName, operation.accountId, operation.recordId)
                     if (payload != null) gateway.upsert(operation.tableName, payload)
                 }
-                dao.deleteOutbox(operation.id)
+                dao.deleteOutbox(operation.accountId, operation.id)
                 setRecordSyncState(operation.tableName, operation.accountId, operation.recordId, "SYNCED")
             } catch (error: Throwable) {
-                dao.markOutboxFailed(operation.id, error.message ?: "Remote sync failed", System.currentTimeMillis())
+                dao.markOutboxFailed(
+                    operation.accountId,
+                    operation.id,
+                    error.message ?: "Remote sync failed",
+                    System.currentTimeMillis()
+                )
                 setRecordSyncState(operation.tableName, operation.accountId, operation.recordId, "FAILED")
                 return SyncOutcome.RETRY
             }

@@ -62,6 +62,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.reevent.app.R
+import com.reevent.app.feature.impact.ImpactBadge
 import com.reevent.app.ui.ImpactMetric
 import com.reevent.app.ui.PartnerMatch
 import com.reevent.app.ui.ReEventRole
@@ -110,7 +111,9 @@ fun ImpactScreen(
     metrics: List<ImpactMetric> = emptyList(),
     recoveryRate: Float? = null,
     recoveryLabel: String = "—",
-    chartValues: List<Float> = emptyList()
+    chartValues: List<Float> = emptyList(),
+    badge: ImpactBadge? = null,
+    unavailableEstimateReason: String? = null
 ) {
     ReEventScaffold(selected = ReEventScreen.Impact, onNavigate = onNavigate) { padding ->
         ReEventLazyColumn(paddingValues = padding) {
@@ -143,7 +146,7 @@ fun ImpactScreen(
                             StatusChip(text = "SDG 12 aligned", color = ReEventGreen)
                             Spacer(Modifier.height(10.dp))
                             Text(
-                                text = if (metrics.isEmpty()) {
+                                text = unavailableEstimateReason ?: if (metrics.isEmpty()) {
                                     "Impact will appear here after the first verified recovery or handover."
                                 } else {
                                     "The event avoided disposal by routing items to reuse, repair and remanufacturing."
@@ -174,7 +177,11 @@ fun ImpactScreen(
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             LegendDot("Reuse", ReEventGreen)
                             LegendDot("Repair", ReEventWarm)
-                            LegendDot("Buy-back", ReEventBlue)
+                            LegendDot("Donation", ReEventBlue)
+                            LegendDot("Recycle", ReEventCoral)
+                        }
+                        unavailableEstimateReason?.let {
+                            Text(it, style = MaterialTheme.typography.bodySmall, color = ReEventMuted)
                         }
                     }
                 }
@@ -187,7 +194,7 @@ fun ImpactScreen(
                         .clip(RoundedCornerShape(22.dp))
                         .background(ReEventGreenDeep)
                 ) {
-                    if (metrics.isEmpty()) {
+                    if (badge == null) {
                         Text(
                             text = "A recovery badge will appear after verified impact is recorded.",
                             style = MaterialTheme.typography.bodyLarge,
@@ -199,9 +206,17 @@ fun ImpactScreen(
                     } else {
                         Image(
                             painter = painterResource(R.drawable.impact_badge_high_recovery),
-                            contentDescription = "High recovery badge",
+                            contentDescription = "${badge.displayLabel()} badge",
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
+                        )
+                        Text(
+                            text = badge.displayLabel(),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White,
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(16.dp)
                         )
                     }
                 }
@@ -240,5 +255,11 @@ private fun LegendDot(
         )
         Text(text = label, style = MaterialTheme.typography.labelMedium, color = ReEventMuted)
     }
+}
+
+private fun ImpactBadge.displayLabel(): String = when (this) {
+    ImpactBadge.FIRST_RECOVERY -> "First recovery"
+    ImpactBadge.CIRCULAR_STARTER -> "Circular starter"
+    ImpactBadge.HIGH_RECOVERY -> "High recovery"
 }
 

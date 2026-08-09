@@ -193,14 +193,13 @@ private val policy = ImpactEstimatePolicy(
 - Modify: gradle/wrapper/gradle-wrapper.properties
 - Modify: docs/qa/WONG_LOONG_JIE_E2E_TEST_MATRIX.md only if a build verification is still blocked after the retry.
 
-**Consumes:** Android Studio JBR (Java 21), the checked-in Gradle wrapper, and the reachable Gradle distribution URL.
+**Consumes:** a valid Java 17+ JDK (prefer Android Studio JBR when its installation is complete), the checked-in Gradle wrapper, and the reachable Gradle distribution URL.
 
 **Produces:** A repeatable local command that can resolve Gradle 9.6.1 and run the existing unit-test task without relying on the machine-wide Java 8 shim.
 
-- [x] **Step 1: Use the Android Studio JBR for Gradle commands**
+- [x] **Step 1: Use a valid JDK for Gradle commands**
 
-Set `JAVA_HOME` to the Android Studio JBR only for the current command shell;
-do not alter the machine-wide Java configuration.
+Set `JAVA_HOME` only for the current command shell; do not alter the machine-wide Java configuration. The installed Android Studio JBR was missing `lib/jvm.cfg` on 2026-08-09, so the verified command used the installed Java 17 JDK instead.
 
 - [x] **Step 2: Increase only the wrapper download timeout**
 
@@ -432,7 +431,7 @@ ImpactRecord values.
 }
 ~~~
 
-- [ ] **Step 2: Add the smallest backward-compatible event read**
+- [x] **Step 2: Add the smallest backward-compatible event read**
 
 Add this repository method and implement it using the existing account scope:
 
@@ -491,13 +490,15 @@ non-negative persisted ImpactRecord values. Round display values at the UI
 boundary, not inside stored records. Return a clear unavailableEstimateReason
 when records cannot support a requested material/CO2e/value estimate.
 
-- [ ] **Step 4: Run unit and instrumentation coverage**
+- [x] **Step 4: Run unit and instrumentation coverage**
 
 Run: gradlew.bat :app:testDebugUnitTest connectedDebugAndroidTest --no-daemon --console=plain
 
 Expected: pure calculator tests pass; the DAO test proves account/event
 isolation on an emulator or device. If no device is available, leave the
 instrumentation result pending and record device availability in the QA matrix.
+
+2026-08-09 evidence: `:app:testDebugUnitTest`, `:app:compileDebugAndroidTestKotlin`, and `:app:connectedDebugAndroidTest` passed on the Android Studio `Medium_Phone` AVD (Android 17). The Room test confirmed account/event isolation.
 
 - [ ] **Step 5: Commit the read contract and impact domain layer**
 
@@ -527,7 +528,7 @@ git commit -m "feat: calculate event impact summaries from completed outcomes"
 
 **Produces:** One upserted ImpactRecord per completed transaction when all required input factors are available, plus a dashboard that reflects live summary data and rule-based badges.
 
-- [ ] **Step 1: Add failing idempotency and invalid-input tests**
+- [x] **Step 1: Add failing idempotency and invalid-input tests**
 
 ~~~kotlin
 @Test fun completed_transaction_uses_its_uuid_for_one_repeatable_record() {
@@ -542,7 +543,7 @@ git commit -m "feat: calculate event impact summaries from completed outcomes"
 }
 ~~~
 
-- [ ] **Step 2: Implement a documented estimate policy**
+- [x] **Step 2: Implement a documented estimate policy**
 
 Create a small immutable policy object whose factors are keyed by normalised
 material and completed action. It must specify kilograms per unit, CO2e per
@@ -551,7 +552,7 @@ source is recorded in docs/impact/IMPACT_ESTIMATE_FACTORS.md. The calculator
 returns no record for missing or negative values and returns resource.valueCents
 only as a recovered-value estimate with an explicit label.
 
-- [ ] **Step 3: Wire only completed actions to idempotent persistence**
+- [x] **Step 3: Wire only completed actions to idempotent persistence**
 
 Keep TransactionWorkflow as the source of truth for shared status transitions.
 After `completeTransaction` has successfully saved its COMPLETED transaction
@@ -564,7 +565,7 @@ camera scans, status-only edits, and unsupported/missing-factor outcomes must
 not write impact. Record a non-fatal unavailable-estimate notice when the
 factory returns no record; do not create a synthetic zero-value record.
 
-- [ ] **Step 4: Replace the remaining visual placeholders**
+- [x] **Step 4: Replace the remaining visual placeholders**
 
 In ImpactVisualScreen, observe event transactions and build ImpactDashboardState
 from resources, transactions, and records. Feed the state into ImpactScreen.
@@ -572,7 +573,7 @@ Replace empty chart values with reuse/repair/donation/recycle proportions,
 replace static badge selection with named thresholds derived from summary data,
 and render "estimate unavailable" rather than zero when a factor is missing.
 
-- [ ] **Step 5: Verify regression and commit**
+- [~] **Step 5: Verify regression and commit**
 
 Run: gradlew.bat :app:testDebugUnitTest :app:assembleDebug --no-daemon --console=plain
 
@@ -580,6 +581,8 @@ Manual expected result: completing a supported lifecycle action or partner
 handover creates at most one record after restart; replaying the same completed
 transaction does not increase its total; the impact board shows live recovery
 rate/channel metrics/badge; no-factor data is labelled unavailable.
+
+2026-08-09 evidence: `:app:testDebugUnitTest :app:assembleDebug --no-daemon --console=plain` passed with Java 17. The Android Studio `Medium_Phone` AVD installed and launched the debug app, and onboarding -> sign-in was visually verified. The authenticated transaction/restart path remains pending a safe organiser/partner test account.
 
 ~~~text
 git add app/src/main/java/com/reevent/app/feature/impact

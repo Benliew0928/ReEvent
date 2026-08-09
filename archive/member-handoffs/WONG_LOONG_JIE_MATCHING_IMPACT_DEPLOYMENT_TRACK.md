@@ -2,7 +2,7 @@
 
 **Owns:** circular pathway recommendation, impact calculations/dashboard, optional AI enhancement, integration QA, and HUAWEI AppGallery deployment.
 
-**Current progress:** `[##--------] 20%` for matching and impact UI, `[#---------] 10%` for optional AI, `[----------] 0%` for QA and AppGallery deployment. The app currently presents fixed partner recommendations and fixed impact figures; no rules, calculations, AI call, automated tests, release package, AppGallery listing, or compliance review are present.
+**Current progress:** `[########--] 80%` for matching, `[######----] 60%` for impact, `[#---------] 10%` for the optional prototype, and `[----------] 0%` for QA and AppGallery deployment. The live matching route now uses deterministic recommendations and the existing partner-handover flow. The impact board now derives recovery/channel data from repositories and writes a single documented estimate for eligible completed recycling outcomes. Device/restart acceptance, end-to-end QA, and release work remain outstanding.
 
 ## Pages and Code Ownership
 
@@ -30,26 +30,26 @@ Do not add an AI service before the rule-based matching flow works and has tests
 
 ## Delivery Order
 
-### Checkpoint 1 - Rule-based circular matching `[ ]`
+### Checkpoint 1 - Rule-based circular matching `[~]`
 
 - [ ] Agree the resource status, material, condition, partner-programme, and recovery-request contracts with LIEW KAIY BIN, WONG JIE YING, and MAH JUIN HONG.
-- [ ] Create the circular action enum and a deterministic rule-based matching engine.
-- [ ] Rank reuse, share, rent/lend, sell/donate, repair, refurbish, take-back, recycle, then disposal according to the main-plan priority.
-- [ ] Return the best route, alternatives, explanation, score, and compatible partner/programme IDs.
+- [x] Create the circular action enum and a deterministic rule-based matching engine.
+- [~] Rank reuse, share, rent/lend, sell/donate, repair, refurbish, take-back, recycle, then disposal according to the main-plan priority. Active partner programmes support the ranked routes; disposal remains an explicit no-partner fallback rather than a selectable handover.
+- [x] Return the best route, alternatives, explanation, score, and compatible partner/programme IDs.
 - [~] Replace the fixed recommendation and static partner cards in `AiMatchScreen` with engine output.
-- [ ] Allow the user to create a recovery request that MAH JUIN HONG can display and process.
-- [ ] Unit-test normal, damaged, unknown-material, and no-match cases.
+- [x] Allow the user to create a recovery request that MAH JUIN HONG can display and process.
+- [x] Unit-test normal, damaged/repair, unknown-material, and no-match cases.
 
 **Completion evidence:** changing a resource's material or condition produces a predictable, tested recommendation and valid alternatives.
 
-### Checkpoint 2 - Measurable impact `[ ]`
+### Checkpoint 2 - Measurable impact `[~]`
 
 - [ ] Agree which completed resource, transaction, return, repair, donation, and recycling events feed impact records.
-- [ ] Implement recovery-rate, reused/repaired/donated/recycled counts, waste avoided, money saved, and CO2e calculations.
-- [ ] Store/recompute impact records through LIEW KAIY BIN's repository contract.
-- [~] Replace fixed metrics, chart values, and progress percentage in `ImpactScreen` with computed values.
-- [~] Replace the static badge visual with rules that award badges/challenges from impact data.
-- [ ] Unit-test calculations, including zero events, invalid quantities, duplicate events, and rounding.
+- [~] Implement recovery-rate, reused/repaired/donated/recycled counts, waste avoided, money saved, and CO2e calculations. CO2e and mass estimates are intentionally limited to documented mass-based plastic/acrylic recycling; all unsupported outcomes show an unavailable estimate rather than a synthetic zero.
+- [x] Store/recompute eligible impact records through LIEW KAIY BIN's repository contract using the completed transaction UUID as the upsert ID.
+- [x] Replace fixed metrics, chart values, and progress percentage in `ImpactScreen` with computed values.
+- [x] Replace the static badge visual with rules that award badges/challenges from impact data.
+- [~] Unit-test calculations, including zero events, invalid values/quantities, no-factor handling, and idempotent IDs. Device-backed duplicate/restart confirmation remains outstanding.
 
 **Completion evidence:** completing a resource outcome updates the dashboard figures consistently and repeatably.
 
@@ -137,3 +137,4 @@ After every checkpoint, update its checkbox and top progress bar, add a dated te
 
 - 2026-07-14 - Tracker created from the audited full development plan.
 - 2026-07-14 - Replaced delivery-documentation work with HUAWEI AppGallery deployment and compliance checkpoints; official sources last checked on this date.
+- 2026-08-09 - Added account/event-scoped transaction observation, an idempotent `ImpactRecordFactory`, a narrow documented plastic/acrylic recycling estimate policy, and a repository-backed impact dashboard with live channel chart, badges, and unavailable-estimate copy. Added seven focused impact unit tests plus a Room account/event isolation instrumentation test. `:app:testDebugUnitTest`, `:app:assembleDebug`, `:app:compileDebugAndroidTestKotlin`, and `:app:connectedDebugAndroidTest` passed with the installed Java 17 JDK on the Android Studio `Medium_Phone` Android 17 AVD. The debug app also installed and reached the sign-in screen; authenticated transaction/restart acceptance awaits safe organiser/partner test credentials.

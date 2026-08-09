@@ -30,7 +30,7 @@ object CoreModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): ReEventDatabase =
         Room.databaseBuilder(context, ReEventDatabase::class.java, "reevent.db")
-            .addMigrations(ReEventDatabase.MIGRATION_1_2)
+            .addMigrations(ReEventDatabase.MIGRATION_1_2, ReEventDatabase.MIGRATION_2_3)
             .build()
 
     @Provides

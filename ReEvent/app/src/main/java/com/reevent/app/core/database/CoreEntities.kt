@@ -15,9 +15,13 @@ data class UserEntity(
     val updatedAt: Long
 )
 
-@Entity(tableName = "events", indices = [Index("ownerId")])
+@Entity(
+    tableName = "events",
+    primaryKeys = ["accountId", "id"],
+    indices = [Index(value = ["accountId", "ownerId"])]
+)
 data class EventEntity(
-    @PrimaryKey val id: String,
+    val id: String,
     val accountId: String,
     val ownerId: String,
     val name: String,
@@ -30,11 +34,21 @@ data class EventEntity(
     val updatedAt: Long,
     val syncState: String,
     val archived: Boolean
-)
+) {
+    init { require(accountId.isNotBlank()) { "Event cache rows require an accountId" } }
+}
 
-@Entity(tableName = "resource_items", indices = [Index("eventId"), Index("ownerId"), Index("status")])
+@Entity(
+    tableName = "resource_items",
+    primaryKeys = ["accountId", "id"],
+    indices = [
+        Index(value = ["accountId", "eventId"]),
+        Index(value = ["accountId", "ownerId"]),
+        Index(value = ["accountId", "status"])
+    ]
+)
 data class ResourceEntity(
-    @PrimaryKey val id: String,
+    val id: String,
     val accountId: String,
     val eventId: String,
     val ownerId: String,
@@ -51,11 +65,17 @@ data class ResourceEntity(
     val updatedAt: Long,
     val syncState: String,
     val archived: Boolean
-)
+) {
+    init { require(accountId.isNotBlank()) { "Resource cache rows require an accountId" } }
+}
 
-@Entity(tableName = "resource_passports", indices = [Index(value = ["resourceId"], unique = true)])
+@Entity(
+    tableName = "resource_passports",
+    primaryKeys = ["accountId", "id"],
+    indices = [Index(value = ["accountId", "resourceId"], unique = true)]
+)
 data class PassportEntity(
-    @PrimaryKey val id: String,
+    val id: String,
     val accountId: String,
     val resourceId: String,
     val qrPayload: String,
@@ -63,11 +83,17 @@ data class PassportEntity(
     val createdAt: Long,
     val updatedAt: Long,
     val syncState: String
-)
+) {
+    init { require(accountId.isNotBlank()) { "Passport cache rows require an accountId" } }
+}
 
-@Entity(tableName = "circular_programmes", indices = [Index("partnerId")])
+@Entity(
+    tableName = "circular_programmes",
+    primaryKeys = ["accountId", "id"],
+    indices = [Index(value = ["accountId", "partnerId"])]
+)
 data class ProgrammeEntity(
-    @PrimaryKey val id: String,
+    val id: String,
     val accountId: String,
     val partnerId: String,
     val name: String,
@@ -78,11 +104,23 @@ data class ProgrammeEntity(
     val createdAt: Long,
     val updatedAt: Long,
     val syncState: String
-)
+) {
+    init { require(accountId.isNotBlank()) { "Programme cache rows require an accountId" } }
+}
 
-@Entity(tableName = "circular_transactions", indices = [Index("eventId"), Index("resourceId"), Index("senderId"), Index("receiverId"), Index("partnerId")])
+@Entity(
+    tableName = "circular_transactions",
+    primaryKeys = ["accountId", "id"],
+    indices = [
+        Index(value = ["accountId", "eventId"]),
+        Index(value = ["accountId", "resourceId"]),
+        Index(value = ["accountId", "senderId"]),
+        Index(value = ["accountId", "receiverId"]),
+        Index(value = ["accountId", "partnerId"])
+    ]
+)
 data class TransactionEntity(
-    @PrimaryKey val id: String,
+    val id: String,
     val accountId: String,
     val eventId: String,
     val resourceId: String,
@@ -96,11 +134,21 @@ data class TransactionEntity(
     val updatedAt: Long,
     val syncState: String,
     val archived: Boolean
-)
+) {
+    init { require(accountId.isNotBlank()) { "Transaction cache rows require an accountId" } }
+}
 
-@Entity(tableName = "impact_records", indices = [Index("eventId"), Index("resourceId"), Index("transactionId")])
+@Entity(
+    tableName = "impact_records",
+    primaryKeys = ["accountId", "id"],
+    indices = [
+        Index(value = ["accountId", "eventId"]),
+        Index(value = ["accountId", "resourceId"]),
+        Index(value = ["accountId", "transactionId"])
+    ]
+)
 data class ImpactEntity(
-    @PrimaryKey val id: String,
+    val id: String,
     val accountId: String,
     val eventId: String,
     val resourceId: String?,
@@ -111,11 +159,13 @@ data class ImpactEntity(
     val calculatedAt: Long,
     val updatedAt: Long,
     val syncState: String
-)
+) {
+    init { require(accountId.isNotBlank()) { "Impact cache rows require an accountId" } }
+}
 
 @Entity(
     tableName = "sync_outbox",
-    indices = [Index(value = ["tableName", "recordId"], unique = true)]
+    indices = [Index(value = ["accountId", "tableName", "recordId"], unique = true)]
 )
 data class SyncOperationEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -127,4 +177,6 @@ data class SyncOperationEntity(
     val attempts: Int = 0,
     val lastError: String? = null,
     val updatedAt: Long
-)
+) {
+    init { require(accountId.isNotBlank()) { "Outbox rows require an accountId" } }
+}
