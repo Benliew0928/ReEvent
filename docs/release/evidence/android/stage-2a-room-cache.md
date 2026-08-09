@@ -25,11 +25,13 @@
 
 ### REL-DATA-05 — Versioned schemas and migration proof
 
-- Room database version: 3.
+- Room database version at Stage 2A acceptance: 3.
 - Exported schema 2 SHA-256: `151B86CB30A77B9A231C31FEC118586605AA39D956FF9F714BEF0C4DB9A26F4B`.
 - Exported schema 3 SHA-256: `CF7BC9F1DD0AC0238094A46C7C5B0C70F42EBDC4D9F29059B5D8399C5E74ABAE`.
 - Migration 2→3 preserves attributable fields, timestamps, archive state and sync state across all six account-scoped tables while removing blank-account rows.
 - Migration 1→2→3 proves that legacy rows which receive an empty account during migration 1→2 are discarded rather than assigned to an invented owner.
+
+**Stage 2B continuation (2026-08-09):** Room is now version 4. The Stage 2A guarantees were rerun through 1→2→3→4 and 2→3→4, and direct 3→4 preservation was also verified. See `docs/release/evidence/android/stage-2b-sync-identity.md` and exported schema 4.
 
 ## Commands and results
 
