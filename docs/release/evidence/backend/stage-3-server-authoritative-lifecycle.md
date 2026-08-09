@@ -2,8 +2,8 @@
 
 - **Date:** 2026-08-09
 - **Base commit:** `0edc3ba2591202d8e9eb4a917768b0c7cb38f921`
-- **Implementation commits:** `3721aa5efe0bfc597e4a2e02c0fee19bb561ec78` (`feat: enforce server-authoritative lifecycle`) and `68e82033c45020e48d08db43259a04c86ae652a6` (`fix: resolve pgcrypto lookup in Supabase`)
-- **Evidence state:** Local verification and the rollback-only official staging SQL smoke now pass. This is not release-checklist acceptance evidence until real signed multi-account/device and interrupted-response flows are recorded.
+- **Implementation commits:** `3721aa5efe0bfc597e4a2e02c0fee19bb561ec78` (`feat: enforce server-authoritative lifecycle`), `68e82033c45020e48d08db43259a04c86ae652a6` (`fix: resolve pgcrypto lookup in Supabase`), and `ade8d5a3f16b04a16552e8982f7360bd373dba0e` (`fix: mark persisted command retries as replayed`)
+- **Evidence state:** Local verification, rollback-only official staging SQL smoke, and a real signed multi-account staging REST/RPC lifecycle now pass. This is not release-checklist acceptance evidence until the same journey is exercised through separate Android app/device sessions.
 
 ## Outcome
 
@@ -21,6 +21,7 @@ Four reviewed implementation stages now form one server-authoritative resource l
 | `ReEvent/supabase/migrations/0005_release_lifecycle_schema.sql` | `15A09675F26592A9EF9F51946C5C6960D69EB5387C53378F5D842BDF8998E9EE` |
 | `ReEvent/supabase/migrations/0006_transaction_request_decision_rpcs.sql` | `1F2538220F2563E97AFEA86DAE511DABBC432E7DB277C3384FE000665A6CCA33` |
 | `ReEvent/supabase/migrations/0007_atomic_handover_completion_rpcs.sql` | `27337DA92013F846EFAB80191B52E7E0F45850A18C3691ECE31082C516E46544` |
+| `ReEvent/supabase/migrations/0008_idempotent_replay_response.sql` | `E35D57D94E1C97D1A70DE6BFDB53FFED76C10C533F8A452769A3D33103939192` |
 | Room schema 5 | `52E3710FC54EEBF579D790063AE7CA68D529E9030453EFB4B438DFDCFB37A69A` |
 | `ReEvent/supabase/tests/staging-authority-smoke.sql` | `E585A2F784DD81C452AB5B30923CAB7CB5BF7AF9C225BB2767772AC8F3E87B96` |
 
@@ -36,6 +37,7 @@ Primary Android boundaries are `LifecycleCommandGateway.kt`, `LocalFirstCoreRepo
 | `:app:lintDebug` | Android debug variant | **Passed; 0 errors, 28 warnings** |
 | `staging-authority-smoke.sql` | Official Supabase `ReEvent-staging` project `kxkdugzyjmoteguesoti`; SQL Editor; three frozen role profiles through `auth.uid()` claims | **PASS** — direct lifecycle/transaction writes and wrong actors rejected; RENT request, decision, handover, return, completion and completion replay passed; fixtures rolled back |
 | `git diff --check` | Working tree | **Passed** |
+| Signed RENT lifecycle and exact-key retry | Official Supabase `ReEvent-staging` project `kxkdugzyjmoteguesoti`; three new auto-confirmed synthetic email accounts; independent organiser and participant JWTs | **PASS** — organiser created an event/resource/listing, participant requested RENT, organiser approved/handover, participant received/returned, and organiser completed. A client failure/discard after the first completion was followed by the same-key retry: `COMPLETED`, 20-ReCoin settlement, 5-ReCoin reward, four confirmations, zero held balances, and no duplicate effects. |
 | Forbidden-write audit | Android main source | No removed lifecycle mutators, legacy lifecycle enums, or generic critical-table outbox targets found |
 
 The database suite proves schema application, grants, RLS-facing authority, frozen enums, one-time wallet/passport creation, constraints, direct lifecycle tamper rejection, archive-history idempotency, request/decision validation, programme capacity, ReCoin holds, RENT return, partial RECYCLE, EXCHANGE, partial BUY, full REPAIR, replay, terminal immutability, and total rollback after a forced mid-completion failure.
@@ -46,6 +48,14 @@ The database suite proves schema application, grants, RLS-facing authority, froz
 - Preflight found the legacy 0001-shaped schema with 5 frozen profiles and only synthetic staging fixtures (10 events, 11 resources, 5 transactions, and 1 impact row). No migration history was recorded in `supabase_migrations.schema_migrations`.
 - The committed 0005-0007 transaction replaced that legacy schema. The first smoke attempt found an actual Supabase incompatibility: `pgcrypto.digest` lives in `extensions`, while the idempotency helper had a `public`-only search path. Commit `68e82033c45020e48d08db43259a04c86ae652a6` adds `extensions` to that fixed search path; its replacement function was then applied to staging.
 - The final smoke script passed and ends with `ROLLBACK`; its generated event, resource, listing, transaction, allocation, hold, ledger, passport, and impact rows were not retained.
+
+## Signed staging lifecycle and response-loss retry
+
+- Target: the same `ReEvent-staging` project, executed 2026-08-09 with independent email/password sessions for three newly created synthetic accounts (organiser, participant, and partner). No existing account was altered.
+- The organiser and participant completed one persisted `RENT` fixture through the public REST/RPC boundary: event and resource creation, listing publication, request, approval, handover, receipt, return, and completion. The partner independently completed the frozen-role onboarding check; its attempt to approve an organiser-owned listing left the request `REQUESTED`, and the participant then cancelled the untouched probe with zero allocations and holds.
+- The first `confirm_transaction_return` reached the server but its client response failed/disappeared. Reusing the persisted completion UUID returned the already-completed transaction; no extra transaction, settlement, passport event, impact record, or confirmation was created.
+- That execution exposed a response-contract defect: a replay returned the stored first payload with `replayed: false`. Migration `0008_idempotent_replay_response.sql` was applied through the staging SQL Editor. The exact retry then returned `replayed: true` while retaining one completed transaction, four custody confirmations, organiser available balance 1020, participant available balance 985, both held balances 0, 20 transferred ReCoins, and 5 rewarded ReCoins.
+- A staging-bound debug APK was installed and opened on the Android Studio `Medium_Phone` API-35 emulator. It reached the normal sign-in screen. No credentials were entered by automation, so this is setup evidence only, not Android UI/device E2E acceptance.
 
 The device suite includes Room 1→5/2→5/3→5/4→5 validation, account isolation, sign-out cleanup, environment/account worker identity, cancellation behavior, and a failed-then-successful lifecycle retry that proves the same durable idempotency UUID is used twice before the server projection is cached and the command is acknowledged.
 
@@ -64,12 +74,12 @@ The device suite includes Room 1→5/2→5/3→5/4→5 validation, account isola
 
 This report must not be used to check `REL-SEC-01` through `REL-SEC-05`, `REL-DATA-04`, or the final E2E items yet. The remaining gates are:
 
-The reviewable commits, official staging deployment, and rollback-only three-role SQL authority smoke are complete. The remaining evidence must exercise authenticated client sessions rather than SQL-injected claim settings.
+The reviewable commits, official staging deployment, rollback-only three-role SQL authority smoke, and signed endpoint-level lifecycle are complete. The remaining evidence must exercise the Android client on separate sessions/devices rather than only SQL-injected claims or direct REST/RPC calls.
 
 1. [x] create a reviewable commit containing the Stage 3 artifacts: `3721aa5efe0bfc597e4a2e02c0fee19bb561ec78`;
 2. apply migrations 0005–0007 to a disposable official Supabase local stack and then staging;
-3. rerun positive and adversarial calls with independent organiser, participant, and partner JWTs;
-4. run the interrupted/lost-response flow against staging on separate app sessions/devices;
+3. add a full authorised partner recovery flow and further adversarial JWT cases; the partner wrong-actor listing-approval probe now passes;
+4. run the interrupted/lost-response flow through the durable Android command queue on separate app sessions/devices;
 5. record the tested commit SHA, backend project/environment, logs, and reviewer in the checklist evidence registry.
 
 `PUBLIC_BASE_URL` must also be configured to a real HTTPS passport verifier before QR/public-passport acceptance; the Android cache deliberately retains the opaque token when that release configuration is absent, but that fallback is not public-QR evidence.
