@@ -28,26 +28,32 @@ class ReEventDatabaseMigrationTest {
     fun cleanUp() {
         context.deleteDatabase(V1_DATABASE)
         context.deleteDatabase(V2_DATABASE)
+        context.deleteDatabase(V3_DATABASE)
+        context.deleteDatabase(V4_DATABASE)
     }
 
     @Test
-    fun migrate2To3_preservesAttributedRowsAndDropsBlankAccountRows() {
+    fun migrate2To5_preservesEventsAndPurgesPreReleaseLifecycleProjections() {
         helper.createDatabase(V2_DATABASE, 2).use { database ->
             attributedAndBlankV2Rows.forEach(database::execSQL)
         }
 
         helper.runMigrationsAndValidate(
             V2_DATABASE,
-            3,
+            5,
             true,
-            ReEventDatabase.MIGRATION_2_3
+            ReEventDatabase.MIGRATION_2_3,
+            ReEventDatabase.MIGRATION_3_4,
+            ReEventDatabase.MIGRATION_4_5
         ).use { database ->
-            ACCOUNT_SCOPED_TABLES.forEach { table ->
-                assertEquals("Expected one preserved row in $table", 1L, database.count(table))
-                assertEquals(ACCOUNT_A, database.singleString("SELECT accountId FROM $table"))
+            assertEquals(1L, database.count("events"))
+            assertEquals(ACCOUNT_A, database.singleString("SELECT accountId FROM events"))
+            SERVER_PROJECTION_TABLES.forEach { table ->
+                assertEquals("Expected pre-release rows to be purged from $table", 0L, database.count(table))
             }
             assertEquals(1L, database.count("sync_outbox"))
             assertEquals(ACCOUNT_A, database.singleString("SELECT accountId FROM sync_outbox"))
+            assertEquals(LOCAL, database.singleString("SELECT environment FROM sync_outbox"))
             assertEquals(
                 listOf("Event kept", "42", "FAILED", "1"),
                 database.row("SELECT name, updatedAt, syncState, archived FROM events WHERE id = 'keep-event'")
@@ -56,7 +62,7 @@ class ReEventDatabaseMigrationTest {
     }
 
     @Test
-    fun migrate1To3_discardsRowsWhoseAccountCannotBeEstablished() {
+    fun migrate1To5_discardsRowsWhoseAccountCannotBeEstablished() {
         createVersion1Database().use { database ->
             database.execSQL(
                 "INSERT INTO users VALUES ('user-a', 'a@example.com', 'User A', 'ORGANISER', NULL, 1, 2)"
@@ -74,16 +80,129 @@ class ReEventDatabaseMigrationTest {
 
         helper.runMigrationsAndValidate(
             V1_DATABASE,
-            3,
+            5,
             true,
             ReEventDatabase.MIGRATION_1_2,
-            ReEventDatabase.MIGRATION_2_3
+            ReEventDatabase.MIGRATION_2_3,
+            ReEventDatabase.MIGRATION_3_4,
+            ReEventDatabase.MIGRATION_4_5
         ).use { database ->
             assertEquals(1L, database.count("users"))
             ACCOUNT_SCOPED_TABLES.forEach { table ->
                 assertEquals("Expected ambiguous rows to be removed from $table", 0L, database.count(table))
             }
             assertEquals(0L, database.count("sync_outbox"))
+        }
+    }
+
+    @Test
+    fun migrate3To5_preservesAllowedOutboxFieldsAndAssignsLocalEnvironment() {
+        helper.createDatabase(V3_DATABASE, 3).use { database ->
+            database.execSQL(
+                """
+                INSERT INTO sync_outbox (
+                    tableName, accountId, recordId, operation, payload,
+                    attempts, lastError, updatedAt
+                ) VALUES (
+                    'events', '$ACCOUNT_A', 'event-a', 'upsert', '{"id":"event-a"}',
+                    3, 'previous failure', 42
+                )
+                """.trimIndent()
+            )
+        }
+
+        helper.runMigrationsAndValidate(
+            V3_DATABASE,
+            5,
+            true,
+            ReEventDatabase.MIGRATION_3_4,
+            ReEventDatabase.MIGRATION_4_5
+        ).use { database ->
+            assertEquals(
+                listOf(LOCAL, ACCOUNT_A, "events", "event-a", "upsert", "3", "previous failure", "42"),
+                database.row(
+                    "SELECT environment, accountId, tableName, recordId, operation, attempts, lastError, updatedAt " +
+                        "FROM sync_outbox"
+                )
+            )
+        }
+    }
+
+    @Test
+    fun migrate4To5_removesGenericLifecycleWritesAndAdoptsServerProjectionTypes() {
+        helper.createDatabase(V4_DATABASE, 4).use { database ->
+            database.execSQL(
+                "INSERT INTO resource_items VALUES ('resource', '$ACCOUNT_A', 'event', 'owner', " +
+                    "'Resource', 'DECOR', 'PLASTIC', 'GOOD', 2, 'ITEM', 'ACTIVE', 0, '[]', 1, 2, 'PENDING', 0)"
+            )
+            database.execSQL(
+                "INSERT INTO resource_passports VALUES " +
+                    "('passport', '$ACCOUNT_A', 'resource', 'payload', '[]', 1, 2, 'SYNCED')"
+            )
+            database.execSQL(
+                "INSERT INTO circular_programmes VALUES " +
+                    "('programme', '$ACCOUNT_A', 'partner', 'Programme', 'RECYCLE', '[]', 'location', 1, 1, 2, 'SYNCED')"
+            )
+            database.execSQL(
+                "INSERT INTO circular_transactions VALUES " +
+                    "('transaction', '$ACCOUNT_A', 'event', 'resource', 'sender', 'receiver', NULL, " +
+                    "'RECYCLE', 'COMPLETED', 2, 1, 2, 'SYNCED', 0)"
+            )
+            database.execSQL(
+                "INSERT INTO impact_records VALUES " +
+                    "('impact', '$ACCOUNT_A', 'event', 'resource', 'transaction', 2.0, 3.0, 0, 1, 2, 'SYNCED')"
+            )
+            database.execSQL(
+                "INSERT INTO sync_outbox " +
+                    "(environment, tableName, accountId, recordId, operation, payload, attempts, lastError, updatedAt) " +
+                    "VALUES ('$LOCAL', 'events', '$ACCOUNT_A', 'event', 'upsert', '{}', 0, NULL, 2)"
+            )
+            listOf(
+                "resource_items" to "resource",
+                "resource_passports" to "passport",
+                "circular_programmes" to "programme",
+                "circular_transactions" to "transaction",
+                "impact_records" to "impact"
+            ).forEach { (table, id) ->
+                database.execSQL(
+                    "INSERT INTO sync_outbox " +
+                        "(environment, tableName, accountId, recordId, operation, payload, attempts, lastError, updatedAt) " +
+                        "VALUES ('$LOCAL', '$table', '$ACCOUNT_A', '$id', 'upsert', '{}', 0, NULL, 2)"
+                )
+            }
+        }
+
+        helper.runMigrationsAndValidate(
+            V4_DATABASE,
+            5,
+            true,
+            ReEventDatabase.MIGRATION_4_5
+        ).use { database ->
+            SERVER_PROJECTION_TABLES.forEach { table ->
+                assertEquals("Expected $table to be repopulated only by the server", 0L, database.count(table))
+            }
+            assertEquals(1L, database.count("sync_outbox"))
+            assertEquals("events", database.singleString("SELECT tableName FROM sync_outbox"))
+            assertEquals(
+                "REAL",
+                database.singleString("SELECT type FROM pragma_table_info('resource_items') WHERE name = 'quantity'")
+            )
+            assertEquals(
+                "REAL",
+                database.singleString("SELECT type FROM pragma_table_info('circular_transactions') WHERE name = 'quantity'")
+            )
+            assertEquals(
+                "requesterId",
+                database.singleString(
+                    "SELECT name FROM pragma_table_info('circular_transactions') WHERE name = 'requesterId'"
+                )
+            )
+            assertEquals(
+                "recoinsTransferred",
+                database.singleString(
+                    "SELECT name FROM pragma_table_info('impact_records') WHERE name = 'recoinsTransferred'"
+                )
+            )
         }
     }
 
@@ -124,11 +243,22 @@ class ReEventDatabaseMigrationTest {
 
     private companion object {
         const val ACCOUNT_A = "account-a"
+        const val LOCAL = "local"
         const val V1_DATABASE = "reevent-migration-v1"
         const val V2_DATABASE = "reevent-migration-v2"
+        const val V3_DATABASE = "reevent-migration-v3"
+        const val V4_DATABASE = "reevent-migration-v4"
 
         val ACCOUNT_SCOPED_TABLES = listOf(
             "events",
+            "resource_items",
+            "resource_passports",
+            "circular_programmes",
+            "circular_transactions",
+            "impact_records"
+        )
+
+        val SERVER_PROJECTION_TABLES = listOf(
             "resource_items",
             "resource_passports",
             "circular_programmes",

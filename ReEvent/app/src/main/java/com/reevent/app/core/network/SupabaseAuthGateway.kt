@@ -2,8 +2,10 @@ package com.reevent.app.core.network
 
 import android.content.Intent
 import com.reevent.app.BuildConfig
+import com.reevent.app.core.config.AppEnvironment
 import com.reevent.app.core.model.User
 import com.reevent.app.core.model.UserRole
+import com.reevent.app.core.sync.SyncGateway
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.ExternalAuthAction
 import io.github.jan.supabase.auth.FlowType
@@ -20,6 +22,7 @@ import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.storage.Storage
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.time.Instant
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -31,17 +34,17 @@ import kotlinx.serialization.json.put
 @Serializable
 private data class ProfilePayload(
     val id: String,
-    val email: String,
     val display_name: String,
     val role: String? = null,
-    val avatar_url: String? = null,
+    val avatar_path: String? = null,
     val created_at: String? = null,
     val updated_at: String? = null
 )
 
 /** Browser-based OAuth keeps Google sign-in available on HMS devices without Google Play Services. */
 @Singleton
-class SupabaseAuthGateway @Inject constructor() {
+class SupabaseAuthGateway @Inject constructor() : SyncGateway {
+    override val environment: AppEnvironment = AppEnvironment.current
     private val configured = BuildConfig.SUPABASE_URL.startsWith("https://") && BuildConfig.SUPABASE_ANON_KEY.isNotBlank()
 
     private val client by lazy {
@@ -60,7 +63,7 @@ class SupabaseAuthGateway @Inject constructor() {
         }
     }
 
-    fun isConfigured(): Boolean = configured
+    override fun isConfigured(): Boolean = configured
 
     suspend fun signUp(email: String, password: String, displayName: String): User? = withClient {
         // signUpWith does not replace an existing session when email confirmation is enabled.
@@ -114,6 +117,10 @@ class SupabaseAuthGateway @Inject constructor() {
         if (client.auth.currentUserOrNull() == null) null else currentUser()
     }
 
+    override suspend fun authenticatedAccountIdOrNull(): String? = withClientOrNull {
+        client.auth.currentUserOrNull()?.id
+    }
+
     suspend fun saveRole(user: User, role: UserRole): User = withClient {
         val profile = client.postgrest
             .rpc("complete_profile_role", buildJsonObject { put("p_role", role.name) })
@@ -154,13 +161,25 @@ class SupabaseAuthGateway @Inject constructor() {
         }
     }
 
-    suspend fun upsert(table: String, payload: JsonObject) = withClient {
-        client.from(table).upsert(payload)
+    override suspend fun upsert(table: String, payload: JsonObject) {
+        require(table !in SERVER_COMMAND_ONLY_TABLES) { "$table is server-authoritative and cannot use generic sync" }
+        withClient {
+            client.from(table).upsert(payload)
+        }
     }
 
-    suspend fun archive(table: String, recordId: String) = withClient {
-        client.from(table).update(buildJsonObject { put("archived", true) }) {
-            filter { eq("id", recordId) }
+    override suspend fun archive(table: String, recordId: String) {
+        require(table !in SERVER_COMMAND_ONLY_TABLES) { "$table is server-authoritative and cannot use generic sync" }
+        require(table == "events" || table == "resource_items") { "$table does not support archival sync" }
+        withClient {
+            client.from(table).update(
+                buildJsonObject {
+                    put("status", "ARCHIVED")
+                    put("archived_at", Instant.now().toString())
+                }
+            ) {
+                filter { eq("id", recordId) }
+            }
         }
     }
 
@@ -187,17 +206,16 @@ class SupabaseAuthGateway @Inject constructor() {
             email = email.orEmpty(),
             displayName = profile.display_name.ifBlank { email?.substringBefore('@').orEmpty() },
             role = profile.role?.let(::parseRole),
-            avatarUrl = profile.avatar_url,
+            avatarUrl = profile.avatar_path,
             createdAt = now,
             updatedAt = now
         )
     }
 
     private fun User.withProfile(profile: ProfilePayload): User = copy(
-        email = profile.email.ifBlank { email },
         displayName = profile.display_name.ifBlank { displayName },
         role = profile.role?.let(::parseRole),
-        avatarUrl = profile.avatar_url,
+        avatarUrl = profile.avatar_path,
         updatedAt = System.currentTimeMillis()
     )
 
@@ -221,5 +239,17 @@ class SupabaseAuthGateway @Inject constructor() {
         const val AUTH_CALLBACK_HOST = "auth"
         const val AUTH_CALLBACK_PATH = "/callback"
         const val AUTH_CALLBACK_URL = "$AUTH_CALLBACK_SCHEME://$AUTH_CALLBACK_HOST$AUTH_CALLBACK_PATH"
+        val SERVER_COMMAND_ONLY_TABLES = setOf(
+            "resource_passports",
+            "passport_events",
+            "circular_transactions",
+            "transaction_allocations",
+            "transaction_confirmations",
+            "recoin_wallets",
+            "recoin_holds",
+            "recoin_ledger_entries",
+            "impact_records",
+            "idempotency_records"
+        )
     }
 }

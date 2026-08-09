@@ -11,7 +11,10 @@ class AccountScope @Inject constructor() {
     private val mutableAccountId = MutableStateFlow<String?>(null)
     val accountId: StateFlow<String?> = mutableAccountId
 
-    fun activate(id: String) { mutableAccountId.value = id }
+    fun activate(id: String) {
+        require(id.isNotBlank()) { "An authenticated account ID cannot be blank" }
+        mutableAccountId.value = id
+    }
     fun clear() { mutableAccountId.value = null }
     fun requireId(): String = checkNotNull(mutableAccountId.value) { "An authenticated account is required" }
 }

@@ -504,7 +504,7 @@ private fun MarketplaceRequestDialog(
     var type by rememberSaveable(resource.id) { mutableStateOf(resource.suggestedMarketplaceTypes().first()) }
     var quantity by rememberSaveable(resource.id) { mutableStateOf("1") }
     val quantityValue = quantity.toIntOrNull()
-    val valid = quantityValue != null && quantityValue in 1..resource.quantity
+    val valid = quantityValue != null && quantityValue > 0 && quantityValue.toDouble() <= resource.quantity
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Request ${resource.title}") },
@@ -548,28 +548,37 @@ private fun TransactionCard(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(resource?.title ?: "Resource ${transaction.resourceId.take(8)}", style = MaterialTheme.typography.titleMedium)
-                    Text("${transaction.type.displayLabel()} • ${transaction.quantity} item${if (transaction.quantity == 1) "" else "s"}", color = ReEventMuted)
+                    Text("${transaction.type.displayLabel()} • ${transaction.quantity} item${if (transaction.quantity == 1.0) "" else "s"}", color = ReEventMuted)
                 }
                 StatusChip(transaction.status.displayLabel(), transaction.status.toUiColor())
             }
             Text(
-                text = if (isSender) "You requested this item." else "This request needs action from your workspace.",
+                text = if (transaction.requesterId == user.id) "You requested this transaction." else "This transaction may need action from your workspace.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = ReEventMuted
             )
             if (resource != null) {
                 SecondaryActionButton("Open passport", onPassport, Modifier.fillMaxWidth())
             }
-            if (isReceiver && TransactionWorkflow.canApprove(transaction)) {
+            if (TransactionWorkflow.canApprove(user.id, transaction)) {
                 PrimaryActionButton("Approve request", onApprove, Modifier.fillMaxWidth())
             }
-            if (isReceiver && TransactionWorkflow.canMoveInTransit(transaction)) {
-                SecondaryActionButton("Mark in transit", onInTransit, Modifier.fillMaxWidth())
+            if (TransactionWorkflow.canBeginHandover(user.id, transaction)) {
+                SecondaryActionButton("Begin handover", onInTransit, Modifier.fillMaxWidth())
             }
-            if (isReceiver && TransactionWorkflow.canComplete(transaction)) {
-                PrimaryActionButton("Complete transaction", onComplete, Modifier.fillMaxWidth())
+            if (
+                TransactionWorkflow.canConfirmReceipt(user.id, transaction) ||
+                TransactionWorkflow.canBeginReturn(user.id, transaction) ||
+                TransactionWorkflow.canConfirmReturn(user.id, transaction)
+            ) {
+                val actionLabel = when {
+                    TransactionWorkflow.canConfirmReceipt(user.id, transaction) -> "Confirm receipt"
+                    TransactionWorkflow.canBeginReturn(user.id, transaction) -> "Begin return"
+                    else -> "Confirm returned"
+                }
+                PrimaryActionButton(actionLabel, onComplete, Modifier.fillMaxWidth())
             }
-            if ((isSender || isReceiver) && TransactionWorkflow.canCancel(transaction)) {
+            if ((isSender || isReceiver) && TransactionWorkflow.canCancel(user.id, transaction)) {
                 SecondaryActionButton("Cancel request", onCancel, Modifier.fillMaxWidth())
             }
         }
@@ -608,7 +617,7 @@ private fun ProgrammeEditorDialog(
     onSave: (String, ProgrammeType, List<String>, String, Boolean) -> Unit
 ) {
     var name by rememberSaveable(programme?.id) { mutableStateOf(programme?.name.orEmpty()) }
-    var type by rememberSaveable(programme?.id) { mutableStateOf(programme?.type ?: ProgrammeType.REUSE) }
+    var type by rememberSaveable(programme?.id) { mutableStateOf(programme?.type ?: ProgrammeType.REPAIR) }
     var materials by rememberSaveable(programme?.id) { mutableStateOf(programme?.acceptedMaterials?.joinToString(", ").orEmpty()) }
     var location by rememberSaveable(programme?.id) { mutableStateOf(programme?.location.orEmpty()) }
     var active by rememberSaveable(programme?.id) { mutableStateOf(programme?.active ?: true) }
@@ -696,27 +705,27 @@ private fun com.reevent.app.core.model.ResourceItem.toVisualResource(
 
 private fun List<com.reevent.app.core.model.ResourceItem>.toDashboardMetrics(records: List<ImpactRecord>): List<ImpactMetric> {
     if (isEmpty() && records.isEmpty()) return emptyList()
-    val recovered = count { it.status == ResourceStatus.RECOVERED || it.status == ResourceStatus.HANDED_OVER }
+    val recovered = count { it.status == ResourceStatus.RECOVERED || it.status == ResourceStatus.RECOVERY_IN_PROGRESS }
     val recoveryRate = if (isEmpty()) 0 else recovered * 100 / size
     return listOf(
         ImpactMetric("$recoveryRate%", "Recovery rate", "$recovered of $size tracked lots"),
-        ImpactMetric("${records.sumOf { it.materialDivertedKg }.formatQuantity()} kg", "Materials diverted", "Verified impact records"),
-        ImpactMetric(records.sumOf { it.valueRecoveredCents }.toMoney(), "Value recovered", "Resale, repair and buy-back")
+        ImpactMetric("${records.mapNotNull { it.materialDivertedKg }.sum().formatQuantity()} kg", "Materials diverted", "Verified impact records"),
+        ImpactMetric("${records.sumOf { it.recoinsTransferred + it.recoinsRewarded }}", "ReCoins moved", "Transferred plus earned recognition")
     )
 }
 
 private fun List<ImpactRecord>.toImpactMetrics(): List<ImpactMetric> {
     if (isEmpty()) return emptyList()
     return listOf(
-        ImpactMetric(sumOf { it.materialDivertedKg }.formatQuantity() + " kg", "Materials diverted", "Verified recovery records"),
-        ImpactMetric(sumOf { it.emissionsAvoidedKg }.formatQuantity() + " kg", "Emissions avoided", "Estimated CO₂e avoided"),
-        ImpactMetric(sumOf { it.valueRecoveredCents }.toMoney(), "Value recovered", "Resale, repair and buy-back")
+        ImpactMetric(mapNotNull { it.materialDivertedKg }.sum().formatQuantity() + " kg", "Materials diverted", "Verified recovery records"),
+        ImpactMetric(mapNotNull { it.emissionsAvoidedKg }.sum().formatQuantity() + " kg", "Emissions avoided", "Estimated CO₂e avoided"),
+        ImpactMetric(sumOf { it.recoinsTransferred + it.recoinsRewarded }.toString(), "ReCoins moved", "Transferred plus earned recognition")
     )
 }
 
 private fun ImpactDashboardState.toImpactMetrics(): List<ImpactMetric> {
     val completedOutcomes = reusedCount + repairedCount + donatedCount + recycledCount
-    if (completedOutcomes == 0 && materialDivertedKg == null && emissionsAvoidedKg == null && valueRecoveredCents == null) {
+    if (completedOutcomes == 0 && materialDivertedKg == null && emissionsAvoidedKg == null && recoinsTransferred == null && recoinsRewarded == null) {
         return emptyList()
     }
     return buildList {
@@ -727,16 +736,19 @@ private fun ImpactDashboardState.toImpactMetrics(): List<ImpactMetric> {
         emissionsAvoidedKg?.let {
             add(ImpactMetric(it.formatQuantity() + " kg", "CO₂e avoided", "MVP demonstration estimate"))
         }
-        valueRecoveredCents?.let {
-            add(ImpactMetric(it.toMoney(), "Value recovered", "Proportion of the entered item value"))
+        recoinsTransferred?.let {
+            add(ImpactMetric(it.toString(), "ReCoins transferred", "Completed server settlements"))
+        }
+        recoinsRewarded?.let {
+            add(ImpactMetric(it.toString(), "ReCoins rewarded", "Versioned circular recognition"))
         }
     }
 }
 
 private fun List<com.reevent.app.core.model.ResourceItem>.toRecoverySteps(records: List<ImpactRecord>): List<RecoveryStep> {
     if (isEmpty() && records.isEmpty()) return emptyList()
-    val available = count { it.status == ResourceStatus.AVAILABLE }
-    val completed = count { it.status == ResourceStatus.RECOVERED || it.status == ResourceStatus.HANDED_OVER }
+    val available = count { it.status == ResourceStatus.ACTIVE }
+    val completed = count { it.status == ResourceStatus.RECOVERED || it.status == ResourceStatus.RECOVERY_IN_PROGRESS }
     return listOf(
         RecoveryStep("Inventory tagged", "$size tracked resource lots", "$size", ResourceTone.Ready),
         RecoveryStep("Available for matching", "$available resource lots are available", "$available", ResourceTone.Hot),
@@ -756,9 +768,9 @@ private val passportHistoryJson = Json { ignoreUnknownKeys = true }
 private fun String.toPassportHistorySteps(condition: ResourceCondition): List<RecoveryStep> = runCatching {
     passportHistoryJson.decodeFromString(ListSerializer(PassportHistoryEntry.serializer()), this)
 }.getOrDefault(emptyList()).sortedBy(PassportHistoryEntry::occurredAt).map { entry ->
-    val transition = entry.previousStatus?.let { previous ->
-        "Changed from ${previous.visualLabel()} to ${entry.newStatus.visualLabel()}"
-    } ?: "Recorded as ${entry.newStatus.visualLabel()}"
+    val transition = entry.previousCondition?.let { previous ->
+        entry.newCondition?.let { next -> "Condition changed from ${previous.name} to ${next.name}" }
+    } ?: entry.quantity?.let { value -> "$value ${entry.unit.orEmpty()} recorded" }
     RecoveryStep(
         title = entry.action,
         detail = listOfNotNull(entry.note, transition, "Actor ${entry.actorId.take(8)}").joinToString(" â€¢ "),
@@ -769,11 +781,11 @@ private fun String.toPassportHistorySteps(condition: ResourceCondition): List<Re
 
 private fun com.reevent.app.core.model.ResourceItem.recommendedAction() = when {
     status == ResourceStatus.ARCHIVED -> "No action needed â€” this resource is archived"
-    status == ResourceStatus.RECOVERED || status == ResourceStatus.HANDED_OVER -> "Recovery route completed"
-    condition == ResourceCondition.RECYCLE_ONLY -> "Send to a verified recycling partner"
+    status == ResourceStatus.RECOVERED || status == ResourceStatus.RECOVERY_IN_PROGRESS -> "Recovery route completed"
+    condition == ResourceCondition.END_OF_LIFE -> "Send to a verified recycling partner"
     condition == ResourceCondition.NEEDS_REPAIR -> "Request a repair-partner assessment"
-    status == ResourceStatus.RESERVED -> "Prepare the reserved handover"
-    status == ResourceStatus.AVAILABLE -> "Match with a reuse partner"
+    status == ResourceStatus.RECOVERY_IN_PROGRESS -> "Prepare the reserved handover"
+    status == ResourceStatus.ACTIVE -> "Match with a reuse partner"
     else -> "Review the resource status"
 }
 
@@ -788,8 +800,8 @@ private fun CircularProgramme.toPartnerMatch() = PartnerMatch(
 )
 
 private fun ResourceStatus.toVisualTone(condition: ResourceCondition) = when {
-    this == ResourceStatus.AVAILABLE -> ResourceTone.Ready
-    this == ResourceStatus.RECOVERED || this == ResourceStatus.HANDED_OVER -> ResourceTone.Recycle
+    this == ResourceStatus.ACTIVE -> ResourceTone.Ready
+    this == ResourceStatus.RECOVERED || this == ResourceStatus.RECOVERY_IN_PROGRESS -> ResourceTone.Recycle
     condition == ResourceCondition.NEEDS_REPAIR -> ResourceTone.Repair
     else -> ResourceTone.Hot
 }
@@ -797,15 +809,13 @@ private fun ResourceStatus.toVisualTone(condition: ResourceCondition) = when {
 private fun ProgrammeType.toVisualTone() = when (this) {
     ProgrammeType.REPAIR -> ResourceTone.Repair
     ProgrammeType.RECYCLE -> ResourceTone.Recycle
-    ProgrammeType.REUSE, ProgrammeType.COLLECTION -> ResourceTone.Ready
     ProgrammeType.BUY_BACK -> ResourceTone.Hot
 }
 
 private fun com.reevent.app.core.model.ResourceItem.suggestedMarketplaceTypes(): List<TransactionType> = when {
-    condition == ResourceCondition.NEEDS_REPAIR -> listOf(TransactionType.REPAIR)
-    condition == ResourceCondition.RECYCLE_ONLY -> listOf(TransactionType.RECYCLE, TransactionType.BUY_BACK)
-    valueCents > 0 -> listOf(TransactionType.RESALE, TransactionType.DONATION)
-    else -> listOf(TransactionType.DONATION, TransactionType.RETURN)
+    condition == ResourceCondition.END_OF_LIFE -> listOf(TransactionType.DONATE)
+    valueCents > 0 -> listOf(TransactionType.BUY, TransactionType.RENT)
+    else -> listOf(TransactionType.DONATE, TransactionType.BORROW)
 }
 
 private fun ResourceStatus.visualLabel() = name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)
@@ -813,10 +823,13 @@ private fun TransactionStatus.displayLabel() = name.lowercase().replace('_', ' '
 private fun TransactionType.displayLabel() = name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)
 private fun ProgrammeType.displayLabel() = name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)
 private fun TransactionStatus.toUiColor() = when (this) {
-    TransactionStatus.PENDING -> ReEventCoral
-    TransactionStatus.ACCEPTED -> ReEventGreen
+    TransactionStatus.REQUESTED -> ReEventCoral
+    TransactionStatus.APPROVED -> ReEventGreen
     TransactionStatus.IN_TRANSIT -> ReEventBlue
+    TransactionStatus.ACTIVE -> ReEventGreen
+    TransactionStatus.RETURN_IN_PROGRESS -> ReEventCoral
     TransactionStatus.COMPLETED -> ReEventGreenDeep
+    TransactionStatus.REJECTED -> ReEventCoral
     TransactionStatus.CANCELLED -> ReEventMuted
 }
 private fun Double.formatQuantity() = if (this % 1.0 == 0.0) toInt().toString() else "%.1f".format(Locale.US, this)

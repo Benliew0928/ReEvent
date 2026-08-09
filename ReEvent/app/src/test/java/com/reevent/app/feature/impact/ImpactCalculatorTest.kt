@@ -18,7 +18,7 @@ class ImpactCalculatorTest {
             resources = listOf(resource("available"), resource("recovered", ResourceStatus.RECOVERED)),
             transactions = listOf(
                 transaction("repair", TransactionType.REPAIR, TransactionStatus.COMPLETED),
-                transaction("donation", TransactionType.DONATION, TransactionStatus.PENDING),
+                transaction("donation", TransactionType.DONATE, TransactionStatus.REQUESTED),
                 transaction("recycle", TransactionType.RECYCLE, TransactionStatus.COMPLETED)
             ),
             records = listOf(record())
@@ -30,7 +30,8 @@ class ImpactCalculatorTest {
         assertEquals(0, summary.donatedCount)
         assertEquals(2.5, summary.materialDivertedKg)
         assertEquals(4.0, summary.emissionsAvoidedKg)
-        assertEquals(500L, summary.valueRecoveredCents)
+        assertEquals(500L, summary.recoinsTransferred)
+        assertEquals(25L, summary.recoinsRewarded)
     }
 
     @Test
@@ -68,16 +69,43 @@ class ImpactCalculatorTest {
         assertEquals("No documented mass and factor are available for these completed outcomes.", summary.unavailableEstimateReason)
     }
 
-    private fun resource(id: String, status: ResourceStatus = ResourceStatus.AVAILABLE) = ResourceItem(
+    @Test
+    fun server_record_without_a_factor_keeps_recoins_but_does_not_invent_an_estimate() {
+        val summary = ImpactCalculator.summarize(
+            resources = listOf(resource("recovered", ResourceStatus.RECOVERED)),
+            transactions = listOf(transaction("repair", TransactionType.REPAIR, TransactionStatus.COMPLETED)),
+            records = listOf(record().copy(materialDivertedKg = null, emissionsAvoidedKg = null))
+        )
+
+        assertNull(summary.materialDivertedKg)
+        assertNull(summary.emissionsAvoidedKg)
+        assertEquals(500L, summary.recoinsTransferred)
+        assertEquals("No documented mass and factor are available for these completed outcomes.", summary.unavailableEstimateReason)
+    }
+
+    private fun resource(id: String, status: ResourceStatus = ResourceStatus.ACTIVE) = ResourceItem(
         id, "event", "owner", id, "Signage", "Acrylic", ResourceCondition.GOOD,
-        1, "item", status, 0, emptyList(), NOW, NOW
+        1.0, "ITEM", status, 0, emptyList(), NOW, NOW
     )
 
     private fun transaction(id: String, type: TransactionType, status: TransactionStatus) = CircularTransaction(
-        id, "event", "resource", "owner", "partner", "partner", type, status, 1, NOW, NOW
+        id, "event", "resource", "owner", "partner", "partner", type, status, 1.0, NOW, NOW
     )
 
-    private fun record() = ImpactRecord("impact", "event", "resource", "repair", 2.5, 4.0, 500, NOW, NOW)
+    private fun record() = ImpactRecord(
+        id = "impact",
+        eventId = "event",
+        resourceId = "resource",
+        transactionId = "repair",
+        transactionType = TransactionType.REPAIR,
+        completedQuantity = 1.0,
+        unit = "KG",
+        materialDivertedKg = 2.5,
+        emissionsAvoidedKg = 4.0,
+        recoinsTransferred = 500,
+        recoinsRewarded = 25,
+        calculatedAt = NOW
+    )
 
     private companion object { const val NOW = 1L }
 }

@@ -9,11 +9,21 @@ enum class UserRole {
     PARTNER
 }
 
-enum class ResourceCondition { NEW, GOOD, FAIR, NEEDS_REPAIR, RECYCLE_ONLY }
-enum class ResourceStatus { DRAFT, AVAILABLE, RESERVED, HANDED_OVER, RECOVERED, ARCHIVED }
-enum class TransactionType { RESALE, DONATION, REPAIR, RECYCLE, RETURN, BUY_BACK }
-enum class TransactionStatus { PENDING, ACCEPTED, IN_TRANSIT, COMPLETED, CANCELLED }
-enum class ProgrammeType { COLLECTION, REPAIR, REUSE, RECYCLE, BUY_BACK }
+enum class ResourceCondition { NEW, GOOD, FAIR, NEEDS_REPAIR, END_OF_LIFE }
+enum class ResourceStatus { DRAFT, ACTIVE, RECOVERY_IN_PROGRESS, RECOVERED, ARCHIVED }
+enum class TransactionType { BORROW, RENT, BUY, DONATE, EXCHANGE, REPAIR, RECYCLE, BUY_BACK }
+enum class TransactionStatus {
+    REQUESTED,
+    APPROVED,
+    IN_TRANSIT,
+    ACTIVE,
+    RETURN_IN_PROGRESS,
+    COMPLETED,
+    REJECTED,
+    CANCELLED
+}
+enum class ProgrammeType { REPAIR, RECYCLE, BUY_BACK }
+enum class AllocationSide { PRIMARY, COUNTER }
 enum class SyncState { SYNCED, PENDING, FAILED }
 
 data class User(
@@ -49,7 +59,7 @@ data class ResourceItem(
     val category: String,
     val material: String,
     val condition: ResourceCondition,
-    val quantity: Int,
+    val quantity: Double,
     val unit: String,
     val status: ResourceStatus,
     val valueCents: Long,
@@ -74,11 +84,22 @@ data class ResourcePassport(
 data class PassportHistoryEntry(
     val occurredAt: Long,
     val action: String,
-    val actorId: String,
-    val previousStatus: ResourceStatus? = null,
-    val newStatus: ResourceStatus,
-    val note: String? = null
-)
+    val actorId: String = "server",
+    val quantity: Double? = null,
+    val unit: String? = null,
+    val previousCondition: ResourceCondition? = null,
+    val newCondition: ResourceCondition? = null,
+    val publicSummary: String
+) {
+    val previousStatus: ResourceStatus? get() = null
+    val newStatus: ResourceStatus get() = when (action) {
+        "RECYCLED", "REPAIRED", "RETURNED", "OWNERSHIP_TRANSFERRED" -> ResourceStatus.RECOVERED
+        "ARCHIVED" -> ResourceStatus.ARCHIVED
+        "RESERVED", "CHECKED_OUT", "RETURN_STARTED", "REPAIR_STARTED" -> ResourceStatus.RECOVERY_IN_PROGRESS
+        else -> ResourceStatus.ACTIVE
+    }
+    val note: String get() = publicSummary
+}
 
 data class CircularProgramme(
     val id: String,
@@ -102,22 +123,27 @@ data class CircularTransaction(
     val partnerId: String?,
     val type: TransactionType,
     val status: TransactionStatus,
-    val quantity: Int,
+    val quantity: Double,
     val createdAt: Long,
     val updatedAt: Long,
     val syncState: SyncState = SyncState.PENDING,
-    val archived: Boolean = false
+    val archived: Boolean = false,
+    val requesterId: String = senderId,
+    val counterResourceId: String? = null
 )
 
 data class ImpactRecord(
     val id: String,
     val eventId: String,
-    val resourceId: String?,
-    val transactionId: String?,
-    val materialDivertedKg: Double,
-    val emissionsAvoidedKg: Double,
-    val valueRecoveredCents: Long,
+    val resourceId: String,
+    val transactionId: String,
+    val transactionType: TransactionType,
+    val completedQuantity: Double,
+    val unit: String,
+    val materialDivertedKg: Double?,
+    val emissionsAvoidedKg: Double?,
+    val recoinsTransferred: Long,
+    val recoinsRewarded: Long,
     val calculatedAt: Long,
-    val updatedAt: Long,
     val syncState: SyncState = SyncState.PENDING
 )

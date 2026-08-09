@@ -8,81 +8,55 @@ import com.reevent.app.core.model.ResourceStatus
 import com.reevent.app.core.model.TransactionStatus
 import com.reevent.app.core.model.TransactionType
 
+/**
+ * Display-only command availability. PostgreSQL repeats every actor, state, quantity, and
+ * eligibility check; these helpers are never an authority boundary.
+ */
 object TransactionWorkflow {
-    fun validateMarketplaceRequest(
-        requesterId: String,
-        resource: ResourceItem,
-        quantity: Int
-    ): FailureReason? = when {
+    fun validateMarketplaceRequest(requesterId: String, resource: ResourceItem, quantity: Int): FailureReason? = when {
         requesterId == resource.ownerId -> FailureReason.CONFLICT
-        resource.status != ResourceStatus.AVAILABLE -> FailureReason.CONFLICT
-        quantity !in 1..resource.quantity -> FailureReason.VALIDATION
+        resource.status != ResourceStatus.ACTIVE -> FailureReason.CONFLICT
+        quantity <= 0 || quantity.toDouble() > resource.quantity -> FailureReason.VALIDATION
         else -> null
     }
 
-    fun validateOwnerAction(
-        ownerId: String,
-        resource: ResourceItem,
-        transaction: CircularTransaction
-    ): FailureReason? = when {
-        resource.ownerId != ownerId -> FailureReason.CONFLICT
-        transaction.receiverId != ownerId && transaction.partnerId != ownerId -> FailureReason.CONFLICT
-        transaction.senderId == ownerId -> FailureReason.CONFLICT
-        transaction.resourceId != resource.id -> FailureReason.CONFLICT
-        else -> null
-    }
-
-    fun validatePartnerHandover(
-        requesterId: String,
-        resource: ResourceItem,
-        programme: CircularProgramme
-    ): FailureReason? = when {
+    fun validatePartnerHandover(requesterId: String, resource: ResourceItem, programme: CircularProgramme): FailureReason? = when {
         resource.ownerId != requesterId -> FailureReason.CONFLICT
-        resource.status != ResourceStatus.AVAILABLE -> FailureReason.CONFLICT
-        resource.quantity < 1 -> FailureReason.VALIDATION
+        resource.status != ResourceStatus.ACTIVE -> FailureReason.CONFLICT
+        resource.quantity <= 0.0 -> FailureReason.VALIDATION
         !programme.active -> FailureReason.CONFLICT
         !programme.acceptsMaterial(resource.material) -> FailureReason.CONFLICT
         else -> null
     }
 
-    fun canApprove(transaction: CircularTransaction): Boolean =
-        transaction.status == TransactionStatus.PENDING
+    fun canApprove(userId: String, transaction: CircularTransaction): Boolean =
+        transaction.status == TransactionStatus.REQUESTED && decisionActor(transaction) == userId
 
-    fun canCancel(transaction: CircularTransaction): Boolean =
-        transaction.status == TransactionStatus.PENDING || transaction.status == TransactionStatus.ACCEPTED
+    fun canCancel(userId: String, transaction: CircularTransaction): Boolean =
+        transaction.status in setOf(TransactionStatus.REQUESTED, TransactionStatus.APPROVED) &&
+            userId in setOfNotNull(transaction.requesterId, decisionActor(transaction))
 
-    fun canMoveInTransit(transaction: CircularTransaction): Boolean =
-        transaction.status == TransactionStatus.ACCEPTED
+    fun canBeginHandover(userId: String, transaction: CircularTransaction): Boolean =
+        transaction.status == TransactionStatus.APPROVED && transaction.senderId == userId
 
-    fun canComplete(transaction: CircularTransaction): Boolean =
-        transaction.status == TransactionStatus.ACCEPTED || transaction.status == TransactionStatus.IN_TRANSIT
+    fun canConfirmReceipt(userId: String, transaction: CircularTransaction): Boolean =
+        transaction.status == TransactionStatus.IN_TRANSIT && transaction.receiverId == userId
 
-    fun statusAfterApproval(): TransactionStatus = TransactionStatus.ACCEPTED
-    fun statusAfterCancellation(): TransactionStatus = TransactionStatus.CANCELLED
-    fun statusAfterInTransit(): TransactionStatus = TransactionStatus.IN_TRANSIT
-    fun statusAfterCompletion(): TransactionStatus = TransactionStatus.COMPLETED
+    fun canBeginReturn(userId: String, transaction: CircularTransaction): Boolean =
+        transaction.status == TransactionStatus.ACTIVE &&
+            transaction.type in setOf(TransactionType.BORROW, TransactionType.RENT, TransactionType.REPAIR) &&
+            transaction.receiverId == userId
 
-    fun resourceStatusAfterApproval(): ResourceStatus = ResourceStatus.RESERVED
-
-    fun resourceStatusAfterCancellation(current: ResourceStatus): ResourceStatus =
-        if (current == ResourceStatus.RESERVED) ResourceStatus.AVAILABLE else current
-
-    fun resourceStatusAfterCompletion(type: TransactionType): ResourceStatus = when (type) {
-        TransactionType.RETURN -> ResourceStatus.RECOVERED
-        TransactionType.RESALE,
-        TransactionType.DONATION,
-        TransactionType.REPAIR,
-        TransactionType.RECYCLE,
-        TransactionType.BUY_BACK -> ResourceStatus.HANDED_OVER
-    }
+    fun canConfirmReturn(userId: String, transaction: CircularTransaction): Boolean =
+        transaction.status == TransactionStatus.RETURN_IN_PROGRESS && transaction.senderId == userId
 
     fun transactionTypeForProgramme(programme: CircularProgramme): TransactionType = when (programme.type) {
         ProgrammeType.REPAIR -> TransactionType.REPAIR
         ProgrammeType.RECYCLE -> TransactionType.RECYCLE
         ProgrammeType.BUY_BACK -> TransactionType.BUY_BACK
-        ProgrammeType.REUSE,
-        ProgrammeType.COLLECTION -> TransactionType.DONATION
     }
+
+    private fun decisionActor(transaction: CircularTransaction): String = transaction.partnerId ?: transaction.senderId
 
     private fun CircularProgramme.acceptsMaterial(material: String): Boolean =
         acceptedMaterials.isEmpty() || acceptedMaterials.any { it.equals(material, ignoreCase = true) }

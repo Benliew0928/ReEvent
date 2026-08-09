@@ -42,8 +42,8 @@ class CoreDaoAccountIsolationTest {
         dao.upsertPassport(passport(ACCOUNT_B, "payload-b"))
         dao.upsertProgramme(programme(ACCOUNT_A, "Programme A"))
         dao.upsertProgramme(programme(ACCOUNT_B, "Programme B"))
-        dao.upsertTransaction(transaction(ACCOUNT_A, quantity = 1))
-        dao.upsertTransaction(transaction(ACCOUNT_B, quantity = 2))
+        dao.upsertTransaction(transaction(ACCOUNT_A, quantity = 1.0))
+        dao.upsertTransaction(transaction(ACCOUNT_B, quantity = 2.0))
         dao.upsertImpact(impact(ACCOUNT_A, divertedKg = 1.0))
         dao.upsertImpact(impact(ACCOUNT_B, divertedKg = 2.0))
 
@@ -57,53 +57,54 @@ class CoreDaoAccountIsolationTest {
         assertEquals("payload-b", dao.passport(ACCOUNT_B, SHARED_ID)?.qrPayload)
         assertEquals("Programme A", dao.programme(ACCOUNT_A, SHARED_ID)?.name)
         assertEquals("Programme B", dao.programme(ACCOUNT_B, SHARED_ID)?.name)
-        assertEquals(1, dao.transaction(ACCOUNT_A, SHARED_ID)?.quantity)
-        assertEquals(2, dao.transaction(ACCOUNT_B, SHARED_ID)?.quantity)
+        assertEquals(1.0, dao.transaction(ACCOUNT_A, SHARED_ID)?.quantity)
+        assertEquals(2.0, dao.transaction(ACCOUNT_B, SHARED_ID)?.quantity)
         assertEquals(1.0, dao.impact(ACCOUNT_A, SHARED_ID)?.materialDivertedKg ?: -1.0, 0.0)
         assertEquals(2.0, dao.impact(ACCOUNT_B, SHARED_ID)?.materialDivertedKg ?: -1.0, 0.0)
         assertNull(dao.event("unknown-account", SHARED_ID))
     }
 
     @Test
-    fun archiveMutations_changeOnlyTheRequestedAccountProjection() = runBlocking {
+    fun archiveMutations_changeOnlyMutableEventAndResourceProjections() = runBlocking {
         listOf(ACCOUNT_A, ACCOUNT_B).forEach { accountId ->
             dao.upsertEvent(event(accountId, "Event $accountId"))
             dao.upsertResource(resource(accountId, "Resource $accountId"))
-            dao.upsertTransaction(transaction(accountId, quantity = 1))
         }
 
         dao.archiveEvent(ACCOUNT_A, SHARED_ID, updatedAt = 20L)
         dao.archiveResource(ACCOUNT_A, SHARED_ID, updatedAt = 20L)
-        dao.archiveTransaction(ACCOUNT_A, SHARED_ID, updatedAt = 20L)
 
         assertTrue(dao.event(ACCOUNT_A, SHARED_ID)!!.archived)
         assertTrue(dao.resource(ACCOUNT_A, SHARED_ID)!!.archived)
-        assertTrue(dao.transaction(ACCOUNT_A, SHARED_ID)!!.archived)
         assertFalse(dao.event(ACCOUNT_B, SHARED_ID)!!.archived)
         assertFalse(dao.resource(ACCOUNT_B, SHARED_ID)!!.archived)
-        assertFalse(dao.transaction(ACCOUNT_B, SHARED_ID)!!.archived)
     }
 
     @Test
-    fun equivalentOutboxOperations_areUniqueAndMutablePerAccount() = runBlocking {
-        dao.upsertOutbox(outbox(ACCOUNT_A))
-        dao.upsertOutbox(outbox(ACCOUNT_B))
-        var operations = dao.pendingOperations(limit = 10)
-        assertEquals(2, operations.size)
+    fun equivalentOutboxOperations_areUniqueAndMutablePerEnvironmentAndAccount() = runBlocking {
+        dao.upsertOutbox(outbox(LOCAL, ACCOUNT_A))
+        dao.upsertOutbox(outbox(LOCAL, ACCOUNT_B))
+        dao.upsertOutbox(outbox(STAGING, ACCOUNT_A))
+        var operations = dao.pendingOperations(LOCAL, ACCOUNT_A, limit = 10)
+        assertEquals(1, operations.size)
 
-        val accountAOperation = operations.single { it.accountId == ACCOUNT_A }
-        val accountBOperation = operations.single { it.accountId == ACCOUNT_B }
-        dao.markOutboxFailed(ACCOUNT_A, accountAOperation.id, "failed-a", updatedAt = 30L)
-        dao.markOutboxFailed(ACCOUNT_A, accountBOperation.id, "must-not-change-b", updatedAt = 30L)
+        val accountAOperation = operations.single()
+        val accountBOperation = dao.pendingOperations(LOCAL, ACCOUNT_B, limit = 10).single()
+        val stagingOperation = dao.pendingOperations(STAGING, ACCOUNT_A, limit = 10).single()
+        dao.markOutboxFailed(LOCAL, ACCOUNT_A, accountAOperation.id, "failed-a", updatedAt = 30L)
+        dao.markOutboxFailed(LOCAL, ACCOUNT_A, accountBOperation.id, "must-not-change-b", updatedAt = 30L)
+        dao.markOutboxFailed(LOCAL, ACCOUNT_A, stagingOperation.id, "must-not-change-staging", updatedAt = 30L)
 
-        operations = dao.pendingOperations(limit = 10)
-        assertEquals(1, operations.single { it.accountId == ACCOUNT_A }.attempts)
-        assertEquals(0, operations.single { it.accountId == ACCOUNT_B }.attempts)
+        operations = dao.pendingOperations(LOCAL, ACCOUNT_A, limit = 10)
+        assertEquals(1, operations.single().attempts)
+        assertEquals(0, dao.pendingOperations(LOCAL, ACCOUNT_B, limit = 10).single().attempts)
+        assertEquals(0, dao.pendingOperations(STAGING, ACCOUNT_A, limit = 10).single().attempts)
 
-        dao.deleteOutbox(ACCOUNT_A, accountBOperation.id)
-        assertEquals(2, dao.pendingOperations(limit = 10).size)
-        dao.deleteOutbox(ACCOUNT_A, accountAOperation.id)
-        assertEquals(listOf(ACCOUNT_B), dao.pendingOperations(limit = 10).map { it.accountId })
+        dao.deleteOutbox(LOCAL, ACCOUNT_A, accountBOperation.id)
+        assertEquals(1, dao.pendingOperations(LOCAL, ACCOUNT_B, limit = 10).size)
+        dao.deleteOutbox(LOCAL, ACCOUNT_A, accountAOperation.id)
+        assertTrue(dao.pendingOperations(LOCAL, ACCOUNT_A, limit = 10).isEmpty())
+        assertEquals(1, dao.pendingOperations(STAGING, ACCOUNT_A, limit = 10).size)
     }
 
     private fun event(accountId: String, name: String) = EventEntity(
@@ -131,9 +132,9 @@ class CoreDaoAccountIsolationTest {
         category = "DECOR",
         material = "PLASTIC",
         condition = "GOOD",
-        quantity = 1,
+        quantity = 1.0,
         unit = "ITEM",
-        status = "AVAILABLE",
+        status = "ACTIVE",
         valueCents = 0L,
         imageUrlsJson = "[]",
         createdAt = 1L,
@@ -167,7 +168,7 @@ class CoreDaoAccountIsolationTest {
         syncState = "SYNCED"
     )
 
-    private fun transaction(accountId: String, quantity: Int) = TransactionEntity(
+    private fun transaction(accountId: String, quantity: Double) = TransactionEntity(
         id = SHARED_ID,
         accountId = accountId,
         eventId = "event",
@@ -175,6 +176,8 @@ class CoreDaoAccountIsolationTest {
         senderId = "sender",
         receiverId = "receiver",
         partnerId = null,
+        requesterId = "sender",
+        counterResourceId = null,
         type = "RECYCLE",
         status = "COMPLETED",
         quantity = quantity,
@@ -190,15 +193,19 @@ class CoreDaoAccountIsolationTest {
         eventId = "event",
         resourceId = "resource",
         transactionId = "transaction",
+        transactionType = "RECYCLE",
+        completedQuantity = 1.0,
+        unit = "KG",
         materialDivertedKg = divertedKg,
         emissionsAvoidedKg = divertedKg,
-        valueRecoveredCents = 0L,
+        recoinsTransferred = 0L,
+        recoinsRewarded = 0L,
         calculatedAt = 1L,
-        updatedAt = 1L,
         syncState = "SYNCED"
     )
 
-    private fun outbox(accountId: String) = SyncOperationEntity(
+    private fun outbox(environment: String, accountId: String) = SyncOperationEntity(
+        environment = environment,
         accountId = accountId,
         tableName = "events",
         recordId = SHARED_ID,
@@ -210,6 +217,8 @@ class CoreDaoAccountIsolationTest {
     private companion object {
         const val ACCOUNT_A = "account-a"
         const val ACCOUNT_B = "account-b"
+        const val LOCAL = "local"
+        const val STAGING = "staging"
         const val SHARED_ID = "shared-id"
         const val SHARED_RESOURCE_ID = "shared-resource-id"
     }

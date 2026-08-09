@@ -56,7 +56,7 @@ data class ResourceEntity(
     val category: String,
     val material: String,
     val condition: String,
-    val quantity: Int,
+    val quantity: Double,
     val unit: String,
     val status: String,
     val valueCents: Long,
@@ -116,7 +116,8 @@ data class ProgrammeEntity(
         Index(value = ["accountId", "resourceId"]),
         Index(value = ["accountId", "senderId"]),
         Index(value = ["accountId", "receiverId"]),
-        Index(value = ["accountId", "partnerId"])
+        Index(value = ["accountId", "partnerId"]),
+        Index(value = ["accountId", "requesterId"])
     ]
 )
 data class TransactionEntity(
@@ -127,9 +128,11 @@ data class TransactionEntity(
     val senderId: String,
     val receiverId: String,
     val partnerId: String?,
+    val requesterId: String,
+    val counterResourceId: String?,
     val type: String,
     val status: String,
-    val quantity: Int,
+    val quantity: Double,
     val createdAt: Long,
     val updatedAt: Long,
     val syncState: String,
@@ -151,13 +154,16 @@ data class ImpactEntity(
     val id: String,
     val accountId: String,
     val eventId: String,
-    val resourceId: String?,
-    val transactionId: String?,
-    val materialDivertedKg: Double,
-    val emissionsAvoidedKg: Double,
-    val valueRecoveredCents: Long,
+    val resourceId: String,
+    val transactionId: String,
+    val transactionType: String,
+    val completedQuantity: Double,
+    val unit: String,
+    val materialDivertedKg: Double?,
+    val emissionsAvoidedKg: Double?,
+    val recoinsTransferred: Long,
+    val recoinsRewarded: Long,
     val calculatedAt: Long,
-    val updatedAt: Long,
     val syncState: String
 ) {
     init { require(accountId.isNotBlank()) { "Impact cache rows require an accountId" } }
@@ -165,10 +171,11 @@ data class ImpactEntity(
 
 @Entity(
     tableName = "sync_outbox",
-    indices = [Index(value = ["accountId", "tableName", "recordId"], unique = true)]
+    indices = [Index(value = ["environment", "accountId", "tableName", "recordId"], unique = true)]
 )
 data class SyncOperationEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val environment: String,
     val tableName: String,
     val accountId: String,
     val recordId: String,
@@ -178,5 +185,31 @@ data class SyncOperationEntity(
     val lastError: String? = null,
     val updatedAt: Long
 ) {
+    init { require(environment.isNotBlank()) { "Outbox rows require an environment" } }
     init { require(accountId.isNotBlank()) { "Outbox rows require an accountId" } }
+}
+
+/** Durable RPC intent. This queue never represents a direct table mutation. */
+@Entity(
+    tableName = "lifecycle_commands",
+    indices = [
+        Index(value = ["environment", "accountId", "dedupeKey"], unique = true),
+        Index(value = ["environment", "accountId", "createdAt"])
+    ]
+)
+data class LifecycleCommandEntity(
+    @PrimaryKey val idempotencyKey: String,
+    val environment: String,
+    val accountId: String,
+    val dedupeKey: String,
+    val commandType: String,
+    val payloadJson: String,
+    val attempts: Int = 0,
+    val lastError: String? = null,
+    val createdAt: Long,
+    val updatedAt: Long
+) {
+    init { require(environment.isNotBlank()) { "Lifecycle commands require an environment" } }
+    init { require(accountId.isNotBlank()) { "Lifecycle commands require an accountId" } }
+    init { require(dedupeKey.isNotBlank()) { "Lifecycle commands require a dedupeKey" } }
 }

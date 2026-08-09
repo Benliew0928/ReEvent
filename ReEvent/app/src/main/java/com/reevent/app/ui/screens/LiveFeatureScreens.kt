@@ -167,8 +167,8 @@ private fun OrganizerOverview(
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             DashboardMetric("${resources.size}", "Resource lots", Modifier.weight(1f))
-            DashboardMetric("${resources.count { it.status == ResourceStatus.AVAILABLE }}", "Available", Modifier.weight(1f))
-            DashboardMetric("${impacts.sumOf { it.materialDivertedKg }.formatDashboard()}", "Kg diverted", Modifier.weight(1f))
+            DashboardMetric("${resources.count { it.status == ResourceStatus.ACTIVE }}", "Available", Modifier.weight(1f))
+            DashboardMetric("${impacts.mapNotNull { it.materialDivertedKg }.sum().formatDashboard()}", "Kg diverted", Modifier.weight(1f))
         }
         Text("Fast actions", style = MaterialTheme.typography.titleLarge)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -183,8 +183,8 @@ private fun OrganizerOverview(
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Circular workflow", style = MaterialTheme.typography.titleMedium)
                 WorkflowRow("Listed", resources.size)
-                WorkflowRow("Available for matching", resources.count { it.status == ResourceStatus.AVAILABLE })
-                WorkflowRow("Recovered or handed over", resources.count { it.status == ResourceStatus.RECOVERED || it.status == ResourceStatus.HANDED_OVER })
+                WorkflowRow("Available for matching", resources.count { it.status == ResourceStatus.ACTIVE })
+                WorkflowRow("Recovered or handed over", resources.count { it.status == ResourceStatus.RECOVERED || it.status == ResourceStatus.RECOVERY_IN_PROGRESS })
             }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -362,10 +362,9 @@ fun AddResourceLiveScreen(
                     if (!formValid) return@saveResource
                     val now = System.currentTimeMillis(); val resourceId = initialResource?.id ?: UUID.randomUUID().toString()
                     val resource = ResourceItem(resourceId, eventId, user.id, title.trim(), category, material.trim(), condition,
-                        quantityValue!!, unit, initialResource?.status ?: ResourceStatus.AVAILABLE, valueCents ?: 0, initialResource?.imageUrls.orEmpty(), initialResource?.createdAt ?: now, now)
+                        quantityValue!!.toDouble(), unit, initialResource?.status ?: ResourceStatus.ACTIVE, valueCents ?: 0, initialResource?.imageUrls.orEmpty(), initialResource?.createdAt ?: now, now)
                     if (initialResource == null) {
-                        val passport = viewModel.createPassport(resourceId, user.id, resource.status, now)
-                        viewModel.saveResource(resource, passport, photoUri) { viewModel.clearResourceDraft(user.id, eventId); onSaved(resourceId) }
+                        viewModel.saveResource(resource, photoUri) { viewModel.clearResourceDraft(user.id, eventId); onSaved(resourceId) }
                     } else if (photoUri == null) {
                         viewModel.updateResource(resource) { onSaved(resourceId) }
                     } else {
@@ -460,7 +459,7 @@ fun EventEditorLiveScreen(
                 if (!valid) return@saveEvent
                 val now = System.currentTimeMillis()
                 val event = existing?.copy(name = name.trim(), description = description.trim(), venue = venue.trim(), updatedAt = now)
-                    ?: Event(UUID.randomUUID().toString(), user.id, name.trim(), description.trim(), venue.trim(), now, now + 86_400_000L, "ACTIVE", now, now)
+                    ?: Event(UUID.randomUUID().toString(), user.id, name.trim(), description.trim(), venue.trim(), now, now + 86_400_000L, "DRAFT", now, now)
                 viewModel.saveEvent(event, if (existing == null) "Event created" else "Event updated") { onSaved(it.id) }
             }, Modifier.fillMaxWidth())
             if (existing != null) {
@@ -605,9 +604,9 @@ private fun StoredResourcePhoto(path: String, viewModel: FeatureViewModel) {
 private fun ResourceCondition.toDisplayLabel() = name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)
 private fun ResourceStatus.toDisplayLabel() = name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)
 private fun ResourceStatus.toUiColor() = when (this) {
-    ResourceStatus.AVAILABLE -> ReEventGreen
-    ResourceStatus.RESERVED -> ReEventAmber
-    ResourceStatus.HANDED_OVER, ResourceStatus.RECOVERED -> ReEventBlue
+    ResourceStatus.ACTIVE -> ReEventGreen
+    ResourceStatus.RECOVERY_IN_PROGRESS -> ReEventAmber
+    ResourceStatus.RECOVERY_IN_PROGRESS, ResourceStatus.RECOVERED -> ReEventBlue
     ResourceStatus.ARCHIVED -> ReEventCoral
     ResourceStatus.DRAFT -> ReEventMuted
 }
@@ -702,7 +701,7 @@ private fun RecommendationRouteCard(
                 Button(
                     onClick = { onCreateHandover(programme) },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = resource.ownerId == user.id && resource.status == ResourceStatus.AVAILABLE
+                    enabled = resource.ownerId == user.id && resource.status == ResourceStatus.ACTIVE
                 ) { Text("Create partner handover") }
             }
         }

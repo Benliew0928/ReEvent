@@ -15,55 +15,28 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TransactionWorkflowTest {
-    @Test fun marketplace_request_blocks_owner_and_invalid_quantity() {
-        val resource = resource(ownerId = "owner", quantity = 4)
+    @Test
+    fun marketplace_preflight_blocks_owner_inactive_resource_and_invalid_quantity() {
+        val active = resource(ownerId = "owner", quantity = 4.0)
 
-        assertEquals(FailureReason.CONFLICT, TransactionWorkflow.validateMarketplaceRequest("owner", resource, 1))
-        assertEquals(FailureReason.VALIDATION, TransactionWorkflow.validateMarketplaceRequest("buyer", resource, 0))
-        assertEquals(FailureReason.VALIDATION, TransactionWorkflow.validateMarketplaceRequest("buyer", resource, 5))
-        assertNull(TransactionWorkflow.validateMarketplaceRequest("buyer", resource, 4))
-    }
-
-    @Test fun marketplace_request_requires_available_resource() {
-        val resource = resource(ownerId = "owner", status = ResourceStatus.RESERVED)
-
-        assertEquals(FailureReason.CONFLICT, TransactionWorkflow.validateMarketplaceRequest("buyer", resource, 1))
-    }
-
-    @Test fun owner_actions_require_resource_owner_and_pending_requester() {
-        val resource = resource(ownerId = "owner")
-        val transaction = transaction(senderId = "buyer", receiverId = "owner")
-
-        assertNull(TransactionWorkflow.validateOwnerAction("owner", resource, transaction))
-        assertEquals(FailureReason.CONFLICT, TransactionWorkflow.validateOwnerAction("buyer", resource, transaction))
+        assertEquals(FailureReason.CONFLICT, TransactionWorkflow.validateMarketplaceRequest("owner", active, 1))
+        assertEquals(FailureReason.VALIDATION, TransactionWorkflow.validateMarketplaceRequest("buyer", active, 0))
+        assertEquals(FailureReason.VALIDATION, TransactionWorkflow.validateMarketplaceRequest("buyer", active, 5))
         assertEquals(
             FailureReason.CONFLICT,
-            TransactionWorkflow.validateOwnerAction("owner", resource, transaction.copy(senderId = "owner"))
+            TransactionWorkflow.validateMarketplaceRequest(
+                "buyer",
+                active.copy(status = ResourceStatus.RECOVERY_IN_PROGRESS),
+                1
+            )
         )
+        assertNull(TransactionWorkflow.validateMarketplaceRequest("buyer", active, 4))
     }
 
-    @Test fun transition_guards_match_mvp_status_flow() {
-        val pending = transaction(status = TransactionStatus.PENDING)
-        val accepted = transaction(status = TransactionStatus.ACCEPTED)
-        val transit = transaction(status = TransactionStatus.IN_TRANSIT)
-        val completed = transaction(status = TransactionStatus.COMPLETED)
-
-        assertTrue(TransactionWorkflow.canApprove(pending))
-        assertFalse(TransactionWorkflow.canApprove(accepted))
-        assertTrue(TransactionWorkflow.canCancel(pending))
-        assertTrue(TransactionWorkflow.canCancel(accepted))
-        assertFalse(TransactionWorkflow.canCancel(completed))
-        assertTrue(TransactionWorkflow.canMoveInTransit(accepted))
-        assertFalse(TransactionWorkflow.canMoveInTransit(pending))
-        assertTrue(TransactionWorkflow.canComplete(accepted))
-        assertTrue(TransactionWorkflow.canComplete(transit))
-        assertFalse(TransactionWorkflow.canComplete(pending))
-    }
-
-    @Test fun partner_handover_requires_owner_available_resource_and_compatible_active_programme() {
-        val now = 1L
-        val resource = resource(ownerId = "owner", quantity = 1)
-        val programme = programme(ProgrammeType.REUSE, now)
+    @Test
+    fun programme_preflight_requires_owner_active_resource_and_compatible_programme() {
+        val resource = resource(ownerId = "owner", quantity = 1.0)
+        val programme = programme(ProgrammeType.REPAIR)
 
         assertNull(TransactionWorkflow.validatePartnerHandover("owner", resource, programme))
         assertEquals(
@@ -72,7 +45,11 @@ class TransactionWorkflowTest {
         )
         assertEquals(
             FailureReason.CONFLICT,
-            TransactionWorkflow.validatePartnerHandover("owner", resource.copy(status = ResourceStatus.RESERVED), programme)
+            TransactionWorkflow.validatePartnerHandover(
+                "owner",
+                resource.copy(status = ResourceStatus.RECOVERY_IN_PROGRESS),
+                programme
+            )
         )
         assertEquals(
             FailureReason.CONFLICT,
@@ -88,47 +65,114 @@ class TransactionWorkflowTest {
         )
     }
 
-    @Test fun cancellation_releases_only_reserved_resources() {
-        assertEquals(
-            ResourceStatus.AVAILABLE,
-            TransactionWorkflow.resourceStatusAfterCancellation(ResourceStatus.RESERVED)
+    @Test
+    fun listing_decision_and_handover_actions_are_actor_and_state_scoped() {
+        val requested = transaction(
+            senderId = "seller",
+            receiverId = "buyer",
+            requesterId = "buyer"
         )
-        assertEquals(
-            ResourceStatus.AVAILABLE,
-            TransactionWorkflow.resourceStatusAfterCancellation(ResourceStatus.AVAILABLE)
+        val approved = requested.copy(status = TransactionStatus.APPROVED)
+
+        assertTrue(TransactionWorkflow.canApprove("seller", requested))
+        assertFalse(TransactionWorkflow.canApprove("buyer", requested))
+        assertFalse(TransactionWorkflow.canApprove("seller", approved))
+        assertTrue(TransactionWorkflow.canCancel("buyer", requested))
+        assertTrue(TransactionWorkflow.canCancel("seller", approved))
+        assertFalse(TransactionWorkflow.canCancel("stranger", requested))
+        assertTrue(TransactionWorkflow.canBeginHandover("seller", approved))
+        assertFalse(TransactionWorkflow.canBeginHandover("buyer", approved))
+    }
+
+    @Test
+    fun programme_decision_is_reserved_for_partner() {
+        val requested = transaction(
+            senderId = "owner",
+            receiverId = "partner",
+            partnerId = "partner",
+            requesterId = "owner",
+            type = TransactionType.REPAIR
         )
-        assertEquals(
-            ResourceStatus.HANDED_OVER,
-            TransactionWorkflow.resourceStatusAfterCancellation(ResourceStatus.HANDED_OVER)
+
+        assertTrue(TransactionWorkflow.canApprove("partner", requested))
+        assertFalse(TransactionWorkflow.canApprove("owner", requested))
+        assertTrue(TransactionWorkflow.canCancel("owner", requested))
+        assertTrue(TransactionWorkflow.canCancel("partner", requested))
+    }
+
+    @Test
+    fun receipt_and_return_actions_follow_the_frozen_actor_state_machine() {
+        val temporary = transaction(
+            senderId = "owner",
+            receiverId = "borrower",
+            requesterId = "borrower",
+            type = TransactionType.BORROW
+        )
+
+        assertTrue(
+            TransactionWorkflow.canConfirmReceipt(
+                "borrower",
+                temporary.copy(status = TransactionStatus.IN_TRANSIT)
+            )
+        )
+        assertTrue(
+            TransactionWorkflow.canBeginReturn(
+                "borrower",
+                temporary.copy(status = TransactionStatus.ACTIVE)
+            )
+        )
+        assertTrue(
+            TransactionWorkflow.canConfirmReturn(
+                "owner",
+                temporary.copy(status = TransactionStatus.RETURN_IN_PROGRESS)
+            )
+        )
+        assertFalse(
+            TransactionWorkflow.canBeginReturn(
+                "borrower",
+                temporary.copy(type = TransactionType.BUY, status = TransactionStatus.ACTIVE)
+            )
+        )
+        assertFalse(
+            TransactionWorkflow.canConfirmReturn(
+                "borrower",
+                temporary.copy(status = TransactionStatus.RETURN_IN_PROGRESS)
+            )
         )
     }
 
-    @Test fun completion_status_and_programme_type_mapping_are_deterministic() {
-        val now = 1L
-        assertEquals(ResourceStatus.RECOVERED, TransactionWorkflow.resourceStatusAfterCompletion(TransactionType.RETURN))
-        assertEquals(ResourceStatus.HANDED_OVER, TransactionWorkflow.resourceStatusAfterCompletion(TransactionType.RESALE))
+    @Test
+    fun terminal_transactions_expose_no_display_actions() {
+        val completed = transaction(status = TransactionStatus.COMPLETED)
+
+        assertFalse(TransactionWorkflow.canApprove("seller", completed))
+        assertFalse(TransactionWorkflow.canCancel("buyer", completed))
+        assertFalse(TransactionWorkflow.canBeginHandover("seller", completed))
+        assertFalse(TransactionWorkflow.canConfirmReceipt("buyer", completed))
+        assertFalse(TransactionWorkflow.canBeginReturn("buyer", completed))
+        assertFalse(TransactionWorkflow.canConfirmReturn("seller", completed))
+    }
+
+    @Test
+    fun programme_type_mapping_covers_the_frozen_contract() {
         assertEquals(
             TransactionType.REPAIR,
-            TransactionWorkflow.transactionTypeForProgramme(programme(ProgrammeType.REPAIR, now))
+            TransactionWorkflow.transactionTypeForProgramme(programme(ProgrammeType.REPAIR))
         )
         assertEquals(
             TransactionType.RECYCLE,
-            TransactionWorkflow.transactionTypeForProgramme(programme(ProgrammeType.RECYCLE, now))
+            TransactionWorkflow.transactionTypeForProgramme(programme(ProgrammeType.RECYCLE))
         )
         assertEquals(
             TransactionType.BUY_BACK,
-            TransactionWorkflow.transactionTypeForProgramme(programme(ProgrammeType.BUY_BACK, now))
-        )
-        assertEquals(
-            TransactionType.DONATION,
-            TransactionWorkflow.transactionTypeForProgramme(programme(ProgrammeType.REUSE, now))
+            TransactionWorkflow.transactionTypeForProgramme(programme(ProgrammeType.BUY_BACK))
         )
     }
 
     private fun resource(
         ownerId: String = "owner",
-        quantity: Int = 2,
-        status: ResourceStatus = ResourceStatus.AVAILABLE
+        quantity: Double = 2.0,
+        status: ResourceStatus = ResourceStatus.ACTIVE
     ) = ResourceItem(
         id = "resource",
         eventId = "event",
@@ -138,7 +182,7 @@ class TransactionWorkflowTest {
         material = "Acrylic",
         condition = ResourceCondition.GOOD,
         quantity = quantity,
-        unit = "items",
+        unit = "ITEM",
         status = status,
         valueCents = 1000,
         imageUrls = emptyList(),
@@ -147,24 +191,28 @@ class TransactionWorkflowTest {
     )
 
     private fun transaction(
-        senderId: String = "buyer",
-        receiverId: String = "owner",
-        status: TransactionStatus = TransactionStatus.PENDING
+        senderId: String = "seller",
+        receiverId: String = "buyer",
+        partnerId: String? = null,
+        requesterId: String = "buyer",
+        type: TransactionType = TransactionType.BUY,
+        status: TransactionStatus = TransactionStatus.REQUESTED
     ) = CircularTransaction(
         id = "transaction",
         eventId = "event",
         resourceId = "resource",
         senderId = senderId,
         receiverId = receiverId,
-        partnerId = null,
-        type = TransactionType.RESALE,
+        partnerId = partnerId,
+        type = type,
         status = status,
-        quantity = 1,
+        quantity = 1.0,
         createdAt = 1L,
-        updatedAt = 1L
+        updatedAt = 1L,
+        requesterId = requesterId
     )
 
-    private fun programme(type: ProgrammeType, now: Long) = CircularProgramme(
+    private fun programme(type: ProgrammeType) = CircularProgramme(
         id = "programme",
         partnerId = "partner",
         name = "Circular programme",
@@ -172,7 +220,7 @@ class TransactionWorkflowTest {
         acceptedMaterials = listOf("Acrylic"),
         location = "Kuala Lumpur",
         active = true,
-        createdAt = now,
-        updatedAt = now
+        createdAt = 1L,
+        updatedAt = 1L
     )
 }

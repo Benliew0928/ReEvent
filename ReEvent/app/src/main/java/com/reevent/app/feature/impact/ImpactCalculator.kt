@@ -14,19 +14,22 @@ object ImpactCalculator {
         records: List<ImpactRecord>
     ): ImpactDashboardState {
         val completed = transactions.filter { it.status == TransactionStatus.COMPLETED }
-        val reused = completed.count { it.type == TransactionType.RESALE || it.type == TransactionType.RETURN }
+        val reused = completed.count { it.type == TransactionType.BORROW || it.type == TransactionType.RENT }
         val repaired = completed.count { it.type == TransactionType.REPAIR }
-        val donated = completed.count { it.type == TransactionType.DONATION }
+        val donated = completed.count { it.type == TransactionType.DONATE }
         val recycled = completed.count { it.type == TransactionType.RECYCLE }
-        val recovered = resources.count { it.status == ResourceStatus.RECOVERED || it.status == ResourceStatus.HANDED_OVER }
+        val recovered = resources.count { it.status == ResourceStatus.RECOVERED }
         val rate = resources.takeIf { it.isNotEmpty() }?.let { recovered.toFloat() / it.size }
         val validRecords = records.filter {
-            it.materialDivertedKg.isFinite() && it.materialDivertedKg >= 0 &&
-                it.emissionsAvoidedKg.isFinite() && it.emissionsAvoidedKg >= 0 &&
-                it.valueRecoveredCents >= 0
+            (it.materialDivertedKg == null || it.materialDivertedKg.isFinite() && it.materialDivertedKg >= 0) &&
+                (it.emissionsAvoidedKg == null || it.emissionsAvoidedKg.isFinite() && it.emissionsAvoidedKg >= 0) &&
+                it.recoinsTransferred >= 0 && it.recoinsRewarded >= 0
         }
         val hasRecords = validRecords.isNotEmpty()
-        val estimatedTransactionIds = validRecords.mapNotNull(ImpactRecord::transactionId).toSet()
+        val estimatedTransactionIds = validRecords
+            .filter { it.materialDivertedKg != null || it.emissionsAvoidedKg != null }
+            .map(ImpactRecord::transactionId)
+            .toSet()
         val hasCompletedOutcomeWithoutEstimate = completed.any { it.id !in estimatedTransactionIds }
         val channels = listOf(reused, repaired, donated, recycled)
         val channelTotal = channels.sum()
@@ -42,14 +45,15 @@ object ImpactCalculator {
             repairedCount = repaired,
             donatedCount = donated,
             recycledCount = recycled,
-            materialDivertedKg = validRecords.takeIf { hasRecords }?.sumOf(ImpactRecord::materialDivertedKg),
-            emissionsAvoidedKg = validRecords.takeIf { hasRecords }?.sumOf(ImpactRecord::emissionsAvoidedKg),
-            valueRecoveredCents = validRecords.takeIf { hasRecords }?.sumOf(ImpactRecord::valueRecoveredCents),
+            materialDivertedKg = validRecords.mapNotNull(ImpactRecord::materialDivertedKg).takeIf { it.isNotEmpty() }?.sum(),
+            emissionsAvoidedKg = validRecords.mapNotNull(ImpactRecord::emissionsAvoidedKg).takeIf { it.isNotEmpty() }?.sum(),
+            recoinsTransferred = validRecords.takeIf { hasRecords }?.sumOf(ImpactRecord::recoinsTransferred),
+            recoinsRewarded = validRecords.takeIf { hasRecords }?.sumOf(ImpactRecord::recoinsRewarded),
             chartValues = if (channelTotal == 0) List(4) { 0f } else channels.map { it.toFloat() / channelTotal },
             badge = badge,
             unavailableEstimateReason = when {
                 completed.isEmpty() -> null
-                !hasRecords -> "No documented mass and factor are available for these completed outcomes."
+                estimatedTransactionIds.isEmpty() -> "No documented mass and factor are available for these completed outcomes."
                 hasCompletedOutcomeWithoutEstimate -> "Some completed outcomes have no documented mass and factor."
                 else -> null
             }

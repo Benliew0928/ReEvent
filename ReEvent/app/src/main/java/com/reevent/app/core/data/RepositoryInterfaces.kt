@@ -8,6 +8,7 @@ import com.reevent.app.core.model.ResourceItem
 import com.reevent.app.core.model.ResourcePassport
 import com.reevent.app.core.model.User
 import com.reevent.app.core.model.UserRole
+import com.reevent.app.core.model.AllocationSide
 import android.content.Intent
 import android.net.Uri
 import kotlinx.coroutines.flow.Flow
@@ -47,7 +48,6 @@ interface ResourceRepository {
 
 interface PassportRepository {
     fun observePassport(resourceId: String): Flow<ResourcePassport?>
-    suspend fun savePassport(passport: ResourcePassport): AppResult<ResourcePassport>
 }
 
 interface PartnerRepository {
@@ -58,13 +58,25 @@ interface PartnerRepository {
 interface TransactionRepository {
     fun observeTransactions(userId: String): Flow<List<CircularTransaction>>
     fun observeEventTransactions(eventId: String): Flow<List<CircularTransaction>>
-    suspend fun saveTransaction(transaction: CircularTransaction): AppResult<CircularTransaction>
-    suspend fun archiveTransaction(transactionId: String): AppResult<Unit>
+    suspend fun requestMarketplace(
+        resourceId: String,
+        type: com.reevent.app.core.model.TransactionType,
+        quantity: Double,
+        counterResourceId: String? = null,
+        reason: String? = null
+    ): AppResult<CircularTransaction>
+    suspend fun requestProgramme(programmeId: String, resourceId: String, quantity: Double, reason: String? = null): AppResult<CircularTransaction>
+    suspend fun approve(transactionId: String): AppResult<CircularTransaction>
+    suspend fun reject(transactionId: String, reason: String): AppResult<CircularTransaction>
+    suspend fun cancel(transactionId: String, reason: String): AppResult<CircularTransaction>
+    suspend fun beginHandover(transactionId: String, side: AllocationSide = AllocationSide.PRIMARY): AppResult<CircularTransaction>
+    suspend fun confirmReceipt(transactionId: String, side: AllocationSide = AllocationSide.PRIMARY): AppResult<CircularTransaction>
+    suspend fun beginReturn(transactionId: String): AppResult<CircularTransaction>
+    suspend fun confirmReturn(transactionId: String): AppResult<CircularTransaction>
 }
 
 interface ImpactRepository {
     fun observeImpact(eventId: String): Flow<List<ImpactRecord>>
-    suspend fun saveImpact(record: ImpactRecord): AppResult<ImpactRecord>
 }
 
 /** Shared refresh boundary. Runtime screens use this rather than Supabase directly. */
