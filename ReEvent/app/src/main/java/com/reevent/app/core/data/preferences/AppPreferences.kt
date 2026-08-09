@@ -44,10 +44,13 @@ class AppPreferences @Inject constructor(@ApplicationContext private val context
         if (role == null) it.remove(Keys.cachedRole) else it[Keys.cachedRole] = role.name
     }
 
-    suspend fun clearAccount() = context.appPreferencesDataStore.edit {
-        it.remove(Keys.cachedUserId)
-        it.remove(Keys.cachedRole)
-        it.remove(Keys.lastOpenedEventId)
-        it.asMap().keys.filter { key -> key.name.startsWith("resource_draft_") }.forEach { key -> it.remove(key) }
+    suspend fun clearAccount(userId: String? = null) = context.appPreferencesDataStore.edit {
+        if (userId == null || it[Keys.cachedUserId] == userId) {
+            it.remove(Keys.cachedUserId)
+            it.remove(Keys.cachedRole)
+            it.remove(Keys.lastOpenedEventId)
+        }
+        val draftPrefix = userId?.let { id -> "resource_draft_${id}_" } ?: "resource_draft_"
+        it.asMap().keys.filter { key -> key.name.startsWith(draftPrefix) }.forEach { key -> it.remove(key) }
     }
 }

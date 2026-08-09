@@ -33,7 +33,8 @@ class DefaultAuthRepository @Inject constructor(
     private val gateway: SupabaseAuthGateway,
     private val dao: CoreDao,
     private val preferences: AppPreferences,
-    private val accountScope: AccountScope
+    private val accountScope: AccountScope,
+    private val sessionCleaner: AccountSessionCleaner
 ) : AuthRepository {
     private val mutableCurrentUser = MutableStateFlow<User?>(null)
     // Session restoration and a PKCE callback both touch the same Supabase Auth client. Keep
@@ -136,9 +137,7 @@ class DefaultAuthRepository @Inject constructor(
                 if (remote != null) persistAuthenticatedUser(remote)
                 else {
                     // A Supabase-backed build must not restore a stale local profile after sign-out.
-                    preferences.clearAccount()
-                    accountScope.clear()
-                    mutableCurrentUser.value = null
+                    clearLocalAccountState()
                 }
                 AppResult.Success(remote)
             }
@@ -151,10 +150,14 @@ class DefaultAuthRepository @Inject constructor(
         else remoteCall { gateway.requestPasswordReset(email.trim()) }
 
     override suspend fun signOut(): AppResult<Unit> {
+        // Close the local execution boundary before revoking the remote session so an already
+        // scheduled worker cannot continue as the account being signed out.
+        clearLocalAccountState()
         // A local sign-out must succeed even when the network cannot revoke the remote token.
         // The gateway clears the persisted Supabase session in its finally block.
-        runCatching { if (gateway.isConfigured()) gateway.signOut() }
-        clearLocalAccountState()
+        runCatching {
+            if (gateway.isConfigured()) withTimeout(AUTH_REQUEST_TIMEOUT_MILLIS) { gateway.signOut() }
+        }
         return AppResult.Success(Unit)
     }
 
@@ -188,36 +191,23 @@ class DefaultAuthRepository @Inject constructor(
     }
 
     private suspend fun persistAuthenticatedUser(user: User) {
-        val previous = accountScope.accountId.value
-        if (previous != user.id) clearOtherAccountCache(user.id)
+        val previous = accountScope.accountId.value ?: preferences.cachedUserId.first()
+        if (previous != null && previous != user.id) sessionCleaner.clear(previous)
         accountScope.activate(user.id)
         dao.upsertUser(user.toEntity())
         preferences.cacheAccount(user.id, user.role)
         mutableCurrentUser.value = user
     }
 
-    private suspend fun clearOtherAccountCache(accountId: String) {
-        dao.deleteOtherUsers(accountId)
-        dao.clearOtherEvents(accountId)
-        dao.clearOtherResources(accountId)
-        dao.clearOtherPassports(accountId)
-        dao.clearOtherProgrammes(accountId)
-        dao.clearOtherTransactions(accountId)
-        dao.clearOtherImpact(accountId)
-        dao.clearOtherOutbox(accountId)
-    }
-
-    /** Starts a new identity flow. Account-scoped feature data remains inaccessible until the
-     * same account authenticates, and is deleted by [clearOtherAccountCache] on an account switch. */
+    /** Starts a new identity flow after closing and purging the previous account boundary. */
     private suspend fun beginFreshAuthentication() {
         clearLocalAccountState()
     }
 
     private suspend fun clearLocalAccountState() {
+        val accountId = accountScope.accountId.value ?: preferences.cachedUserId.first()
         mutableCurrentUser.value = null
-        accountScope.clear()
-        dao.clearUsers()
-        preferences.clearAccount()
+        sessionCleaner.clear(accountId)
     }
 
     private suspend fun signInDemo(email: String, password: String): AppResult<User> {

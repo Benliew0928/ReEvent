@@ -48,18 +48,20 @@ fun CircularProgramme.toEntity(accountId: String) = ProgrammeEntity(
 
 fun TransactionEntity.toDomain() = CircularTransaction(
     id, eventId, resourceId, senderId, receiverId, partnerId, TransactionType.valueOf(type),
-    TransactionStatus.valueOf(status), quantity, createdAt, updatedAt, SyncState.valueOf(syncState), archived
+    TransactionStatus.valueOf(status), quantity, createdAt, updatedAt, SyncState.valueOf(syncState), archived,
+    requesterId, counterResourceId
 )
 fun CircularTransaction.toEntity(accountId: String) = TransactionEntity(
-    id, accountId, eventId, resourceId, senderId, receiverId, partnerId, type.name, status.name, quantity, createdAt,
+    id, accountId, eventId, resourceId, senderId, receiverId, partnerId, requesterId, counterResourceId,
+    type.name, status.name, quantity, createdAt,
     updatedAt, syncState.name, archived
 )
 
 fun ImpactEntity.toDomain() = ImpactRecord(
-    id, eventId, resourceId, transactionId, materialDivertedKg, emissionsAvoidedKg, valueRecoveredCents,
-    calculatedAt, updatedAt, SyncState.valueOf(syncState)
+    id, eventId, resourceId, transactionId, TransactionType.valueOf(transactionType), completedQuantity, unit,
+    materialDivertedKg, emissionsAvoidedKg, recoinsTransferred, recoinsRewarded, calculatedAt, SyncState.valueOf(syncState)
 )
 fun ImpactRecord.toEntity(accountId: String) = ImpactEntity(
-    id, accountId, eventId, resourceId, transactionId, materialDivertedKg, emissionsAvoidedKg, valueRecoveredCents,
-    calculatedAt, updatedAt, syncState.name
+    id, accountId, eventId, resourceId, transactionId, transactionType.name, completedQuantity, unit,
+    materialDivertedKg, emissionsAvoidedKg, recoinsTransferred, recoinsRewarded, calculatedAt, syncState.name
 )

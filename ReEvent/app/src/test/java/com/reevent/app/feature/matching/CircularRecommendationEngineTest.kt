@@ -35,7 +35,7 @@ class CircularRecommendationEngineTest {
     @Test
     fun unavailable_resource_returns_an_explanation_without_a_new_route() {
         val result = CircularRecommendationEngine.recommend(
-            resource(status = ResourceStatus.RESERVED),
+            resource(status = ResourceStatus.RECOVERY_IN_PROGRESS),
             listOf(reuse("exact", listOf("Acrylic")))
         )
 
@@ -56,7 +56,7 @@ class CircularRecommendationEngineTest {
     @Test
     fun recycle_only_resource_without_recycling_programme_returns_no_match_reason() {
         val result = CircularRecommendationEngine.recommend(
-            resource(condition = ResourceCondition.RECYCLE_ONLY),
+            resource(condition = ResourceCondition.END_OF_LIFE),
             listOf(repair("repair", listOf("Acrylic")))
         )
 
@@ -66,7 +66,7 @@ class CircularRecommendationEngineTest {
 
     private fun resource(
         condition: ResourceCondition = ResourceCondition.GOOD,
-        status: ResourceStatus = ResourceStatus.AVAILABLE,
+        status: ResourceStatus = ResourceStatus.ACTIVE,
         material: String = "Acrylic"
     ) = ResourceItem(
         id = "resource-id",
@@ -76,8 +76,8 @@ class CircularRecommendationEngineTest {
         category = "Signage",
         material = material,
         condition = condition,
-        quantity = 1,
-        unit = "item",
+        quantity = 1.0,
+        unit = "ITEM",
         status = status,
         valueCents = 1_000,
         imageUrls = emptyList(),
@@ -85,7 +85,7 @@ class CircularRecommendationEngineTest {
         updatedAt = NOW
     )
 
-    private fun reuse(id: String, materials: List<String>) = programme(id, ProgrammeType.REUSE, materials)
+    private fun reuse(id: String, materials: List<String>) = programme(id, ProgrammeType.REPAIR, materials)
     private fun repair(id: String, materials: List<String>) = programme(id, ProgrammeType.REPAIR, materials)
     private fun recycle(id: String, materials: List<String>) = programme(id, ProgrammeType.RECYCLE, materials)
 

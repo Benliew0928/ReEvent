@@ -8,7 +8,7 @@ import com.reevent.app.core.model.ResourceStatus
 
 object CircularRecommendationEngine {
     fun recommend(resource: ResourceItem, programmes: List<CircularProgramme>): RecommendationResult {
-        if (resource.status != ResourceStatus.AVAILABLE) {
+        if (resource.status != ResourceStatus.ACTIVE) {
             return RecommendationResult(
                 primary = null,
                 alternatives = emptyList(),
@@ -90,19 +90,19 @@ object CircularRecommendationEngine {
             CircularAction.DISPOSAL
         )
 
-        ResourceCondition.RECYCLE_ONLY -> listOf(CircularAction.RECYCLE, CircularAction.DISPOSAL)
+        ResourceCondition.END_OF_LIFE -> listOf(CircularAction.RECYCLE, CircularAction.DISPOSAL)
     }
 
     private fun programmeTypesFor(action: CircularAction): Set<ProgrammeType> = when (action) {
         CircularAction.REUSE,
         CircularAction.SHARE,
         CircularAction.RENT_OR_LEND,
-        CircularAction.SELL_OR_DONATE -> setOf(ProgrammeType.REUSE)
+        CircularAction.SELL_OR_DONATE -> setOf(ProgrammeType.REPAIR)
 
         CircularAction.REPAIR,
         CircularAction.REFURBISH -> setOf(ProgrammeType.REPAIR)
         CircularAction.TAKE_BACK -> setOf(ProgrammeType.BUY_BACK)
-        CircularAction.RECYCLE -> setOf(ProgrammeType.RECYCLE, ProgrammeType.COLLECTION)
+        CircularAction.RECYCLE -> setOf(ProgrammeType.RECYCLE, ProgrammeType.RECYCLE)
         CircularAction.DISPOSAL -> emptySet()
     }
 

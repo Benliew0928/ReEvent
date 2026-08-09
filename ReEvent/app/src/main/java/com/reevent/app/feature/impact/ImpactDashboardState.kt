@@ -10,7 +10,8 @@ data class ImpactDashboardState(
     val recycledCount: Int,
     val materialDivertedKg: Double?,
     val emissionsAvoidedKg: Double?,
-    val valueRecoveredCents: Long?,
+    val recoinsTransferred: Long?,
+    val recoinsRewarded: Long?,
     val chartValues: List<Float>,
     val badge: ImpactBadge?,
     val unavailableEstimateReason: String?

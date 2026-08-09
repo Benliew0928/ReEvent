@@ -11,10 +11,10 @@ import org.junit.Test
 class ProgrammeMatcherTest {
     @Test fun exact_material_match_precedes_generic_programme_and_inactive_is_excluded() {
         val now = 1L
-        val resource = ResourceItem("r", "e", "o", "Signs", "", "Acrylic", ResourceCondition.GOOD, 1, "item", ResourceStatus.AVAILABLE, 0, emptyList(), now, now)
-        val generic = CircularProgramme("g", "p", "Generic", ProgrammeType.REUSE, emptyList(), "", true, now, now)
-        val exact = CircularProgramme("e", "p", "Acrylic reuse", ProgrammeType.REUSE, listOf("acrylic"), "", true, now, now)
-        val inactive = CircularProgramme("i", "p", "Closed", ProgrammeType.REUSE, listOf("Acrylic"), "", false, now, now)
+        val resource = ResourceItem("r", "e", "o", "Signs", "", "Acrylic", ResourceCondition.GOOD, 1.0, "ITEM", ResourceStatus.ACTIVE, 0, emptyList(), now, now)
+        val generic = CircularProgramme("g", "p", "Generic", ProgrammeType.REPAIR, emptyList(), "", true, now, now)
+        val exact = CircularProgramme("e", "p", "Acrylic reuse", ProgrammeType.REPAIR, listOf("acrylic"), "", true, now, now)
+        val inactive = CircularProgramme("i", "p", "Closed", ProgrammeType.REPAIR, listOf("Acrylic"), "", false, now, now)
         assertEquals(listOf("e", "g"), ProgrammeMatcher.rank(resource, listOf(generic, inactive, exact)).map { it.id })
     }
 }

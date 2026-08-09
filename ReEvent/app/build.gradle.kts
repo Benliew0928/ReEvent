@@ -40,8 +40,10 @@ android {
     }
 
     defaultConfig {
+        buildConfigField("String", "APP_ENVIRONMENT", "\"local\"")
         buildConfigField("String", "SUPABASE_URL", "\"${escapedBuildConfigValue("SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${escapedBuildConfigValue("SUPABASE_ANON_KEY")}\"")
+        buildConfigField("String", "PUBLIC_BASE_URL", "\"${escapedBuildConfigValue("PUBLIC_BASE_URL")}\"")
     }
 
     compileOptions {

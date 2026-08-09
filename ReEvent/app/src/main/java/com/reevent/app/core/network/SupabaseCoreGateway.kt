@@ -1,10 +1,12 @@
 package com.reevent.app.core.network
 
 import android.util.Log
+import com.reevent.app.BuildConfig
 import com.reevent.app.core.model.CircularProgramme
 import com.reevent.app.core.model.CircularTransaction
 import com.reevent.app.core.model.Event
 import com.reevent.app.core.model.ImpactRecord
+import com.reevent.app.core.model.PassportHistoryEntry
 import com.reevent.app.core.model.ProgrammeType
 import com.reevent.app.core.model.ResourceCondition
 import com.reevent.app.core.model.ResourceItem
@@ -19,6 +21,7 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.supervisorScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.time.Instant
 import javax.inject.Inject
@@ -43,6 +46,7 @@ class SupabaseCoreGateway @Inject constructor(private val authGateway: SupabaseA
             val events = async { client.from("events").select().decodeList<EventRow>() }
             val resources = async { client.from("resource_items").select().decodeList<ResourceRow>() }
             val passports = async { client.from("resource_passports").select().decodeList<PassportRow>() }
+            val passportEvents = async { client.from("passport_events").select().decodeList<PassportEventRow>() }
             val programmes = async { client.from("circular_programmes").select().decodeList<ProgrammeRow>() }
             val transactions = async { client.from("circular_transactions").select().decodeList<TransactionRow>() }
             val impact = async { client.from("impact_records").select().decodeList<ImpactRow>() }
@@ -51,10 +55,15 @@ class SupabaseCoreGateway @Inject constructor(private val authGateway: SupabaseA
             if (resourceModels.size != resourceRows.size) {
                 Log.w(TAG, "Skipped ${resourceRows.size - resourceModels.size} malformed marketplace resource row(s)")
             }
+            val historyByPassport = passportEvents.awaitOrEmpty()
+                .mapNotNull(PassportEventRow::toDomainOrNull)
+                .groupBy(PassportEventModel::passportId)
             RemoteCoreSnapshot(
                 events.awaitOrEmpty().mapNotNull(EventRow::toDomainOrNull),
                 resourceModels,
-                passports.awaitOrEmpty().mapNotNull(PassportRow::toDomainOrNull),
+                passports.awaitOrEmpty().mapNotNull { row ->
+                    row.toDomainOrNull(historyByPassport[row.id].orEmpty().map(PassportEventModel::entry))
+                },
                 programmes.awaitOrEmpty().mapNotNull(ProgrammeRow::toDomainOrNull),
                 transactions.awaitOrEmpty().mapNotNull(TransactionRow::toDomainOrNull),
                 impact.awaitOrEmpty().mapNotNull(ImpactRow::toDomainOrNull)
@@ -63,51 +72,103 @@ class SupabaseCoreGateway @Inject constructor(private val authGateway: SupabaseA
     }
 
     @Serializable private data class EventRow(
-        val id: String, @SerialName("owner_id") val ownerId: String, val name: String, val description: String,
-        val venue: String, @SerialName("starts_at") val startsAt: String, @SerialName("ends_at") val endsAt: String,
-        val status: String, val archived: Boolean, @SerialName("created_at") val createdAt: String, @SerialName("updated_at") val updatedAt: String
-    ) { fun toDomainOrNull() = runCatching { Event(id, ownerId, name, description, venue, millis(startsAt), millis(endsAt), status, millis(createdAt), millis(updatedAt), SyncState.SYNCED, archived) }.getOrNull() }
+        val id: String, @SerialName("owner_id") val ownerId: String? = null, val name: String, val description: String,
+        @SerialName("address_text") val addressText: String, @SerialName("starts_at") val startsAt: String, @SerialName("ends_at") val endsAt: String,
+        val status: String, @SerialName("archived_at") val archivedAt: String? = null,
+        @SerialName("created_at") val createdAt: String, @SerialName("updated_at") val updatedAt: String
+    ) { fun toDomainOrNull() = runCatching { Event(id, requireNotNull(ownerId), name, description, addressText, millis(startsAt), millis(endsAt), status, millis(createdAt), millis(updatedAt), SyncState.SYNCED, archivedAt != null) }.getOrNull() }
 
     @Serializable private data class ResourceRow(
-        val id: String, @SerialName("event_id") val eventId: String, @SerialName("owner_id") val ownerId: String,
-        val title: String, val category: String, val material: String, val condition: String, val quantity: Int, val unit: String,
-        val status: String, @SerialName("value_cents") val valueCents: Long, @SerialName("image_urls") val imageUrls: List<String> = emptyList(),
-        val archived: Boolean, @SerialName("created_at") val createdAt: String, @SerialName("updated_at") val updatedAt: String
+        val id: String, @SerialName("origin_event_id") val eventId: String, @SerialName("current_owner_id") val ownerId: String? = null,
+        val title: String, val category: String, val material: String, val condition: String, val quantity: Double, val unit: String,
+        val status: String, @SerialName("archived_at") val archivedAt: String? = null,
+        @SerialName("created_at") val createdAt: String, @SerialName("updated_at") val updatedAt: String
     ) {
         fun toDomainOrNull() = runCatching {
             ResourceItem(
-                id, eventId, ownerId, title, category, material,
+                id, eventId, requireNotNull(ownerId), title, category, material,
                 enumValue(condition, ResourceCondition.entries), quantity, unit,
-                enumValue(status, ResourceStatus.entries), valueCents, imageUrls,
-                millis(createdAt), millis(updatedAt), SyncState.SYNCED, archived
+                enumValue(status, ResourceStatus.entries), 0, emptyList(),
+                millis(createdAt), millis(updatedAt), SyncState.SYNCED, archivedAt != null
             )
         }.onFailure { Log.w(TAG, "Ignoring malformed resource row $id", it) }.getOrNull()
     }
 
     @Serializable private data class PassportRow(
-        val id: String, @SerialName("resource_id") val resourceId: String, @SerialName("qr_payload") val qrPayload: String,
-        val history: kotlinx.serialization.json.JsonElement, @SerialName("created_at") val createdAt: String, @SerialName("updated_at") val updatedAt: String
-    ) { fun toDomainOrNull() = runCatching { ResourcePassport(id, resourceId, qrPayload, json.encodeToString(kotlinx.serialization.json.JsonElement.serializer(), history), millis(createdAt), millis(updatedAt), SyncState.SYNCED) }.getOrNull() }
+        val id: String, @SerialName("resource_id") val resourceId: String, @SerialName("public_token") val publicToken: String,
+        @SerialName("created_at") val createdAt: String, @SerialName("updated_at") val updatedAt: String
+    ) { fun toDomainOrNull(history: List<PassportHistoryEntry>) = runCatching {
+        val baseUrl = BuildConfig.PUBLIC_BASE_URL.trimEnd('/').takeIf { it.startsWith("https://") }
+        ResourcePassport(
+            id,
+            resourceId,
+            baseUrl?.let { "$it/p/v1/$publicToken" } ?: publicToken,
+            json.encodeToString(history),
+            millis(createdAt),
+            millis(updatedAt),
+            SyncState.SYNCED
+        )
+    }.getOrNull() }
+
+    @Serializable private data class PassportEventRow(
+        val id: String,
+        @SerialName("passport_id") val passportId: String,
+        @SerialName("event_type") val eventType: String,
+        @SerialName("actor_id") val actorId: String? = null,
+        val quantity: Double? = null,
+        val unit: String? = null,
+        @SerialName("previous_condition") val previousCondition: String? = null,
+        @SerialName("new_condition") val newCondition: String? = null,
+        @SerialName("public_summary") val publicSummary: String,
+        @SerialName("occurred_at") val occurredAt: String
+    ) {
+        fun toDomainOrNull() = runCatching {
+            PassportEventModel(
+                passportId = passportId,
+                entry = PassportHistoryEntry(
+                    occurredAt = millis(occurredAt),
+                    action = eventType,
+                    actorId = actorId ?: "server",
+                    quantity = quantity,
+                    unit = unit,
+                    previousCondition = previousCondition?.let(ResourceCondition::valueOf),
+                    newCondition = newCondition?.let(ResourceCondition::valueOf),
+                    publicSummary = publicSummary
+                )
+            )
+        }.onFailure { Log.w(TAG, "Ignoring malformed passport event $id", it) }.getOrNull()
+    }
+
+    private data class PassportEventModel(
+        val passportId: String,
+        val entry: PassportHistoryEntry
+    )
 
     @Serializable private data class ProgrammeRow(
         val id: String, @SerialName("partner_id") val partnerId: String, val name: String, @SerialName("programme_type") val type: String,
-        @SerialName("accepted_materials") val acceptedMaterials: List<String> = emptyList(), val location: String, val active: Boolean,
+        @SerialName("accepted_materials") val acceptedMaterials: List<String> = emptyList(), @SerialName("address_text") val location: String, val active: Boolean,
         @SerialName("created_at") val createdAt: String, @SerialName("updated_at") val updatedAt: String
     ) { fun toDomainOrNull() = runCatching { CircularProgramme(id, partnerId, name, ProgrammeType.valueOf(type), acceptedMaterials, location, active, millis(createdAt), millis(updatedAt), SyncState.SYNCED) }.getOrNull() }
 
     @Serializable private data class TransactionRow(
-        val id: String, @SerialName("event_id") val eventId: String, @SerialName("resource_id") val resourceId: String,
-        @SerialName("sender_id") val senderId: String, @SerialName("receiver_id") val receiverId: String, @SerialName("partner_id") val partnerId: String? = null,
-        @SerialName("transaction_type") val type: String, val status: String, val quantity: Int, val archived: Boolean,
+        val id: String, @SerialName("origin_event_id") val eventId: String, @SerialName("resource_id") val resourceId: String,
+        @SerialName("counter_resource_id") val counterResourceId: String? = null,
+        @SerialName("requester_id") val requesterId: String? = null,
+        @SerialName("sender_id") val senderId: String? = null, @SerialName("receiver_id") val receiverId: String? = null, @SerialName("partner_id") val partnerId: String? = null,
+        @SerialName("transaction_type") val type: String, val status: String, val quantity: Double,
         @SerialName("created_at") val createdAt: String, @SerialName("updated_at") val updatedAt: String
-    ) { fun toDomainOrNull() = runCatching { CircularTransaction(id, eventId, resourceId, senderId, receiverId, partnerId, TransactionType.valueOf(type), TransactionStatus.valueOf(status), quantity, millis(createdAt), millis(updatedAt), SyncState.SYNCED, archived) }.getOrNull() }
+    ) { fun toDomainOrNull() = runCatching { CircularTransaction(id, eventId, resourceId, requireNotNull(senderId), requireNotNull(receiverId), partnerId, TransactionType.valueOf(type), TransactionStatus.valueOf(status), quantity, millis(createdAt), millis(updatedAt), SyncState.SYNCED, false, requireNotNull(requesterId), counterResourceId) }.getOrNull() }
 
     @Serializable private data class ImpactRow(
-        val id: String, @SerialName("event_id") val eventId: String, @SerialName("resource_id") val resourceId: String? = null,
-        @SerialName("transaction_id") val transactionId: String? = null, @SerialName("material_diverted_kg") val materialDivertedKg: Double,
-        @SerialName("emissions_avoided_kg") val emissionsAvoidedKg: Double, @SerialName("value_recovered_cents") val valueRecoveredCents: Long,
-        @SerialName("calculated_at") val calculatedAt: String, @SerialName("updated_at") val updatedAt: String
-    ) { fun toDomainOrNull() = runCatching { ImpactRecord(id, eventId, resourceId, transactionId, materialDivertedKg, emissionsAvoidedKg, valueRecoveredCents, millis(calculatedAt), millis(updatedAt), SyncState.SYNCED) }.getOrNull() }
+        val id: String, @SerialName("event_id") val eventId: String, @SerialName("resource_id") val resourceId: String,
+        @SerialName("transaction_id") val transactionId: String, @SerialName("transaction_type") val transactionType: String,
+        @SerialName("completed_quantity") val completedQuantity: Double, val unit: String,
+        @SerialName("material_diverted_kg") val materialDivertedKg: Double? = null,
+        @SerialName("emissions_avoided_kg") val emissionsAvoidedKg: Double? = null,
+        @SerialName("recoins_transferred") val recoinsTransferred: Long,
+        @SerialName("recoins_rewarded") val recoinsRewarded: Long,
+        @SerialName("calculated_at") val calculatedAt: String
+    ) { fun toDomainOrNull() = runCatching { ImpactRecord(id, eventId, resourceId, transactionId, TransactionType.valueOf(transactionType), completedQuantity, unit, materialDivertedKg, emissionsAvoidedKg, recoinsTransferred, recoinsRewarded, millis(calculatedAt), SyncState.SYNCED) }.getOrNull() }
 
     private companion object {
         const val TAG = "ReEventCoreSync"
