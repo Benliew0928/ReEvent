@@ -480,6 +480,7 @@ test('rent handover and return complete once with atomic settlement, reward, imp
     [transactionId, completionKey]
   ))
   assert.equal(replay.rows[0].result.transaction.id, transactionId)
+  assert.equal(replay.rows[0].result.replayed, true)
 
   const effects = await database.query(`
     select t.status, a.state, h.status as hold_status, r.reuse_count,
