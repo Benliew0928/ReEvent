@@ -113,7 +113,9 @@ fun HomeScreen(
     metrics: List<ImpactMetric> = emptyList(),
     resources: List<com.reevent.app.ui.ResourceItem> = emptyList(),
     recoverySteps: List<RecoveryStep> = emptyList(),
+    hasEvent: Boolean = true,
     onManageEvents: (() -> Unit)? = null,
+    onAddResource: (() -> Unit)? = null,
     onResourceClick: (com.reevent.app.ui.ResourceItem) -> Unit = { onNavigate(ReEventScreen.Passport) }
 ) {
     ReEventScaffold(selected = ReEventScreen.Home, onNavigate = onNavigate) { padding ->
@@ -154,6 +156,19 @@ fun HomeScreen(
                         }
                     }
                 }
+            } else {
+                item {
+                    HomeEmptyState(
+                        title = if (hasEvent) "No resource summary yet" else "No event workspace yet",
+                        detail = if (hasEvent) {
+                            "Add the first resource lot to start a live recovery summary."
+                        } else {
+                            "Create an event before adding resources, partners, or recovery impact."
+                        },
+                        actionLabel = if (hasEvent) "Add a resource" else "Create an event",
+                        onAction = if (hasEvent) onAddResource else onManageEvents
+                    )
+                }
             }
             item {
                 SectionTitle(title = "Fast actions")
@@ -161,11 +176,11 @@ fun HomeScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     QuickActionTile(
-                        title = "Add resource lot",
-                        detail = "Create item passport with photos and condition",
+                        title = if (hasEvent) "Add resource lot" else "Create your first event",
+                        detail = if (hasEvent) "Create item passport with photos and condition" else "Set the event details before creating resource lots",
                         icon = Icons.Outlined.Add,
                         color = ReEventGreen,
-                        onClick = { onNavigate(ReEventScreen.AddResource) }
+                        onClick = { if (hasEvent) onAddResource?.invoke() else onManageEvents?.invoke() }
                     )
                     QuickActionTile(
                         title = "Manage events",
@@ -174,13 +189,15 @@ fun HomeScreen(
                         color = ReEventCoral,
                         onClick = { onManageEvents?.invoke() }
                     )
-                    QuickActionTile(
-                        title = "Run AI recovery match",
-                        detail = "Rank reuse, repair and buy-back partners",
-                        icon = Icons.Outlined.Star,
-                        color = ReEventWarm,
-                        onClick = { onNavigate(ReEventScreen.AiMatch) }
-                    )
+                    if (resources.isNotEmpty()) {
+                        QuickActionTile(
+                            title = "Run AI recovery match",
+                            detail = "Rank reuse, repair and buy-back partners",
+                            icon = Icons.Outlined.Star,
+                            color = ReEventWarm,
+                            onClick = { onNavigate(ReEventScreen.AiMatch) }
+                        )
+                    }
                     QuickActionTile(
                         title = "Open partner map",
                         detail = "See factories, repairers and collection points",
@@ -200,7 +217,15 @@ fun HomeScreen(
                     border = BorderStroke(1.dp, ReEventLine)
                 ) {
                     if (recoverySteps.isEmpty()) {
-                        EmptyWorkflowMessage()
+                        EmptyWorkflowMessage(
+                            message = if (hasEvent) {
+                                "Your recovery activity will appear here once a resource lot is added."
+                            } else {
+                                "Create an event to begin a circular recovery workflow."
+                            },
+                            actionLabel = if (hasEvent) "Add a resource" else "Create an event",
+                            onAction = if (hasEvent) onAddResource else onManageEvents
+                        )
                     } else {
                         RecoveryTimeline(modifier = Modifier.padding(16.dp), steps = recoverySteps)
                     }
@@ -214,7 +239,13 @@ fun HomeScreen(
                 )
             }
             if (resources.isEmpty()) {
-                item { EmptyWorkflowMessage("No resource lots have been added yet.") }
+                item {
+                    EmptyWorkflowMessage(
+                        message = if (hasEvent) "No resource lots have been added yet." else "Your event's resource lots will appear here after it is created.",
+                        actionLabel = if (hasEvent) "Add first resource" else "Create an event",
+                        onAction = if (hasEvent) onAddResource else onManageEvents
+                    )
+                }
             }
             items(resources) { item ->
                 ResourceCard(item = item, onClick = { onResourceClick(item) })
@@ -224,14 +255,29 @@ fun HomeScreen(
 }
 
 @Composable
-private fun EmptyWorkflowMessage(message: String = "Your recovery activity will appear here once resources are added.") {
+private fun EmptyWorkflowMessage(
+    message: String = "Your recovery activity will appear here once resources are added.",
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null
+) {
     Surface(shape = RoundedCornerShape(18.dp), color = ReEventMintSoft) {
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = ReEventMuted,
-            modifier = Modifier.padding(16.dp)
-        )
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(text = message, style = MaterialTheme.typography.bodyMedium, color = ReEventMuted)
+            if (actionLabel != null && onAction != null) {
+                SecondaryActionButton(actionLabel, onAction, Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeEmptyState(title: String, detail: String, actionLabel: String, onAction: (() -> Unit)?) {
+    Surface(shape = RoundedCornerShape(20.dp), color = ReEventMintSoft, border = BorderStroke(1.dp, ReEventLine)) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = ReEventInk)
+            Text(detail, style = MaterialTheme.typography.bodyMedium, color = ReEventMuted)
+            if (onAction != null) PrimaryActionButton(actionLabel, onAction, Modifier.fillMaxWidth())
+        }
     }
 }
 

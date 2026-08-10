@@ -69,7 +69,7 @@ import com.reevent.app.ui.ReEventRole
 import com.reevent.app.ui.ReEventScreen
 import com.reevent.app.ui.ResourceTone
 import com.reevent.app.ui.components.BrandLockup
-import com.reevent.app.ui.components.FakeQrPanel
+import com.reevent.app.ui.components.QrCodePanel
 import com.reevent.app.ui.components.FormFieldPreview
 import com.reevent.app.ui.components.HeroImageCard
 import com.reevent.app.ui.components.InfoRow
@@ -109,7 +109,11 @@ import com.reevent.app.ui.theme.*
 fun ParticipantReturnScreen(
     onNavigate: (ReEventScreen) -> Unit,
     onScanResourceQr: () -> Unit,
-    transactions: List<CircularTransaction> = emptyList()
+    transactions: List<CircularTransaction> = emptyList(),
+    returnResourceTitle: String? = null,
+    returnQrPayload: String? = null,
+    returnStatus: TransactionStatus? = null,
+    returnActionError: String? = null
 ) {
     ReEventScaffold(selected = ReEventScreen.ParticipantReturn, onNavigate = onNavigate) { padding ->
         ReEventLazyColumn(paddingValues = padding) {
@@ -129,18 +133,26 @@ fun ParticipantReturnScreen(
                 ) {
                     AdaptiveTwoPane(
                         modifier = Modifier.padding(16.dp),
-                        first = { FakeQrPanel(modifier = Modifier.fillMaxWidth()) },
+                        first = {
+                            if (returnQrPayload.isNullOrBlank()) {
+                                Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = ReEventMintSoft) {
+                                    Text("No return passport is assigned yet.", color = ReEventMuted, modifier = Modifier.padding(16.dp))
+                                }
+                            } else {
+                                QrCodePanel(payload = returnQrPayload, modifier = Modifier.fillMaxWidth())
+                            }
+                        },
                         second = {
                         Column {
                             StatusChip(text = "Return pass", color = ReEventGreen)
                             Spacer(Modifier.height(10.dp))
                             Text(
-                                text = "Scan at exit booth",
+                                text = if (returnResourceTitle == null) "Scan at exit booth" else "Return $returnResourceTitle",
                                 style = MaterialTheme.typography.titleLarge,
                                 color = ReEventInk
                             )
                             Text(
-                                text = "Return cups, badges or bags to earn reward points and keep the event loop closed.",
+                                text = if (returnQrPayload == null) "Your assigned return passport will appear here after a handover is confirmed." else "Show this verified passport at the exit booth, then scan the organiser or resource code to confirm return.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = ReEventMuted
                             )
@@ -155,6 +167,13 @@ fun ParticipantReturnScreen(
                     icon = Icons.Outlined.PhotoCamera,
                     onClick = onScanResourceQr,
                     modifier = Modifier.fillMaxWidth()
+                )
+            }
+            item {
+                ReturnJourneyGuidance(
+                    status = returnStatus,
+                    hasAssignedPassport = !returnQrPayload.isNullOrBlank(),
+                    actionError = returnActionError
                 )
             }
             item {
@@ -186,6 +205,62 @@ fun ParticipantReturnScreen(
                     ReturnActivityCard(transaction)
                 }
             }
+        }
+    }
+}
+
+/** Explains the next responsible person without implying that a QR scan changes state by itself. */
+@Composable
+private fun ReturnJourneyGuidance(
+    status: TransactionStatus?,
+    hasAssignedPassport: Boolean,
+    actionError: String?
+) {
+    val (title, detail, tone) = when {
+        actionError != null -> Triple(
+            "Return needs attention",
+            "The return was not changed. Check your connection, confirm you scanned the assigned code, then try again.",
+            ReEventCoral
+        )
+
+        else -> when (status) {
+        TransactionStatus.ACTIVE -> Triple(
+            "Ready for return",
+            "Show the assigned passport, then scan the organiser or resource code. Your scan starts the return; the organiser confirms the handover.",
+            ReEventGreen
+        )
+
+        TransactionStatus.RETURN_IN_PROGRESS -> Triple(
+            "Return waiting for confirmation",
+            "Your return request is recorded. The organiser must now confirm the returned item before the lifecycle is complete.",
+            ReEventWarm
+        )
+
+        TransactionStatus.COMPLETED -> Triple(
+            "Return confirmed",
+            "This item's return is complete. You do not need to take another action for this handover.",
+            ReEventGreen
+        )
+
+        else -> Triple(
+            "Waiting for a handover",
+            if (hasAssignedPassport) {
+                "Your assigned passport is ready. Follow the organiser's handover instructions before starting a return."
+            } else {
+                "A return passport appears after a Borrow, Rent, or Repair handover has been confirmed."
+            },
+            ReEventMuted
+        )
+        }
+    }
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = tone.copy(alpha = 0.11f),
+        border = BorderStroke(1.dp, ReEventLine)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall, color = ReEventInk)
+            Text(detail, style = MaterialTheme.typography.bodyMedium, color = ReEventMuted)
         }
     }
 }

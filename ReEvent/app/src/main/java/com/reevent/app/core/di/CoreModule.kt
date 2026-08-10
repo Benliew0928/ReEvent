@@ -12,6 +12,7 @@ import com.reevent.app.core.data.ResourceRepository
 import com.reevent.app.core.data.TransactionRepository
 import com.reevent.app.core.data.CoreSyncRepository
 import com.reevent.app.core.data.MediaRepository
+import com.reevent.app.core.data.MarketplaceListingRepository
 import com.reevent.app.core.data.SupabaseMediaRepository
 import com.reevent.app.core.database.CoreDao
 import com.reevent.app.core.database.ReEventDatabase
@@ -41,7 +42,8 @@ object CoreModule {
                 ReEventDatabase.MIGRATION_1_2,
                 ReEventDatabase.MIGRATION_2_3,
                 ReEventDatabase.MIGRATION_3_4,
-                ReEventDatabase.MIGRATION_4_5
+                ReEventDatabase.MIGRATION_4_5,
+                ReEventDatabase.MIGRATION_5_6
             )
             .build()
 
@@ -64,6 +66,7 @@ object CoreModule {
     @Provides fun provideEventRepository(repository: LocalFirstCoreRepository): EventRepository = repository
     @Provides fun provideAuthRepository(repository: DefaultAuthRepository): AuthRepository = repository
     @Provides fun provideResourceRepository(repository: LocalFirstCoreRepository): ResourceRepository = repository
+    @Provides fun provideMarketplaceListingRepository(repository: LocalFirstCoreRepository): MarketplaceListingRepository = repository
     @Provides fun providePassportRepository(repository: LocalFirstCoreRepository): PassportRepository = repository
     @Provides fun providePartnerRepository(repository: LocalFirstCoreRepository): PartnerRepository = repository
     @Provides fun provideTransactionRepository(repository: LocalFirstCoreRepository): TransactionRepository = repository

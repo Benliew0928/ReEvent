@@ -45,6 +45,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,6 +65,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.reevent.app.R
 import com.reevent.app.feature.impact.ImpactBadge
+import com.reevent.app.core.model.ImpactRecord
 import com.reevent.app.ui.ImpactMetric
 import com.reevent.app.ui.PartnerMatch
 import com.reevent.app.ui.ReEventRole
@@ -104,6 +107,11 @@ import com.reevent.app.ui.theme.ReEventMuted
 import com.reevent.app.ui.theme.ReEventPaper
 import com.reevent.app.ui.theme.ReEventWarm
 import com.reevent.app.ui.theme.*
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+
+data class ImpactEventScope(val id: String, val name: String)
 
 @Composable
 fun ImpactScreen(
@@ -113,8 +121,13 @@ fun ImpactScreen(
     recoveryLabel: String = "—",
     chartValues: List<Float> = emptyList(),
     badge: ImpactBadge? = null,
-    unavailableEstimateReason: String? = null
+    unavailableEstimateReason: String? = null,
+    latestRecord: ImpactRecord? = null,
+    selectedScope: ImpactEventScope? = null,
+    scopes: List<ImpactEventScope> = emptyList(),
+    onScopeSelected: (String) -> Unit = {}
 ) {
+    var selectingScope by rememberSaveable { mutableStateOf(false) }
     ReEventScaffold(selected = ReEventScreen.Impact, onNavigate = onNavigate) { padding ->
         ReEventLazyColumn(paddingValues = padding) {
             item {
@@ -123,6 +136,22 @@ fun ImpactScreen(
                     subtitle = "Circular economy proof for reporting and marks",
                     onProfile = { onNavigate(ReEventScreen.Profile) }
                 )
+            }
+            selectedScope?.let { scope ->
+                item {
+                    Surface(shape = RoundedCornerShape(18.dp), color = ReEventMintSoft, border = BorderStroke(1.dp, ReEventLine)) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Reporting scope", style = MaterialTheme.typography.labelMedium, color = ReEventMuted)
+                                Text(scope.name, style = MaterialTheme.typography.titleMedium, color = ReEventInk)
+                            }
+                            if (scopes.size > 1) TextButton(onClick = { selectingScope = true }) { Text("Change") }
+                        }
+                    }
+                }
             }
             item {
                 Surface(
@@ -234,6 +263,52 @@ fun ImpactScreen(
                     }
                 }
             }
+            latestRecord?.let { record ->
+                item { LatestImpactContributionCard(record) }
+            }
+        }
+    }
+    if (selectingScope) {
+        AlertDialog(
+            onDismissRequest = { selectingScope = false },
+            title = { Text("Choose reporting event") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    scopes.forEach { scope ->
+                        TextButton(
+                            onClick = { onScopeSelected(scope.id); selectingScope = false },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(scope.name, modifier = Modifier.fillMaxWidth()) }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { selectingScope = false }) { Text("Close") } }
+        )
+    }
+}
+
+@Composable
+private fun LatestImpactContributionCard(record: ImpactRecord) {
+    Surface(shape = RoundedCornerShape(22.dp), color = ReEventPaper, border = BorderStroke(1.dp, ReEventLine)) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Text("Latest verified contribution", style = MaterialTheme.typography.titleMedium, color = ReEventInk)
+            Text(
+                "${record.transactionType.displayLabel()} - ${record.completedQuantity.formatImpactNumber()} ${record.unit}",
+                style = MaterialTheme.typography.bodyLarge,
+                color = ReEventInk
+            )
+            val outcomes = buildList {
+                record.materialDivertedKg?.let { add("${it.formatImpactNumber()} kg diverted") }
+                record.emissionsAvoidedKg?.let { add("${it.formatImpactNumber()} kg CO2e avoided") }
+                if (record.recoinsTransferred > 0) add("${record.recoinsTransferred} ReCoins transferred")
+                if (record.recoinsRewarded > 0) add("${record.recoinsRewarded} ReCoins rewarded")
+            }
+            Text(
+                outcomes.ifEmpty { listOf("No documented mass/factor estimate was supplied for this completed outcome.") }.joinToString(" | "),
+                style = MaterialTheme.typography.bodyMedium,
+                color = ReEventMuted
+            )
+            Text("Server record: ${record.calculatedAt.toImpactDateTime()}", style = MaterialTheme.typography.bodySmall, color = ReEventMuted)
         }
     }
 }
@@ -262,4 +337,13 @@ private fun ImpactBadge.displayLabel(): String = when (this) {
     ImpactBadge.CIRCULAR_STARTER -> "Circular starter"
     ImpactBadge.HIGH_RECOVERY -> "High recovery"
 }
+
+private fun com.reevent.app.core.model.TransactionType.displayLabel(): String =
+    name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)
+
+private fun Double.formatImpactNumber(): String =
+    if (this % 1.0 == 0.0) toLong().toString() else "%.3f".format(java.util.Locale.US, this).trimEnd('0').trimEnd('.')
+
+private val impactDateTimeFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM uuuu, HH:mm")
+private fun Long.toImpactDateTime(): String = Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).format(impactDateTimeFormat)
 

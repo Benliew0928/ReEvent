@@ -4,6 +4,7 @@ import com.reevent.app.core.model.CircularProgramme
 import com.reevent.app.core.model.CircularTransaction
 import com.reevent.app.core.model.Event
 import com.reevent.app.core.model.ImpactRecord
+import com.reevent.app.core.model.MarketplaceListing
 import com.reevent.app.core.model.ProgrammeType
 import com.reevent.app.core.model.ResourceCondition
 import com.reevent.app.core.model.ResourceItem
@@ -27,11 +28,29 @@ fun Event.toEntity(accountId: String) = EventEntity(id, accountId, ownerId, name
 fun ResourceEntity.toDomain() = ResourceItem(
     id, eventId, ownerId, title, category, material, ResourceCondition.valueOf(condition), quantity, unit,
     ResourceStatus.valueOf(status), valueCents, coreJson.decodeFromString(imageUrlsJson), createdAt, updatedAt,
-    SyncState.valueOf(syncState), archived
+    SyncState.valueOf(syncState), archived,
+    marketplaceListingId?.let {
+        MarketplaceListing(
+            id = it,
+            allowedActions = coreJson.decodeFromString(marketplaceAllowedActionsJson),
+            publishedQuantity = checkNotNull(marketplacePublishedQuantity),
+            buyUnitPrice = marketplaceBuyUnitPrice,
+            rentUnitPrice = marketplaceRentUnitPrice,
+            defaultDurationDays = marketplaceDefaultDurationDays,
+            terms = marketplaceTerms
+        )
+    }
 )
 fun ResourceItem.toEntity(accountId: String) = ResourceEntity(
     id, accountId, eventId, ownerId, title, category, material, condition.name, quantity, unit, status.name, valueCents,
-    coreJson.encodeToString(imageUrls), createdAt, updatedAt, syncState.name, archived
+    coreJson.encodeToString(imageUrls), createdAt, updatedAt, syncState.name, archived,
+    marketplaceListing?.id,
+    coreJson.encodeToString(marketplaceListing?.allowedActions.orEmpty()),
+    marketplaceListing?.publishedQuantity,
+    marketplaceListing?.buyUnitPrice,
+    marketplaceListing?.rentUnitPrice,
+    marketplaceListing?.defaultDurationDays,
+    marketplaceListing?.terms.orEmpty()
 )
 
 fun PassportEntity.toDomain() = ResourcePassport(id, resourceId, qrPayload, historyJson, createdAt, updatedAt, SyncState.valueOf(syncState))

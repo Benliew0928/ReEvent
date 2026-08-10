@@ -42,6 +42,7 @@ import com.reevent.app.ui.screens.PartnerMapVisualScreen
 import com.reevent.app.ui.screens.PartnerWorkbenchVisualScreen
 import com.reevent.app.ui.screens.PassportVisualScreen
 import com.reevent.app.ui.screens.ProfileFlowScreen
+import com.reevent.app.ui.screens.PasswordRecoveryFlowScreen
 import com.reevent.app.ui.screens.QrScannerLiveScreen
 import com.reevent.app.ui.screens.SignInFlowScreen
 import com.reevent.app.ui.screens.FeatureViewModel
@@ -74,6 +75,7 @@ fun ReEventApp() {
         AppEntry.LOADING -> LoadingScreen()
         AppEntry.ONBOARDING -> OnboardingFlowScreen(sessionViewModel::completeOnboarding)
         AppEntry.SIGN_IN -> SignInFlowScreen()
+        AppEntry.PASSWORD_RESET -> PasswordRecoveryFlowScreen()
         AppEntry.COMPLETE_ROLE -> CompleteRoleFlowScreen()
         AppEntry.ORGANIZER, AppEntry.PARTICIPANT, AppEntry.PARTNER -> {
             val user = requireNotNull(session.user)
@@ -182,6 +184,7 @@ private fun androidx.navigation.NavGraphBuilder.organiserGraph(
     }
     composable<PassportRoute> { entry ->
         PassportVisualScreen(
+            user = user,
             resourceId = entry.toRoute<PassportRoute>().resourceId,
             onMatch = { nav.openDetail(MatchingRoute(it)) },
             onBack = nav::popBackStack,
@@ -194,7 +197,12 @@ private fun androidx.navigation.NavGraphBuilder.organiserGraph(
     composable<MatchingRoute> { entry -> MatchingLiveScreen(user, entry.toRoute<MatchingRoute>().resourceId, { nav.popBackStack() }) }
     composable<OrganizerImpactRoute> { OrganizerImpactVisualScreen(user, nav::openOrganiserVisualDestination) }
     composable<MarketplaceRoute> { MarketplaceVisualScreen(user, { nav.openDetail(PassportRoute(it)) }, nav::openOrganiserVisualDestination) }
-    composable<PartnerMapRoute> { PartnerMapVisualScreen(nav::openOrganiserVisualDestination) }
+    composable<PartnerMapRoute> {
+        PartnerMapVisualScreen(
+            onNavigate = nav::openOrganiserVisualDestination,
+            onOpenPassport = { nav.openDetail(PassportRoute(it)) }
+        )
+    }
 }
 
 private fun androidx.navigation.NavGraphBuilder.participantGraph(nav: NavHostController, user: User) {
@@ -203,7 +211,7 @@ private fun androidx.navigation.NavGraphBuilder.participantGraph(nav: NavHostCon
     }
     composable<MarketplaceRoute> { MarketplaceVisualScreen(user, { nav.openDetail(PassportRoute(it)) }, nav::openParticipantVisualDestination) }
     composable<PassportRoute> { entry ->
-        PassportVisualScreen(entry.toRoute<PassportRoute>().resourceId, onMatch = { }, onBack = nav::popBackStack, onNavigate = nav::openParticipantVisualDestination)
+        PassportVisualScreen(user, entry.toRoute<PassportRoute>().resourceId, onMatch = { }, onBack = nav::popBackStack, onNavigate = nav::openParticipantVisualDestination)
     }
     composable<QrScannerRoute> {
         QrScannerLiveScreen(user, { nav.openDetail(PassportRoute(it)) }, nav::popBackStack)
@@ -211,12 +219,23 @@ private fun androidx.navigation.NavGraphBuilder.participantGraph(nav: NavHostCon
 }
 
 private fun androidx.navigation.NavGraphBuilder.partnerGraph(nav: NavHostController, user: User) {
-    composable<PartnerWorkbenchRoute> { PartnerWorkbenchVisualScreen(user, nav::openPartnerVisualDestination) }
+    composable<PartnerWorkbenchRoute> {
+        PartnerWorkbenchVisualScreen(
+            user = user,
+            onNavigate = nav::openPartnerVisualDestination,
+            onOpenPassport = { nav.openDetail(PassportRoute(it)) }
+        )
+    }
     composable<MarketplaceRoute> { MarketplaceVisualScreen(user, { nav.openDetail(PassportRoute(it)) }, nav::openPartnerVisualDestination) }
     composable<PassportRoute> { entry ->
-        PassportVisualScreen(entry.toRoute<PassportRoute>().resourceId, onMatch = { }, onBack = nav::popBackStack, onNavigate = nav::openPartnerVisualDestination)
+        PassportVisualScreen(user, entry.toRoute<PassportRoute>().resourceId, onMatch = { }, onBack = nav::popBackStack, onNavigate = nav::openPartnerVisualDestination)
     }
-    composable<PartnerMapRoute> { PartnerMapVisualScreen(nav::openPartnerVisualDestination) }
+    composable<PartnerMapRoute> {
+        PartnerMapVisualScreen(
+            onNavigate = nav::openPartnerVisualDestination,
+            onOpenPassport = { nav.openDetail(PassportRoute(it)) }
+        )
+    }
 }
 
 /** Keeps rapid Account taps from adding duplicate profile destinations to the back stack. */

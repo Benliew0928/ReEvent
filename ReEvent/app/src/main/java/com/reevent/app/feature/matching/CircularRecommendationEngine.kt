@@ -4,10 +4,15 @@ import com.reevent.app.core.model.CircularProgramme
 import com.reevent.app.core.model.ProgrammeType
 import com.reevent.app.core.model.ResourceCondition
 import com.reevent.app.core.model.ResourceItem
+import com.reevent.app.core.data.ResourcePresentationRules
 import com.reevent.app.core.model.ResourceStatus
 
 object CircularRecommendationEngine {
-    fun recommend(resource: ResourceItem, programmes: List<CircularProgramme>): RecommendationResult {
+    fun recommend(
+        resource: ResourceItem,
+        programmes: List<CircularProgramme>,
+        eventLocation: String = ""
+    ): RecommendationResult {
         if (resource.status != ResourceStatus.ACTIVE) {
             return RecommendationResult(
                 primary = null,
@@ -15,8 +20,15 @@ object CircularRecommendationEngine {
                 ineligibilityReason = "This resource is not available for a new recovery route."
             )
         }
+        if (resource.quantity <= 0.0) {
+            return RecommendationResult(
+                primary = null,
+                alternatives = emptyList(),
+                ineligibilityReason = "This resource has no available quantity for a new recovery route."
+            )
+        }
 
-        val rankedProgrammes = rankProgrammes(resource, programmes)
+        val rankedProgrammes = rankProgrammes(resource, programmes, eventLocation)
         val usedProgrammeTypes = mutableSetOf<ProgrammeType>()
         val candidates = actionOrder(resource.condition).mapNotNull { action ->
             val programmeTypes = programmeTypesFor(action)
@@ -30,9 +42,9 @@ object CircularRecommendationEngine {
                 usedProgrammeTypes += programmeTypes
                 RecommendationCandidate(
                     action = action,
-                    score = score(action, compatible.first(), resource),
+                    score = score(action, compatible.first(), resource, eventLocation),
                     compatibleProgrammeIds = compatible.map(CircularProgramme::id),
-                    explanation = explanation(action, compatible.first(), resource)
+                    explanation = explanation(action, compatible.first(), resource, eventLocation)
                 )
             }
         }
@@ -41,19 +53,24 @@ object CircularRecommendationEngine {
             primary = candidates.firstOrNull(),
             alternatives = candidates.drop(1),
             ineligibilityReason = if (candidates.isEmpty()) {
-                "No active partner programme supports this recovery route."
+                noMatchReason(resource, programmes)
             } else {
                 null
             }
         )
     }
 
-    fun rankProgrammes(resource: ResourceItem, programmes: List<CircularProgramme>): List<CircularProgramme> = programmes
+    fun rankProgrammes(
+        resource: ResourceItem,
+        programmes: List<CircularProgramme>,
+        eventLocation: String = ""
+    ): List<CircularProgramme> = programmes
         .asSequence()
         .filter(CircularProgramme::active)
         .filter { programme -> materialCompatibility(resource.material, programme) > 0 }
         .sortedWith(
             compareByDescending<CircularProgramme> { materialCompatibility(resource.material, it) }
+                .thenByDescending { locationCompatibility(eventLocation, it.location) }
                 .thenBy { it.name.lowercase() }
                 .thenBy(CircularProgramme::id)
         )
@@ -113,17 +130,53 @@ object CircularRecommendationEngine {
         else -> 0
     }
 
-    private fun score(action: CircularAction, programme: CircularProgramme, resource: ResourceItem): Int {
+    private fun score(
+        action: CircularAction,
+        programme: CircularProgramme,
+        resource: ResourceItem,
+        eventLocation: String
+    ): Int {
         val actionPriority = actionOrder(resource.condition).indexOf(action)
         val materialScore = materialCompatibility(resource.material, programme) * 10
-        return 100 - (actionPriority * 5) + materialScore
+        val locationScore = locationCompatibility(eventLocation, programme.location) * 4
+        return 100 - (actionPriority * 5) + materialScore + locationScore
     }
 
     private fun explanation(
         action: CircularAction,
         programme: CircularProgramme,
-        resource: ResourceItem
-    ): String = "${action.displayName()} is supported by ${programme.name} for ${resource.material.ifBlank { "generic" }} materials."
+        resource: ResourceItem,
+        eventLocation: String
+    ): String {
+        val category = resource.category.ifBlank { "uncategorised resources" }
+        val material = resource.material.ifBlank { "unspecified material" }
+        val locationNote = when (locationCompatibility(eventLocation, programme.location)) {
+            2 -> " Its service area matches the event location."
+            1 -> " Its service area is related to the event location."
+            else -> if (programme.location.isBlank()) " Its service area needs confirmation." else " Its service area is ${programme.location}."
+        }
+        return "${action.displayName()} is supported by ${programme.name} for ${ResourcePresentationRules.quantityLabel(resource.quantity, resource.unit)} of $category ($material, ${resource.condition.name.lowercase().replace('_', ' ')}).$locationNote"
+    }
+
+    private fun noMatchReason(resource: ResourceItem, programmes: List<CircularProgramme>): String = when {
+        programmes.none(CircularProgramme::active) -> "No active partner programmes are available yet."
+        resource.material.isBlank() && programmes.none { it.acceptedMaterials.isEmpty() } ->
+            "This resource needs a material before a compatible partner can be selected."
+        programmes.filter(CircularProgramme::active).none { materialCompatibility(resource.material, it) > 0 } ->
+            "No active partner programme accepts ${resource.material.ifBlank { "this resource material" }}."
+        else -> "No active partner programme supports this recovery route."
+    }
+
+    private fun locationCompatibility(eventLocation: String, programmeLocation: String): Int {
+        val event = eventLocation.trim()
+        val programme = programmeLocation.trim()
+        if (event.isBlank() || programme.isBlank()) return 0
+        return when {
+            event.equals(programme, ignoreCase = true) -> 2
+            event.contains(programme, ignoreCase = true) || programme.contains(event, ignoreCase = true) -> 1
+            else -> 0
+        }
+    }
 
     private fun CircularAction.displayName(): String = name
         .lowercase()

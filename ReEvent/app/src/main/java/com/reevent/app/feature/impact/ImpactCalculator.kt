@@ -20,7 +20,9 @@ object ImpactCalculator {
         val recycled = completed.count { it.type == TransactionType.RECYCLE }
         val recovered = resources.count { it.status == ResourceStatus.RECOVERED }
         val rate = resources.takeIf { it.isNotEmpty() }?.let { recovered.toFloat() / it.size }
+        val completedTransactionIds = completed.map(CircularTransaction::id).toSet()
         val validRecords = records.filter {
+            it.transactionId in completedTransactionIds &&
             (it.materialDivertedKg == null || it.materialDivertedKg.isFinite() && it.materialDivertedKg >= 0) &&
                 (it.emissionsAvoidedKg == null || it.emissionsAvoidedKg.isFinite() && it.emissionsAvoidedKg >= 0) &&
                 it.recoinsTransferred >= 0 && it.recoinsRewarded >= 0
@@ -56,7 +58,8 @@ object ImpactCalculator {
                 estimatedTransactionIds.isEmpty() -> "No documented mass and factor are available for these completed outcomes."
                 hasCompletedOutcomeWithoutEstimate -> "Some completed outcomes have no documented mass and factor."
                 else -> null
-            }
+            },
+            latestRecord = validRecords.maxByOrNull(ImpactRecord::calculatedAt)
         )
     }
 }

@@ -92,6 +92,7 @@ import com.reevent.app.ui.components.SettingsRow
 import com.reevent.app.ui.components.StatusChip
 import com.reevent.app.ui.components.UploadPreviewCard
 import com.reevent.app.ui.components.WarmChartColors
+import com.reevent.app.feature.passports.PassportViewerAccess
 import com.reevent.app.ui.theme.ReEventBlue
 import com.reevent.app.ui.theme.ReEventCanvas
 import com.reevent.app.ui.theme.ReEventCoral
@@ -112,9 +113,11 @@ fun PassportScreen(
     item: com.reevent.app.ui.ResourceItem? = null,
     passportId: String? = null,
     qrPayload: String? = null,
-    ownerId: String? = null,
+    qrUnavailableMessage: String? = null,
+    viewerAccess: PassportViewerAccess? = null,
     recommendedAction: String? = null,
-    recoverySteps: List<RecoveryStep> = emptyList()
+    recoverySteps: List<RecoveryStep> = emptyList(),
+    showMatchAction: Boolean = false
 ) {
     ReEventScaffold(selected = ReEventScreen.Marketplace, onNavigate = onNavigate) { padding ->
         ReEventLazyColumn(paddingValues = padding) {
@@ -173,8 +176,9 @@ fun PassportScreen(
                             InfoRow("Condition", item.tone.label)
                             InfoRow("Material", item.category)
                             InfoRow("Current value", item.price)
-                            InfoRow("Owner", ownerId?.take(8)?.let { "ID $it" } ?: "Not available")
-                            Text("Recommended action", style = MaterialTheme.typography.bodyMedium, color = ReEventMuted)
+                            InfoRow("Your access", viewerAccess?.label ?: "Checking authorised access")
+                            Text(viewerAccess?.explanation ?: "This passport only shows information available to your signed-in account.", style = MaterialTheme.typography.bodyMedium, color = ReEventMuted)
+                            Text("Resource guidance", style = MaterialTheme.typography.bodyMedium, color = ReEventMuted)
                             Text(recommendedAction ?: "Review resource details", style = MaterialTheme.typography.titleMedium, color = ReEventInk)
                         }
                     }
@@ -190,7 +194,7 @@ fun PassportScreen(
                                 color = ReEventMintSoft
                             ) {
                                 Text(
-                                    text = "QR code pending",
+                                text = qrUnavailableMessage ?: "QR code pending",
                                     color = ReEventMuted,
                                     modifier = Modifier.padding(16.dp)
                                 )
@@ -245,13 +249,15 @@ fun PassportScreen(
                     }
                 }
             }
-            item {
-                PrimaryActionButton(
-                    text = "Find partner matches",
-                    icon = Icons.Outlined.Star,
-                    onClick = { if (item != null) onNavigate(ReEventScreen.AiMatch) },
-                    modifier = Modifier.fillMaxWidth()
-                )
+            if (showMatchAction) {
+                item {
+                    PrimaryActionButton(
+                        text = "Find partner matches",
+                        icon = Icons.Outlined.Star,
+                        onClick = { if (item != null) onNavigate(ReEventScreen.AiMatch) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
     }

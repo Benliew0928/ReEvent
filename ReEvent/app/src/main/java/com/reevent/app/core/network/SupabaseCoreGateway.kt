@@ -6,6 +6,7 @@ import com.reevent.app.core.model.CircularProgramme
 import com.reevent.app.core.model.CircularTransaction
 import com.reevent.app.core.model.Event
 import com.reevent.app.core.model.ImpactRecord
+import com.reevent.app.core.model.MarketplaceListing
 import com.reevent.app.core.model.PassportHistoryEntry
 import com.reevent.app.core.model.ProgrammeType
 import com.reevent.app.core.model.ResourceCondition
@@ -15,6 +16,7 @@ import com.reevent.app.core.model.ResourceStatus
 import com.reevent.app.core.model.SyncState
 import com.reevent.app.core.model.TransactionStatus
 import com.reevent.app.core.model.TransactionType
+import com.reevent.app.feature.passports.PassportQrPayload
 import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.async
 import kotlinx.coroutines.Deferred
@@ -50,8 +52,14 @@ class SupabaseCoreGateway @Inject constructor(private val authGateway: SupabaseA
             val programmes = async { client.from("circular_programmes").select().decodeList<ProgrammeRow>() }
             val transactions = async { client.from("circular_transactions").select().decodeList<TransactionRow>() }
             val impact = async { client.from("impact_records").select().decodeList<ImpactRow>() }
+            val listings = async { client.from("marketplace_listings").select().decodeList<MarketplaceListingRow>() }
             val resourceRows = resources.await()
-            val resourceModels = resourceRows.mapNotNull(ResourceRow::toDomainOrNull)
+            val publishedListingsByResource = listings.awaitOrEmpty()
+                .mapNotNull(MarketplaceListingRow::toPublishedDomainOrNull)
+                .associateBy { it.resourceId }
+            val resourceModels = resourceRows.mapNotNull { row ->
+                row.toDomainOrNull(publishedListingsByResource[row.id]?.listing)
+            }
             if (resourceModels.size != resourceRows.size) {
                 Log.w(TAG, "Skipped ${resourceRows.size - resourceModels.size} malformed marketplace resource row(s)")
             }
@@ -84,25 +92,56 @@ class SupabaseCoreGateway @Inject constructor(private val authGateway: SupabaseA
         val status: String, @SerialName("archived_at") val archivedAt: String? = null,
         @SerialName("created_at") val createdAt: String, @SerialName("updated_at") val updatedAt: String
     ) {
-        fun toDomainOrNull() = runCatching {
+        fun toDomainOrNull(listing: MarketplaceListing?) = runCatching {
             ResourceItem(
                 id, eventId, requireNotNull(ownerId), title, category, material,
                 enumValue(condition, ResourceCondition.entries), quantity, unit,
-                enumValue(status, ResourceStatus.entries), 0, emptyList(),
-                millis(createdAt), millis(updatedAt), SyncState.SYNCED, archivedAt != null
+                enumValue(status, ResourceStatus.entries), listing?.buyUnitPrice ?: listing?.rentUnitPrice ?: 0,
+                emptyList(), millis(createdAt), millis(updatedAt), SyncState.SYNCED, archivedAt != null, listing
             )
         }.onFailure { Log.w(TAG, "Ignoring malformed resource row $id", it) }.getOrNull()
     }
+
+    @Serializable private data class MarketplaceListingRow(
+        val id: String,
+        @SerialName("resource_id") val resourceId: String,
+        @SerialName("allowed_actions") val allowedActions: List<String>,
+        @SerialName("published_quantity") val publishedQuantity: Double,
+        @SerialName("unit_coin_price_buy") val buyUnitPrice: Long? = null,
+        @SerialName("unit_coin_price_rent") val rentUnitPrice: Long? = null,
+        @SerialName("default_duration_days") val defaultDurationDays: Int? = null,
+        val terms: String = "",
+        val status: String
+    ) {
+        fun toPublishedDomainOrNull(): PublishedListing? =
+            if (status != "PUBLISHED") null else runCatching {
+                PublishedListing(
+                    resourceId = resourceId,
+                    listing = MarketplaceListing(
+                        id = id,
+                        allowedActions = allowedActions.map(TransactionType::valueOf),
+                        publishedQuantity = publishedQuantity,
+                        buyUnitPrice = buyUnitPrice,
+                        rentUnitPrice = rentUnitPrice,
+                        defaultDurationDays = defaultDurationDays,
+                        terms = terms
+                    )
+                )
+            }.onFailure { Log.w(TAG, "Ignoring malformed marketplace listing $id", it) }.getOrNull()
+    }
+
+    private data class PublishedListing(val resourceId: String, val listing: MarketplaceListing)
 
     @Serializable private data class PassportRow(
         val id: String, @SerialName("resource_id") val resourceId: String, @SerialName("public_token") val publicToken: String,
         @SerialName("created_at") val createdAt: String, @SerialName("updated_at") val updatedAt: String
     ) { fun toDomainOrNull(history: List<PassportHistoryEntry>) = runCatching {
-        val baseUrl = BuildConfig.PUBLIC_BASE_URL.trimEnd('/').takeIf { it.startsWith("https://") }
         ResourcePassport(
             id,
             resourceId,
-            baseUrl?.let { "$it/p/v1/$publicToken" } ?: publicToken,
+            // Keep the opaque token in the cache if the build has no verifier URL yet, but only
+            // render/scan it after PassportQrPayload validates a canonical v1 HTTPS URL.
+            PassportQrPayload.canonicalPayload(BuildConfig.PUBLIC_BASE_URL, publicToken) ?: publicToken,
             json.encodeToString(history),
             millis(createdAt),
             millis(updatedAt),

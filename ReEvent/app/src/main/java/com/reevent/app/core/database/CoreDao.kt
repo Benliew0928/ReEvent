@@ -23,11 +23,14 @@ interface CoreDao {
 
     @Upsert suspend fun upsertResource(resource: ResourceEntity)
     @Query("SELECT * FROM resource_items WHERE accountId = :accountId AND eventId = :eventId AND archived = 0 ORDER BY updatedAt DESC") fun observeResources(accountId: String, eventId: String): Flow<List<ResourceEntity>>
-    @Query("SELECT * FROM resource_items WHERE accountId = :accountId AND status = 'ACTIVE' AND archived = 0 ORDER BY updatedAt DESC") fun observeMarketplace(accountId: String): Flow<List<ResourceEntity>>
+    @Query("SELECT * FROM resource_items WHERE accountId = :accountId AND ownerId = :ownerId AND status = 'ACTIVE' AND archived = 0 ORDER BY updatedAt DESC") fun observeOwnedResources(accountId: String, ownerId: String): Flow<List<ResourceEntity>>
+    @Query("SELECT * FROM resource_items WHERE accountId = :accountId AND status = 'ACTIVE' AND archived = 0 AND marketplaceListingId IS NOT NULL ORDER BY updatedAt DESC") fun observeMarketplace(accountId: String): Flow<List<ResourceEntity>>
     @Query("SELECT * FROM resource_items WHERE accountId = :accountId AND id = :id") fun observeResource(accountId: String, id: String): Flow<ResourceEntity?>
     @Query("SELECT * FROM resource_items WHERE accountId = :accountId AND id = :id") suspend fun resource(accountId: String, id: String): ResourceEntity?
     @Query("UPDATE resource_items SET archived = 1, syncState = 'PENDING', updatedAt = :updatedAt WHERE accountId = :accountId AND id = :id") suspend fun archiveResource(accountId: String, id: String, updatedAt: Long)
     @Query("UPDATE resource_items SET syncState = :state WHERE accountId = :accountId AND id = :id") suspend fun setResourceSyncState(accountId: String, id: String, state: String)
+    @Query("UPDATE resource_items SET marketplaceListingId = NULL, marketplaceAllowedActionsJson = '[]', marketplacePublishedQuantity = NULL, marketplaceBuyUnitPrice = NULL, marketplaceRentUnitPrice = NULL, marketplaceDefaultDurationDays = NULL, marketplaceTerms = '' WHERE accountId = :accountId")
+    suspend fun clearMarketplaceListingData(accountId: String)
 
     @Upsert suspend fun upsertPassport(passport: PassportEntity)
     @Query("SELECT * FROM resource_passports WHERE accountId = :accountId AND resourceId = :resourceId LIMIT 1") fun observePassport(accountId: String, resourceId: String): Flow<PassportEntity?>
@@ -52,7 +55,8 @@ interface CoreDao {
     @Query("UPDATE impact_records SET syncState = :state WHERE accountId = :accountId AND id = :id") suspend fun setImpactSyncState(accountId: String, id: String, state: String)
 
     @Upsert suspend fun upsertOutbox(operation: SyncOperationEntity)
-    @Query("SELECT * FROM sync_outbox WHERE environment = :environment AND accountId = :accountId ORDER BY updatedAt LIMIT :limit") suspend fun pendingOperations(environment: String, accountId: String, limit: Int): List<SyncOperationEntity>
+    @Query("SELECT * FROM sync_outbox WHERE environment = :environment AND accountId = :accountId ORDER BY id LIMIT :limit") suspend fun pendingOperations(environment: String, accountId: String, limit: Int): List<SyncOperationEntity>
+    @Query("SELECT * FROM sync_outbox WHERE environment = :environment AND accountId = :accountId ORDER BY id") fun observePendingOperations(environment: String, accountId: String): Flow<List<SyncOperationEntity>>
     @Query("DELETE FROM sync_outbox WHERE environment = :environment AND accountId = :accountId AND id = :id") suspend fun deleteOutbox(environment: String, accountId: String, id: Long)
     @Query("UPDATE sync_outbox SET attempts = attempts + 1, lastError = :error, updatedAt = :updatedAt WHERE environment = :environment AND accountId = :accountId AND id = :id") suspend fun markOutboxFailed(environment: String, accountId: String, id: Long, error: String, updatedAt: Long)
 
@@ -62,6 +66,8 @@ interface CoreDao {
     suspend fun lifecycleCommand(environment: String, accountId: String, dedupeKey: String): LifecycleCommandEntity?
     @Query("SELECT * FROM lifecycle_commands WHERE environment = :environment AND accountId = :accountId ORDER BY createdAt LIMIT :limit")
     suspend fun pendingLifecycleCommands(environment: String, accountId: String, limit: Int): List<LifecycleCommandEntity>
+    @Query("SELECT * FROM lifecycle_commands WHERE environment = :environment AND accountId = :accountId ORDER BY createdAt")
+    fun observePendingLifecycleCommands(environment: String, accountId: String): Flow<List<LifecycleCommandEntity>>
     @Query("DELETE FROM lifecycle_commands WHERE environment = :environment AND accountId = :accountId AND idempotencyKey = :idempotencyKey")
     suspend fun deleteLifecycleCommand(environment: String, accountId: String, idempotencyKey: String)
     @Query("UPDATE lifecycle_commands SET attempts = attempts + 1, lastError = :error, updatedAt = :updatedAt WHERE environment = :environment AND accountId = :accountId AND idempotencyKey = :idempotencyKey")
@@ -87,6 +93,7 @@ interface CoreDao {
 
     @Transaction
     suspend fun applyAuthorisedSnapshot(
+        accountId: String,
         events: List<EventEntity>,
         resources: List<ResourceEntity>,
         passports: List<PassportEntity>,
@@ -94,6 +101,9 @@ interface CoreDao {
         transactions: List<TransactionEntity>,
         impact: List<ImpactEntity>
     ) {
+        // A listing can close while its resource remains in the account's local cache. Clear only
+        // listing projections before applying the server snapshot so closed listings disappear.
+        clearMarketplaceListingData(accountId)
         events.forEach { upsertEvent(it) }
         resources.forEach { upsertResource(it) }
         passports.forEach { upsertPassport(it) }

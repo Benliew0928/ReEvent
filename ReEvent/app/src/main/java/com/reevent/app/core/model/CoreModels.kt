@@ -67,7 +67,29 @@ data class ResourceItem(
     val createdAt: Long,
     val updatedAt: Long,
     val syncState: SyncState = SyncState.PENDING,
-    val archived: Boolean = false
+    val archived: Boolean = false,
+    val marketplaceListing: MarketplaceListing? = null
+)
+
+/** Published marketplace terms supplied by the server, never inferred from resource condition. */
+data class MarketplaceListing(
+    val id: String,
+    val allowedActions: List<TransactionType>,
+    val publishedQuantity: Double,
+    val buyUnitPrice: Long? = null,
+    val rentUnitPrice: Long? = null,
+    val defaultDurationDays: Int? = null,
+    val terms: String = ""
+)
+
+/** Terms supplied by an organiser before the server creates a published marketplace listing. */
+data class MarketplaceListingDraft(
+    val allowedActions: Set<TransactionType>,
+    val publishedQuantity: Double,
+    val buyUnitPrice: Long? = null,
+    val rentUnitPrice: Long? = null,
+    val defaultDurationDays: Int? = null,
+    val terms: String = ""
 )
 
 data class ResourcePassport(

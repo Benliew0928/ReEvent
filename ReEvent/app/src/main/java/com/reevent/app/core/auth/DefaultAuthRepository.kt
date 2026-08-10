@@ -15,6 +15,7 @@ import com.reevent.app.core.model.UserRole
 import com.reevent.app.core.network.SupabaseAuthGateway
 import io.github.jan.supabase.auth.exception.AuthErrorCode
 import io.github.jan.supabase.auth.exception.AuthRestException
+import io.github.jan.supabase.auth.exception.AuthWeakPasswordException
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
@@ -86,12 +87,14 @@ class DefaultAuthRepository @Inject constructor(
     }
 
     override suspend fun handleOAuthCallback(intent: Intent): AppResult<User?> = sessionOperationMutex.withLock {
+        val passwordRecovery = gateway.isPasswordResetCallback(intent)
         when (val result = remoteCall {
             gateway.handleDeepLink(intent)
             gateway.currentUserOrNull()
         }) {
             is AppResult.Success -> {
                 if (result.value != null) persistAuthenticatedUser(result.value)
+                preferences.setPasswordRecoveryPending(passwordRecovery && result.value != null)
                 AppResult.Success(result.value)
             }
             is AppResult.Failure -> result
@@ -149,6 +152,43 @@ class DefaultAuthRepository @Inject constructor(
         else if (!gateway.isConfigured()) AppResult.Failure(FailureReason.CONFIGURATION)
         else remoteCall { gateway.requestPasswordReset(email.trim()) }
 
+    override suspend fun updatePassword(newPassword: String): AppResult<Unit> =
+        if (!PasswordRules.isValid(newPassword)) AppResult.Failure(FailureReason.VALIDATION)
+        else if (!gateway.isConfigured()) AppResult.Failure(FailureReason.CONFIGURATION)
+        else remoteCall { gateway.updatePassword(newPassword) }
+
+    override suspend fun finishPasswordRecovery(): AppResult<Unit> = try {
+        preferences.setPasswordRecoveryPending(false)
+        AppResult.Success(Unit)
+    } catch (error: Throwable) {
+        AppResult.Failure(FailureReason.SERVER, error)
+    }
+
+    override suspend fun deleteAccount(currentPassword: String): AppResult<AccountDeletionOutcome> {
+        val localUser = mutableCurrentUser.value ?: return AppResult.Failure(FailureReason.UNAUTHENTICATED)
+        if (currentPassword.isBlank()) return AppResult.Failure(FailureReason.VALIDATION)
+        if (!gateway.isConfigured()) return AppResult.Failure(FailureReason.CONFIGURATION)
+
+        return when (val result = remoteCall {
+            // Do not call beginFreshAuthentication(): a wrong password must leave the user's
+            // cached workspace intact. The protected server function proves this password belongs
+            // to the caller identified by the JWT before it uses privileged APIs.
+            gateway.deleteMyAccount(currentPassword)
+        }) {
+            is AppResult.Failure -> result
+            is AppResult.Success -> when (result.value) {
+                AccountDeletionOutcome.Deleted -> {
+                    // The server acknowledgement is the only deletion-success signal. Now close
+                    // workers, Room cache and the persisted access token without another network call.
+                    clearLocalAccountState()
+                    runCatching { gateway.clearSessionAfterAccountDeletion() }
+                    AppResult.Success(AccountDeletionOutcome.Deleted)
+                }
+                is AccountDeletionOutcome.Blocked -> result
+            }
+        }
+    }
+
     override suspend fun signOut(): AppResult<Unit> {
         // Close the local execution boundary before revoking the remote session so an already
         // scheduled worker cannot continue as the account being signed out.
@@ -180,6 +220,7 @@ class DefaultAuthRepository @Inject constructor(
     }
 
     private fun failureReason(error: Throwable): FailureReason = when (error) {
+        is AuthWeakPasswordException -> FailureReason.VALIDATION
         is AuthRestException -> when {
             error.message?.contains("already registered", ignoreCase = true) == true -> FailureReason.ACCOUNT_ALREADY_EXISTS
             error.errorCode == AuthErrorCode.EmailNotConfirmed -> FailureReason.EMAIL_CONFIRMATION_REQUIRED
@@ -207,6 +248,7 @@ class DefaultAuthRepository @Inject constructor(
     private suspend fun clearLocalAccountState() {
         val accountId = accountScope.accountId.value ?: preferences.cachedUserId.first()
         mutableCurrentUser.value = null
+        preferences.setPasswordRecoveryPending(false)
         sessionCleaner.clear(accountId)
     }
 
@@ -229,7 +271,7 @@ class DefaultAuthRepository @Inject constructor(
 
     private fun validateCredentials(email: String, password: String): FailureReason? = when {
         !isValidEmail(email) -> FailureReason.VALIDATION
-        password.length < 8 -> FailureReason.VALIDATION
+        !PasswordRules.isValid(password) -> FailureReason.VALIDATION
         else -> null
     }
 

@@ -42,13 +42,13 @@ class MainActivity : ComponentActivity() {
                     is AppResult.Success -> if (result.value == null) {
                         Toast.makeText(
                             this@MainActivity,
-                            "Google sign-in could not be completed. Please try again.",
+                            "This sign-in or recovery link could not be completed. Please try again.",
                             Toast.LENGTH_LONG
                         ).show()
                     }
                     is AppResult.Failure -> Toast.makeText(
                         this@MainActivity,
-                        "Google sign-in could not be completed. Please try again.",
+                        "This sign-in or recovery link is invalid or expired. Request a new link and try again.",
                         Toast.LENGTH_LONG
                     ).show()
                 }

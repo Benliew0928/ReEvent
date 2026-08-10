@@ -83,6 +83,26 @@ class ImpactCalculatorTest {
         assertEquals("No documented mass and factor are available for these completed outcomes.", summary.unavailableEstimateReason)
     }
 
+    @Test
+    fun ignores_records_without_a_completed_transaction_and_keeps_the_latest_completed_record() {
+        val summary = ImpactCalculator.summarize(
+            resources = listOf(resource("recovered", ResourceStatus.RECOVERED)),
+            transactions = listOf(
+                transaction("older", TransactionType.REPAIR, TransactionStatus.COMPLETED),
+                transaction("latest", TransactionType.RECYCLE, TransactionStatus.COMPLETED),
+                transaction("pending", TransactionType.DONATE, TransactionStatus.REQUESTED)
+            ),
+            records = listOf(
+                record().copy(id = "older-record", transactionId = "older", calculatedAt = 10L),
+                record().copy(id = "latest-record", transactionId = "latest", calculatedAt = 20L),
+                record().copy(id = "pending-record", transactionId = "pending", calculatedAt = 30L, recoinsTransferred = 99L)
+            )
+        )
+
+        assertEquals("latest-record", summary.latestRecord?.id)
+        assertEquals(1000L, summary.recoinsTransferred)
+    }
+
     private fun resource(id: String, status: ResourceStatus = ResourceStatus.ACTIVE) = ResourceItem(
         id, "event", "owner", id, "Signage", "Acrylic", ResourceCondition.GOOD,
         1.0, "ITEM", status, 0, emptyList(), NOW, NOW

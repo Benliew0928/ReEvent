@@ -4,10 +4,12 @@ import com.reevent.app.core.model.CircularProgramme
 import com.reevent.app.core.model.CircularTransaction
 import com.reevent.app.core.model.Event
 import com.reevent.app.core.model.ImpactRecord
+import com.reevent.app.core.model.MarketplaceListingDraft
 import com.reevent.app.core.model.ResourceItem
 import com.reevent.app.core.model.ResourcePassport
 import com.reevent.app.core.model.User
 import com.reevent.app.core.model.UserRole
+import com.reevent.app.core.auth.AccountDeletionOutcome
 import com.reevent.app.core.model.AllocationSide
 import android.content.Intent
 import android.net.Uri
@@ -28,6 +30,9 @@ interface AuthRepository {
     suspend fun completeRole(role: UserRole): AppResult<User>
     suspend fun restoreSession(): AppResult<User?>
     suspend fun requestPasswordReset(email: String): AppResult<Unit>
+    suspend fun updatePassword(newPassword: String): AppResult<Unit>
+    suspend fun finishPasswordRecovery(): AppResult<Unit>
+    suspend fun deleteAccount(currentPassword: String): AppResult<AccountDeletionOutcome>
     suspend fun signOut(): AppResult<Unit>
 }
 
@@ -40,6 +45,7 @@ interface EventRepository {
 
 interface ResourceRepository {
     fun observeEventResources(eventId: String): Flow<List<ResourceItem>>
+    fun observeOwnedResources(ownerId: String): Flow<List<ResourceItem>>
     fun observeMarketplace(): Flow<List<ResourceItem>>
     fun observeResource(resourceId: String): Flow<ResourceItem?>
     suspend fun saveResource(resource: ResourceItem): AppResult<ResourceItem>
@@ -82,6 +88,13 @@ interface ImpactRepository {
 /** Shared refresh boundary. Runtime screens use this rather than Supabase directly. */
 interface CoreSyncRepository {
     suspend fun refreshAuthorisedData(): AppResult<Unit>
+    fun observePendingSyncCommands(): Flow<List<SyncCommandStatus>>
+    suspend fun retryPendingSync(): AppResult<Unit>
+}
+
+/** Publication uses a protected server command rather than the generic local-record outbox. */
+interface MarketplaceListingRepository {
+    suspend fun publishListing(resource: ResourceItem, draft: MarketplaceListingDraft): AppResult<Unit>
 }
 
 /** Uses Android's system picker; no broad media permission is required. */

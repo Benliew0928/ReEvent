@@ -5,19 +5,39 @@ import com.reevent.app.core.model.CircularTransaction
 import com.reevent.app.core.model.ProgrammeType
 import com.reevent.app.core.model.ResourceItem
 import com.reevent.app.core.model.ResourceStatus
-import com.reevent.app.core.model.TransactionStatus
 import com.reevent.app.core.model.TransactionType
+import com.reevent.app.core.model.TransactionStatus
 
 /**
  * Display-only command availability. PostgreSQL repeats every actor, state, quantity, and
  * eligibility check; these helpers are never an authority boundary.
  */
 object TransactionWorkflow {
-    fun validateMarketplaceRequest(requesterId: String, resource: ResourceItem, quantity: Int): FailureReason? = when {
+    fun validateMarketplaceRequest(requesterId: String, resource: ResourceItem, quantity: Int): FailureReason? =
+        validateMarketplaceQuantity(requesterId, resource, quantity.toDouble())
+
+    private fun validateMarketplaceQuantity(requesterId: String, resource: ResourceItem, quantity: Double): FailureReason? = when {
         requesterId == resource.ownerId -> FailureReason.CONFLICT
         resource.status != ResourceStatus.ACTIVE -> FailureReason.CONFLICT
-        quantity <= 0 || quantity.toDouble() > resource.quantity -> FailureReason.VALIDATION
+        quantity <= 0 || quantity > resource.quantity -> FailureReason.VALIDATION
         else -> null
+    }
+
+    /** Client validation mirrors visible published terms; the server repeats this authoritatively. */
+    fun validateMarketplaceListingRequest(
+        requesterId: String,
+        resource: ResourceItem,
+        type: TransactionType,
+        quantity: Double
+    ): FailureReason? {
+        validateMarketplaceQuantity(requesterId, resource, quantity)?.let { return it }
+        val listing = resource.marketplaceListing ?: return FailureReason.CONFLICT
+        return when {
+            quantity % 1.0 != 0.0 && !resource.unit.equals("kg", ignoreCase = true) -> FailureReason.VALIDATION
+            type !in listing.allowedActions -> FailureReason.VALIDATION
+            quantity > listing.publishedQuantity -> FailureReason.VALIDATION
+            else -> null
+        }
     }
 
     fun validatePartnerHandover(requesterId: String, resource: ResourceItem, programme: CircularProgramme): FailureReason? = when {
@@ -61,3 +81,19 @@ object TransactionWorkflow {
     private fun CircularProgramme.acceptsMaterial(material: String): Boolean =
         acceptedMaterials.isEmpty() || acceptedMaterials.any { it.equals(material, ignoreCase = true) }
 }
+
+/**
+ * Mirrors the archive guard in the release-schema trigger. This is display guidance only:
+ * Supabase remains the authority when a concurrent transaction is created after the screen
+ * has refreshed.
+ */
+fun CircularTransaction.blocksResourceArchive(resourceId: String): Boolean =
+    !archived &&
+        (this.resourceId == resourceId || counterResourceId == resourceId) &&
+        status in setOf(
+            TransactionStatus.REQUESTED,
+            TransactionStatus.APPROVED,
+            TransactionStatus.IN_TRANSIT,
+            TransactionStatus.ACTIVE,
+            TransactionStatus.RETURN_IN_PROGRESS
+        )

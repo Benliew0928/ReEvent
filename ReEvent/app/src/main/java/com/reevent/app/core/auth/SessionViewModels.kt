@@ -22,7 +22,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-enum class AppEntry { LOADING, ONBOARDING, SIGN_IN, COMPLETE_ROLE, ORGANIZER, PARTICIPANT, PARTNER }
+enum class AppEntry { LOADING, ONBOARDING, SIGN_IN, PASSWORD_RESET, COMPLETE_ROLE, ORGANIZER, PARTICIPANT, PARTNER }
 
 data class SessionUiState(
     val entry: AppEntry = AppEntry.LOADING,
@@ -40,11 +40,13 @@ class SessionViewModel @Inject constructor(
     val state: StateFlow<SessionUiState> = combine(
         preferences.onboardingComplete,
         authRepository.currentUser,
-        restored
-    ) { onboardingComplete, user, hasRestored ->
+        restored,
+        preferences.passwordRecoveryPending
+    ) { onboardingComplete, user, hasRestored, passwordRecoveryPending ->
         SessionUiState(
             entry = when {
                 !hasRestored -> AppEntry.LOADING
+                passwordRecoveryPending && user != null -> AppEntry.PASSWORD_RESET
                 !onboardingComplete -> AppEntry.ONBOARDING
                 user == null -> AppEntry.SIGN_IN
                 user.role == null -> AppEntry.COMPLETE_ROLE
@@ -86,7 +88,10 @@ data class AuthUiState(
     val resetRequested: Boolean = false,
     val confirmationRequired: Boolean = false,
     val confirmationEmail: String? = null,
-    val confirmationResent: Boolean = false
+    val confirmationResent: Boolean = false,
+    val passwordUpdated: Boolean = false,
+    val accountDeleted: Boolean = false,
+    val accountDeletionBlocked: AccountDeletionBlock? = null
 )
 
 @HiltViewModel
@@ -126,6 +131,38 @@ class AuthViewModel @Inject constructor(private val authRepository: AuthReposito
                 is AppResult.Failure -> AuthUiState(error = result.reason)
             }
         }
+    }
+
+    fun updatePassword(newPassword: String) {
+        viewModelScope.launch {
+            mutableState.value = AuthUiState(loading = true)
+            mutableState.value = when (val result = authRepository.updatePassword(newPassword)) {
+                is AppResult.Success -> AuthUiState(passwordUpdated = true)
+                is AppResult.Failure -> AuthUiState(error = result.reason)
+            }
+        }
+    }
+
+    fun finishPasswordRecovery() = viewModelScope.launch {
+        authRepository.finishPasswordRecovery()
+        mutableState.value = AuthUiState()
+    }
+
+    fun deleteAccount(currentPassword: String) {
+        viewModelScope.launch {
+            mutableState.value = AuthUiState(loading = true)
+            mutableState.value = when (val result = authRepository.deleteAccount(currentPassword)) {
+                is AppResult.Success -> when (val outcome = result.value) {
+                    AccountDeletionOutcome.Deleted -> AuthUiState(accountDeleted = true)
+                    is AccountDeletionOutcome.Blocked -> AuthUiState(accountDeletionBlocked = outcome.reason)
+                }
+                is AppResult.Failure -> AuthUiState(error = result.reason)
+            }
+        }
+    }
+
+    fun clearFeedback() {
+        mutableState.value = AuthUiState()
     }
 
     fun resendSignUpConfirmation(email: String) {

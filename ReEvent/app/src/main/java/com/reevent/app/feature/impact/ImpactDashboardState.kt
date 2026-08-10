@@ -1,5 +1,7 @@
 package com.reevent.app.feature.impact
 
+import com.reevent.app.core.model.ImpactRecord
+
 enum class ImpactBadge { FIRST_RECOVERY, CIRCULAR_STARTER, HIGH_RECOVERY }
 
 data class ImpactDashboardState(
@@ -14,5 +16,7 @@ data class ImpactDashboardState(
     val recoinsRewarded: Long?,
     val chartValues: List<Float>,
     val badge: ImpactBadge?,
-    val unavailableEstimateReason: String?
+    val unavailableEstimateReason: String?,
+    /** Most recently calculated server record among completed transactions in the viewed event. */
+    val latestRecord: ImpactRecord?
 )

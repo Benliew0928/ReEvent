@@ -23,6 +23,7 @@ class AppPreferences @Inject constructor(@ApplicationContext private val context
         val distanceUnit = stringPreferencesKey("distance_unit")
         val cachedUserId = stringPreferencesKey("cached_user_id")
         val cachedRole = stringPreferencesKey("cached_role")
+        val passwordRecoveryPending = booleanPreferencesKey("password_recovery_pending")
         fun resourceDraft(userId: String, eventId: String) = stringPreferencesKey("resource_draft_${userId}_${eventId}")
     }
 
@@ -30,11 +31,13 @@ class AppPreferences @Inject constructor(@ApplicationContext private val context
     val cachedUserId: Flow<String?> = context.appPreferencesDataStore.data.map { it[Keys.cachedUserId] }
     val cachedRole: Flow<UserRole?> = context.appPreferencesDataStore.data.map { it[Keys.cachedRole]?.let(UserRole::valueOf) }
     val lastOpenedEventId: Flow<String?> = context.appPreferencesDataStore.data.map { it[Keys.lastOpenedEventId] }
+    val passwordRecoveryPending: Flow<Boolean> = context.appPreferencesDataStore.data.map { it[Keys.passwordRecoveryPending] ?: false }
 
     suspend fun setOnboardingComplete(value: Boolean) = context.appPreferencesDataStore.edit { it[Keys.onboardingComplete] = value }
     suspend fun setLastOpenedEvent(eventId: String) = context.appPreferencesDataStore.edit { it[Keys.lastOpenedEventId] = eventId }
     suspend fun setThemeMode(mode: String) = context.appPreferencesDataStore.edit { it[Keys.themeMode] = mode }
     suspend fun setDistanceUnit(unit: String) = context.appPreferencesDataStore.edit { it[Keys.distanceUnit] = unit }
+    suspend fun setPasswordRecoveryPending(value: Boolean) = context.appPreferencesDataStore.edit { it[Keys.passwordRecoveryPending] = value }
     fun resourceDraft(userId: String, eventId: String): Flow<String?> = context.appPreferencesDataStore.data.map { it[Keys.resourceDraft(userId, eventId)] }
     suspend fun saveResourceDraft(userId: String, eventId: String, draft: String) = context.appPreferencesDataStore.edit { it[Keys.resourceDraft(userId, eventId)] = draft }
     suspend fun clearResourceDraft(userId: String, eventId: String) = context.appPreferencesDataStore.edit { it.remove(Keys.resourceDraft(userId, eventId)) }
@@ -49,6 +52,7 @@ class AppPreferences @Inject constructor(@ApplicationContext private val context
             it.remove(Keys.cachedUserId)
             it.remove(Keys.cachedRole)
             it.remove(Keys.lastOpenedEventId)
+            it.remove(Keys.passwordRecoveryPending)
         }
         val draftPrefix = userId?.let { id -> "resource_draft_${id}_" } ?: "resource_draft_"
         it.asMap().keys.filter { key -> key.name.startsWith(draftPrefix) }.forEach { key -> it.remove(key) }

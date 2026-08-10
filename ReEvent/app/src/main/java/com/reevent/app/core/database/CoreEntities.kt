@@ -64,7 +64,14 @@ data class ResourceEntity(
     val createdAt: Long,
     val updatedAt: Long,
     val syncState: String,
-    val archived: Boolean
+    val archived: Boolean,
+    val marketplaceListingId: String? = null,
+    val marketplaceAllowedActionsJson: String = "[]",
+    val marketplacePublishedQuantity: Double? = null,
+    val marketplaceBuyUnitPrice: Long? = null,
+    val marketplaceRentUnitPrice: Long? = null,
+    val marketplaceDefaultDurationDays: Int? = null,
+    val marketplaceTerms: String = ""
 ) {
     init { require(accountId.isNotBlank()) { "Resource cache rows require an accountId" } }
 }

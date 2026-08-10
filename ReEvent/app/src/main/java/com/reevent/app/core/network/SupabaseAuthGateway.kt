@@ -2,6 +2,8 @@ package com.reevent.app.core.network
 
 import android.content.Intent
 import com.reevent.app.BuildConfig
+import com.reevent.app.core.auth.AccountDeletionOutcome
+import com.reevent.app.core.auth.accountDeletionBlockForServerStatus
 import com.reevent.app.core.config.AppEnvironment
 import com.reevent.app.core.model.User
 import com.reevent.app.core.model.UserRole
@@ -13,12 +15,15 @@ import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.handleDeeplinks
 import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.functions.Functions
+import io.github.jan.supabase.functions.functions
 import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
+import io.ktor.client.call.body
 import io.github.jan.supabase.storage.Storage
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -41,6 +46,12 @@ private data class ProfilePayload(
     val updated_at: String? = null
 )
 
+@Serializable
+private data class DeleteMyAccountResponse(val status: String)
+
+@Serializable
+private data class DeleteMyAccountRequest(val currentPassword: String)
+
 /** Browser-based OAuth keeps Google sign-in available on HMS devices without Google Play Services. */
 @Singleton
 class SupabaseAuthGateway @Inject constructor() : SyncGateway {
@@ -58,6 +69,7 @@ class SupabaseAuthGateway @Inject constructor() : SyncGateway {
                 flowType = FlowType.PKCE
                 defaultExternalAuthAction = ExternalAuthAction.CustomTabs()
             }
+            install(Functions)
             install(Postgrest)
             install(Storage)
         }
@@ -98,11 +110,37 @@ class SupabaseAuthGateway @Inject constructor() : SyncGateway {
     }
 
     suspend fun requestPasswordReset(email: String) = withClient {
-        client.auth.resetPasswordForEmail(email, redirectUrl = AUTH_CALLBACK_URL)
+        client.auth.resetPasswordForEmail(email, redirectUrl = PASSWORD_RESET_CALLBACK_URL)
+    }
+
+    /** A valid recovery link establishes the temporary authenticated session required by Supabase. */
+    suspend fun updatePassword(newPassword: String) = withClient {
+        client.auth.updateUser { password = newPassword }
     }
 
     suspend fun resendSignUpConfirmation(email: String) = withClient {
         client.auth.resendEmail(OtpType.Email.SIGNUP, email, redirectUrl = AUTH_CALLBACK_URL)
+    }
+
+    /**
+     * The current password is sent only over the authenticated TLS request and is never stored.
+     * The Edge Function verifies it against the same JWT user before privileged work begins.
+     */
+    suspend fun deleteMyAccount(currentPassword: String): AccountDeletionOutcome = withClient {
+        val response = client.functions
+            .invoke("delete-my-account", DeleteMyAccountRequest(currentPassword))
+            .body<DeleteMyAccountResponse>()
+        when {
+            response.status == "DELETED" -> AccountDeletionOutcome.Deleted
+            accountDeletionBlockForServerStatus(response.status) != null ->
+                AccountDeletionOutcome.Blocked(requireNotNull(accountDeletionBlockForServerStatus(response.status)))
+            else -> error("The deletion service returned an unsupported result")
+        }
+    }
+
+    /** The remote user is gone; only clear credentials locally, without making another API call. */
+    suspend fun clearSessionAfterAccountDeletion() = withClient {
+        client.auth.clearSession()
     }
 
     suspend fun signOut() = withClient {
@@ -135,7 +173,7 @@ class SupabaseAuthGateway @Inject constructor() : SyncGateway {
             configured &&
             intent.data?.scheme == AUTH_CALLBACK_SCHEME &&
             intent.data?.host == AUTH_CALLBACK_HOST &&
-            intent.data?.path == AUTH_CALLBACK_PATH
+            intent.data?.path in setOf(AUTH_CALLBACK_PATH, PASSWORD_RESET_CALLBACK_PATH)
         ) {
             val callback = requireNotNull(intent.data)
             callback.getQueryParameter("error")?.let { errorCode ->
@@ -160,6 +198,11 @@ class SupabaseAuthGateway @Inject constructor() : SyncGateway {
             }
         }
     }
+
+    fun isPasswordResetCallback(intent: Intent): Boolean =
+        intent.data?.scheme == AUTH_CALLBACK_SCHEME &&
+            intent.data?.host == AUTH_CALLBACK_HOST &&
+            intent.data?.path == PASSWORD_RESET_CALLBACK_PATH
 
     override suspend fun upsert(table: String, payload: JsonObject) {
         require(table !in SERVER_COMMAND_ONLY_TABLES) { "$table is server-authoritative and cannot use generic sync" }
@@ -239,6 +282,8 @@ class SupabaseAuthGateway @Inject constructor() : SyncGateway {
         const val AUTH_CALLBACK_HOST = "auth"
         const val AUTH_CALLBACK_PATH = "/callback"
         const val AUTH_CALLBACK_URL = "$AUTH_CALLBACK_SCHEME://$AUTH_CALLBACK_HOST$AUTH_CALLBACK_PATH"
+        const val PASSWORD_RESET_CALLBACK_PATH = "/password-reset"
+        const val PASSWORD_RESET_CALLBACK_URL = "$AUTH_CALLBACK_SCHEME://$AUTH_CALLBACK_HOST$PASSWORD_RESET_CALLBACK_PATH"
         val SERVER_COMMAND_ONLY_TABLES = setOf(
             "resource_passports",
             "passport_events",

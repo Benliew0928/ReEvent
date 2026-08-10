@@ -41,13 +41,17 @@ import androidx.compose.material.icons.outlined.ShoppingBag
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -61,8 +65,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.reevent.app.R
-import com.reevent.app.ui.PartnerMatch
+import com.reevent.app.core.model.CircularProgramme
+import com.reevent.app.core.model.ResourceItem as CoreResourceItem
+import com.reevent.app.core.model.ResourceStatus
 import com.reevent.app.ui.ReEventRole
 import com.reevent.app.ui.ReEventScreen
 import com.reevent.app.ui.ResourceTone
@@ -102,16 +107,24 @@ import com.reevent.app.ui.theme.ReEventPaper
 import com.reevent.app.ui.theme.ReEventWarm
 import com.reevent.app.ui.theme.*
 
-import com.reevent.app.ui.components.PartnerBottomSheet
-
 @Composable
 fun PartnerMapScreen(
     onNavigate: (ReEventScreen) -> Unit,
-    matches: List<PartnerMatch>,
-    partnerCountText: String,
-    onPartnerAccepted: (PartnerMatch) -> Unit = { onNavigate(ReEventScreen.PartnerWorkbench) }
+    programmes: List<CircularProgramme>,
+    marketplaceResources: List<CoreResourceItem>,
+    onOpenPassport: (String) -> Unit
 ) {
-    var selectedPartner by rememberSaveable { mutableStateOf<PartnerMatch?>(null) }
+    var selectedProgramme by remember { mutableStateOf<CircularProgramme?>(null) }
+    var selectedMaterial by rememberSaveable { mutableStateOf<String?>(null) }
+    val activeProgrammes = programmes.filter(CircularProgramme::active)
+    val materials = activeProgrammes.flatMap(CircularProgramme::acceptedMaterials)
+        .map(String::trim)
+        .filter(String::isNotBlank)
+        .distinctBy(String::lowercase)
+        .sortedBy(String::lowercase)
+    val visibleProgrammes = activeProgrammes.filter { programme ->
+        selectedMaterial == null || programme.acceptedMaterials.any { it.equals(selectedMaterial, ignoreCase = true) }
+    }
     ReEventScaffold(selected = ReEventScreen.PartnerMap, onNavigate = onNavigate) { padding ->
         ReEventLazyColumn(paddingValues = padding) {
             item {
@@ -122,55 +135,39 @@ fun PartnerMapScreen(
                 )
             }
             item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(250.dp)
-                        .clip(RoundedCornerShape(22.dp))
-                        .background(ReEventMintSoft)
-                ) {
-                    Image(
-                        painter = painterResource(R.drawable.map_partner_mock),
-                        contentDescription = "Partner map",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                    Surface(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(14.dp),
-                        shape = RoundedCornerShape(999.dp),
-                        color = ReEventPaper.copy(alpha = 0.94f),
-                        border = BorderStroke(1.dp, ReEventLine)
-                    ) {
+                Surface(shape = RoundedCornerShape(22.dp), color = ReEventMintSoft, border = BorderStroke(1.dp, ReEventLine)) {
+                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Verified partner programmes", style = MaterialTheme.typography.titleLarge, color = ReEventInk)
                         Text(
-                            text = partnerCountText,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = ReEventGreenDeep,
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp)
+                            if (activeProgrammes.isEmpty()) "No active programmes are available yet."
+                            else "${visibleProgrammes.size} of ${activeProgrammes.size} active programmes match the selected material.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = ReEventMuted
                         )
                     }
                 }
             }
-            if (matches.isNotEmpty()) item {
-                Surface(
-                    shape = RoundedCornerShape(18.dp),
-                    color = ReEventPaper,
-                    border = BorderStroke(1.dp, ReEventLine)
-                ) {
-                    Text(
-                        text = "${matches.size} active programmes are available for matching.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = ReEventInk,
-                        modifier = Modifier.padding(16.dp)
-                    )
+            if (materials.isNotEmpty()) {
+                item { SectionTitle("Filter by material") }
+                item {
+                    Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = selectedMaterial == null, onClick = { selectedMaterial = null }, label = { Text("All materials") })
+                        materials.forEach { material ->
+                            FilterChip(
+                                selected = selectedMaterial.equals(material, ignoreCase = true),
+                                onClick = { selectedMaterial = material },
+                                label = { Text(material) }
+                            )
+                        }
+                    }
                 }
             }
-            if (matches.isEmpty()) {
+            item { SectionTitle("Available programmes") }
+            if (visibleProgrammes.isEmpty()) {
                 item {
                     Surface(shape = RoundedCornerShape(18.dp), color = ReEventMintSoft) {
                         Text(
-                            text = "No active partner programmes yet.",
+                            text = if (activeProgrammes.isEmpty()) "No active partner programmes yet." else "No programmes accept ${selectedMaterial ?: "this material"}.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = ReEventMuted,
                             modifier = Modifier.padding(16.dp)
@@ -178,18 +175,72 @@ fun PartnerMapScreen(
                     }
                 }
             }
-            items(matches) { match ->
-                PartnerMatchCard(match = match, onClick = { selectedPartner = match })
+            items(visibleProgrammes, key = CircularProgramme::id) { programme ->
+                PartnerProgrammeCard(programme = programme, onClick = { selectedProgramme = programme })
             }
         }
     }
 
-    PartnerBottomSheet(
-        partner = selectedPartner,
-        onDismiss = { selectedPartner = null },
-        onAccept = {
-            selectedPartner?.let(onPartnerAccepted)
+    selectedProgramme?.let { programme ->
+        PartnerProgrammeDetailDialog(
+            programme = programme,
+            eligibleResources = marketplaceResources.filter { resource ->
+                resource.status == ResourceStatus.ACTIVE && programme.acceptedMaterials.any { it.equals(resource.material, ignoreCase = true) }
+            },
+            onDismiss = { selectedProgramme = null },
+            onOpenPassport = { resourceId -> selectedProgramme = null; onOpenPassport(resourceId) }
+        )
+    }
+}
+
+@Composable
+private fun PartnerProgrammeCard(programme: CircularProgramme, onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        color = ReEventPaper,
+        border = BorderStroke(1.dp, ReEventLine)
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(programme.name, style = MaterialTheme.typography.titleMedium, color = ReEventInk)
+                    Text(programme.type.name.lowercase().replaceFirstChar(Char::titlecase), style = MaterialTheme.typography.bodyMedium, color = ReEventMuted)
+                }
+                StatusChip("Active", ReEventGreen)
+            }
+            Text("Service area: ${programme.location.ifBlank { "Location pending" }}", style = MaterialTheme.typography.bodyMedium, color = ReEventMuted)
+            Text("Accepts: ${programme.acceptedMaterials.takeIf(List<String>::isNotEmpty)?.joinToString() ?: "Materials pending"}", style = MaterialTheme.typography.bodyMedium, color = ReEventInk)
         }
+    }
+}
+
+@Composable
+private fun PartnerProgrammeDetailDialog(
+    programme: CircularProgramme,
+    eligibleResources: List<CoreResourceItem>,
+    onDismiss: () -> Unit,
+    onOpenPassport: (String) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(programme.name) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("${programme.type.name.lowercase().replaceFirstChar(Char::titlecase)} · ${programme.location.ifBlank { "Location pending" }}", color = ReEventMuted)
+                Text("Accepted materials: ${programme.acceptedMaterials.takeIf(List<String>::isNotEmpty)?.joinToString() ?: "Not specified"}")
+                HorizontalDivider(color = ReEventLine)
+                Text("Eligible marketplace resources", style = MaterialTheme.typography.titleSmall)
+                if (eligibleResources.isEmpty()) {
+                    Text("No active marketplace resource currently matches this programme's materials.", color = ReEventMuted)
+                } else {
+                    eligibleResources.take(3).forEach { resource ->
+                        SecondaryActionButton("View passport: ${resource.title}", { onOpenPassport(resource.id) }, Modifier.fillMaxWidth())
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
     )
 }
 

@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SyncOperationEntity::class,
         LifecycleCommandEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 abstract class ReEventDatabase : RoomDatabase() {
@@ -282,6 +282,19 @@ abstract class ReEventDatabase : RoomDatabase() {
                     "CREATE INDEX index_lifecycle_commands_environment_accountId_createdAt " +
                         "ON lifecycle_commands(environment, accountId, createdAt)"
                 )
+            }
+        }
+
+        /** Caches only server-published marketplace terms needed for offline-safe browse and validation. */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE resource_items ADD COLUMN marketplaceListingId TEXT")
+                db.execSQL("ALTER TABLE resource_items ADD COLUMN marketplaceAllowedActionsJson TEXT NOT NULL DEFAULT '[]'")
+                db.execSQL("ALTER TABLE resource_items ADD COLUMN marketplacePublishedQuantity REAL")
+                db.execSQL("ALTER TABLE resource_items ADD COLUMN marketplaceBuyUnitPrice INTEGER")
+                db.execSQL("ALTER TABLE resource_items ADD COLUMN marketplaceRentUnitPrice INTEGER")
+                db.execSQL("ALTER TABLE resource_items ADD COLUMN marketplaceDefaultDurationDays INTEGER")
+                db.execSQL("ALTER TABLE resource_items ADD COLUMN marketplaceTerms TEXT NOT NULL DEFAULT ''")
             }
         }
 

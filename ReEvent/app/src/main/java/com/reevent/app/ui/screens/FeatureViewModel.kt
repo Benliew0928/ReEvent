@@ -3,22 +3,27 @@ package com.reevent.app.ui.screens
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.net.Uri
+import com.reevent.app.BuildConfig
 import com.reevent.app.core.data.AppResult
 import com.reevent.app.core.data.FailureReason
 import com.reevent.app.core.data.CoreSyncRepository
 import com.reevent.app.core.data.EventRepository
 import com.reevent.app.core.data.ImpactRepository
 import com.reevent.app.core.data.MediaRepository
+import com.reevent.app.core.data.MarketplaceListingRepository
 import com.reevent.app.core.data.PartnerRepository
 import com.reevent.app.core.data.PassportRepository
 import com.reevent.app.core.data.ResourceRepository
+import com.reevent.app.core.data.SyncCommandStatus
 import com.reevent.app.core.data.TransactionRepository
 import com.reevent.app.core.data.TransactionWorkflow
+import com.reevent.app.core.data.blocksResourceArchive
 import com.reevent.app.core.data.preferences.AppPreferences
 import com.reevent.app.core.model.CircularProgramme
 import com.reevent.app.core.model.CircularTransaction
 import com.reevent.app.core.model.Event
 import com.reevent.app.core.model.ImpactRecord
+import com.reevent.app.core.model.MarketplaceListingDraft
 import com.reevent.app.core.model.ProgrammeType
 import com.reevent.app.core.model.ResourceItem
 import com.reevent.app.core.model.ResourcePassport
@@ -28,6 +33,7 @@ import com.reevent.app.core.model.TransactionType
 import com.reevent.app.core.model.TransactionStatus
 import com.reevent.app.core.model.User
 import com.reevent.app.core.model.UserRole
+import com.reevent.app.feature.passports.PassportQrPayload
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
 import javax.inject.Inject
@@ -38,6 +44,13 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 data class FeatureActionState(val loading: Boolean = false, val error: String? = null, val notice: String? = null)
+
+/** A scan never bypasses RLS: it is malformed, unavailable to this account/cache, or verified. */
+sealed interface PassportScanResolution {
+    data class Verified(val resourceId: String) : PassportScanResolution
+    data object Unavailable : PassportScanResolution
+    data class Malformed(val message: String) : PassportScanResolution
+}
 
 /** Actions available after an authenticated ReEvent QR scan. */
 enum class ResourceLifecycleAction(val label: String) {
@@ -56,6 +69,7 @@ class FeatureViewModel @Inject constructor(
     private val partners: PartnerRepository,
     private val transactions: TransactionRepository,
     private val impact: ImpactRepository,
+    private val marketplaceListings: MarketplaceListingRepository,
     private val sync: CoreSyncRepository,
     private val media: MediaRepository,
     private val preferences: AppPreferences
@@ -71,6 +85,7 @@ class FeatureViewModel @Inject constructor(
     fun events(ownerId: String): Flow<List<Event>> = events.observeOwnedEvents(ownerId)
     fun event(id: String): Flow<Event?> = events.observeEvent(id)
     fun resources(eventId: String): Flow<List<ResourceItem>> = resources.observeEventResources(eventId)
+    fun ownedResources(ownerId: String): Flow<List<ResourceItem>> = resources.observeOwnedResources(ownerId)
     fun marketplace(): Flow<List<ResourceItem>> = resources.observeMarketplace()
     fun resource(id: String): Flow<ResourceItem?> = resources.observeResource(id)
     fun passport(resourceId: String): Flow<ResourcePassport?> = passports.observePassport(resourceId)
@@ -82,7 +97,10 @@ class FeatureViewModel @Inject constructor(
     fun transactions(userId: String): Flow<List<CircularTransaction>> = transactions.observeTransactions(userId)
     fun eventTransactions(eventId: String): Flow<List<CircularTransaction>> = transactions.observeEventTransactions(eventId)
     fun impact(eventId: String): Flow<List<ImpactRecord>> = impact.observeImpact(eventId)
+    fun pendingSyncCommands(): Flow<List<SyncCommandStatus>> = sync.observePendingSyncCommands()
     fun resourceDraft(userId: String, eventId: String): Flow<String?> = preferences.resourceDraft(userId, eventId)
+
+    fun retryPendingSync() = launchAction("Sync retry requested") { sync.retryPendingSync() }
 
     fun saveResourceDraft(userId: String, eventId: String, draft: String) {
         viewModelScope.launch { preferences.saveResourceDraft(userId, eventId, draft) }
@@ -119,13 +137,27 @@ class FeatureViewModel @Inject constructor(
         viewModelScope.launch { preferences.setLastOpenedEvent(eventId) }
     }
 
-    /** Resolves only server-issued passport URLs already available through the authorised cache. */
-    suspend fun resolvePassportPayload(payload: String): String? {
-        val marketplace = resources.observeMarketplace().first()
-        return marketplace.firstNotNullOfOrNull { resource ->
+    /** Resolves only canonical server-issued QR payloads already available through the authorised cache. */
+    suspend fun resolvePassportPayload(payload: String, userId: String): PassportScanResolution {
+        when (val validation = PassportQrPayload.validate(payload, BuildConfig.PUBLIC_BASE_URL)) {
+            is PassportQrPayload.Validation.Invalid -> return PassportScanResolution.Malformed(validation.message)
+            PassportQrPayload.Validation.Legacy,
+            is PassportQrPayload.Validation.Canonical -> Unit
+        }
+        // A participant's active handover is normally private and therefore absent from the
+        // marketplace projection. Include their transaction resources before public listings.
+        val privateTransactionResources = transactions.observeTransactions(userId).first().mapNotNull { transaction ->
+            resources.observeResource(transaction.resourceId).first()
+        }
+        val ownedResources = events.observeOwnedEvents(userId).first().flatMap { event ->
+            resources.observeEventResources(event.id).first()
+        }
+        val candidates = privateTransactionResources + ownedResources + resources.observeMarketplace().first()
+        val resourceId = candidates.distinctBy(ResourceItem::id).firstNotNullOfOrNull { resource ->
             val passport = passports.observePassport(resource.id).first()
             resource.id.takeIf { passport?.qrPayload == payload }
         }
+        return resourceId?.let(PassportScanResolution::Verified) ?: PassportScanResolution.Unavailable
     }
 
     fun saveResource(resource: ResourceItem, photo: Uri?, onSaved: () -> Unit) = launchAction("Resource saved; passport will be issued by the server") {
@@ -187,7 +219,16 @@ class FeatureViewModel @Inject constructor(
         else AppResult.Success(Unit)
     }
 
-    fun archiveResource(resourceId: String, onArchived: () -> Unit) = launchAction("Resource archived") {
+    fun archiveResource(
+        resourceId: String,
+        eventTransactions: List<CircularTransaction>,
+        onArchived: () -> Unit
+    ) = launchAction("Resource archived") {
+        // The screen should already disable this action. Check again here because a cached
+        // event can change while the confirmation dialog is open; the server repeats the rule.
+        if (eventTransactions.any { it.blocksResourceArchive(resourceId) }) {
+            return@launchAction AppResult.Failure(FailureReason.CONFLICT)
+        }
         when (val result = resources.archiveResource(resourceId)) {
             is AppResult.Success -> { onArchived(); result }
             is AppResult.Failure -> result
@@ -206,10 +247,28 @@ class FeatureViewModel @Inject constructor(
         user: User,
         resource: ResourceItem,
         type: TransactionType,
-        quantity: Int
+        quantity: Double
     ) = launchAction("Marketplace request created") {
-        TransactionWorkflow.validateMarketplaceRequest(user.id, resource, quantity)?.let { return@launchAction AppResult.Failure(it) }
-        transactions.requestMarketplace(resource.id, type, quantity.toDouble())
+        TransactionWorkflow.validateMarketplaceListingRequest(user.id, resource, type, quantity)?.let { return@launchAction AppResult.Failure(it) }
+        transactions.requestMarketplace(resource.id, type, quantity)
+    }
+
+    fun publishMarketplaceListing(
+        user: User,
+        resource: ResourceItem,
+        draft: MarketplaceListingDraft,
+        onPublished: () -> Unit
+    ) = launchAction("Marketplace listing published") {
+        if (user.role != UserRole.ORGANIZER || resource.ownerId != user.id) {
+            return@launchAction AppResult.Failure(FailureReason.CONFLICT)
+        }
+        when (val result = marketplaceListings.publishListing(resource, draft)) {
+            is AppResult.Success -> {
+                onPublished()
+                result
+            }
+            is AppResult.Failure -> result
+        }
     }
 
     fun createPartnerHandover(

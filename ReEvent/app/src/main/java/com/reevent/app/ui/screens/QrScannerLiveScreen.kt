@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,6 +50,7 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
+import com.reevent.app.core.data.ResourcePresentationRules
 import com.reevent.app.core.model.ResourceItem
 import com.reevent.app.core.model.User
 import com.reevent.app.core.model.UserRole
@@ -85,6 +87,7 @@ fun QrScannerLiveScreen(
     var resolvedResourceId by rememberSaveable { mutableStateOf<String?>(null) }
     var scanError by rememberSaveable { mutableStateOf<String?>(null) }
     var scannerSession by rememberSaveable { mutableIntStateOf(0) }
+    var manualPayload by rememberSaveable { mutableStateOf("") }
     val action by viewModel.action.collectAsState()
     val resource by (resolvedResourceId?.let(viewModel::resource) ?: flowOf(null)).collectAsState(null)
     val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -96,18 +99,20 @@ fun QrScannerLiveScreen(
     LaunchedEffect(Unit) { viewModel.refresh() }
     LaunchedEffect(rawPayload) {
         val payload = rawPayload ?: return@LaunchedEffect
-        val resourceId = viewModel.resolvePassportPayload(payload)
-        if (resourceId != null) {
-            resolvedResourceId = resourceId
-            scanError = null
-            viewModel.recordPassportScan(user, resourceId)
-        } else {
-            scanError = if (payload.startsWith("reevent://passport/")) {
-                "This passport is not available on this device. Connect to the internet, wait for refresh, then scan again."
-            } else {
-                "This is not a valid ReEvent resource QR code."
+        when (val result = viewModel.resolvePassportPayload(payload, user.id)) {
+            is PassportScanResolution.Verified -> {
+                resolvedResourceId = result.resourceId
+                scanError = null
+                viewModel.recordPassportScan(user, result.resourceId)
             }
-            rawPayload = null
+            PassportScanResolution.Unavailable -> {
+                scanError = "This is a valid ReEvent passport, but it is unavailable to this signed-in account or has not been refreshed on this device."
+                rawPayload = null
+            }
+            is PassportScanResolution.Malformed -> {
+                scanError = result.message
+                rawPayload = null
+            }
         }
     }
 
@@ -180,6 +185,23 @@ fun QrScannerLiveScreen(
                         }
                     }
                     PrimaryActionButton("Start QR scanner", ::startScanning, Modifier.fillMaxWidth())
+                    OutlinedTextField(
+                        value = manualPayload,
+                        onValueChange = { manualPayload = it },
+                        label = { Text("Enter passport QR code") },
+                        supportingText = { Text("Use this when camera permission is unavailable.") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    SecondaryActionButton(
+                        "Verify entered code",
+                        onClick = {
+                            val entered = manualPayload.trim()
+                            if (entered.isBlank()) scanError = "Enter a ReEvent passport QR code first."
+                            else rawPayload = entered
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
 
@@ -293,7 +315,7 @@ private fun ScannedResourcePanel(
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text("Passport verified", style = MaterialTheme.typography.titleLarge)
                 Text(resource.title, style = MaterialTheme.typography.titleMedium)
-                Text("${resource.quantity} ${resource.unit} · ${resource.status.name.lowercase().replace('_', ' ')}", color = ReEventMuted)
+                Text("${ResourcePresentationRules.quantityLabel(resource.quantity, resource.unit)} · ${resource.status.name.lowercase().replace('_', ' ')}", color = ReEventMuted)
             }
         }
         Text("Record lifecycle action", style = MaterialTheme.typography.titleMedium)

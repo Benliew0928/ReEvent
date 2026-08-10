@@ -28,11 +28,13 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -52,12 +54,15 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import com.reevent.app.core.data.blocksResourceArchive
+import com.reevent.app.core.data.ResourcePresentationRules
 import com.reevent.app.core.model.Event
 import com.reevent.app.core.model.ImpactRecord
 import com.reevent.app.core.model.ResourceCondition
 import com.reevent.app.core.model.ResourceItem
 import com.reevent.app.core.model.ResourceStatus
 import com.reevent.app.core.model.User
+import com.reevent.app.feature.events.EventFormValidation
 import com.reevent.app.feature.matching.CircularRecommendationEngine
 import com.reevent.app.feature.matching.RecommendationCandidate
 import com.reevent.app.ui.components.LogoMark
@@ -65,6 +70,7 @@ import com.reevent.app.ui.components.PrimaryActionButton
 import com.reevent.app.ui.components.ReEventScaffold
 import com.reevent.app.ui.components.SecondaryActionButton
 import com.reevent.app.ui.components.StatusChip
+import com.reevent.app.ui.components.SyncStateChip
 import com.reevent.app.ui.ReEventScreen
 import com.reevent.app.ui.theme.ReEventBackground
 import com.reevent.app.ui.theme.ReEventAmber
@@ -78,6 +84,7 @@ import com.reevent.app.ui.theme.ReEventPaper
 import java.util.UUID
 import java.io.File
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -267,6 +274,7 @@ fun AddResourceLiveScreen(
     val quantityError = submitted && (quantityValue == null || quantityValue !in 1..10_000)
     val valueError = submitted && value.isNotBlank() && valueCents == null
     val formValid = title.trim().length >= 2 && material.trim().length >= 2 && quantityValue != null && quantityValue in 1..10_000 && (value.isBlank() || valueCents != null)
+    val action by viewModel.action.collectAsState()
     val context = LocalContext.current
     var pendingCameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     val cameraCapture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
@@ -336,8 +344,49 @@ fun AddResourceLiveScreen(
                 supportingText = { if (valueError) Text("Use a valid amount, e.g. 12.50") }
             )
             Text("Photo (optional)", style = MaterialTheme.typography.titleSmall)
-            photoUri?.let { LocalPhotoPreview(it, onRemove = { photoUri = null }) }
+            if (photoUri == null) {
+                initialResource?.imageUrls?.firstOrNull()?.let { path ->
+                    StoredResourcePhoto(path, viewModel)
+                    Text(
+                        "Current saved photo. Choose Replace photo only if you want to upload a new one.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ReEventMuted
+                    )
+                }
+            } else {
+                LocalPhotoPreview(
+                    uri = photoUri!!,
+                    onRemove = { photoUri = null },
+                    removeLabel = if (initialResource == null) "Remove selected photo" else "Discard replacement"
+                )
+            }
             photoNotice?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = ReEventMuted) }
+            if (photoUri != null && action.loading) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                    color = ReEventMintSoft
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.height(20.dp), strokeWidth = 2.dp)
+                        Text(
+                            if (initialResource == null) "Uploading photo and saving resource…" else "Uploading replacement photo…",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+            if (photoUri != null && action.error != null) {
+                Text(
+                    "The photo has not been uploaded. Your selection is still kept here; check your connection and press Save to retry.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
             SecondaryActionButton(
                 if (photoUri == null) "Select photo" else "Replace photo",
                 { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
@@ -443,28 +492,88 @@ fun EventEditorLiveScreen(
     var name by rememberSaveable(eventId) { mutableStateOf("") }
     var description by rememberSaveable(eventId) { mutableStateOf("") }
     var venue by rememberSaveable(eventId) { mutableStateOf("") }
+    var startDate by rememberSaveable(eventId) { mutableStateOf("") }
+    var endDate by rememberSaveable(eventId) { mutableStateOf("") }
     var submitted by rememberSaveable(eventId) { mutableStateOf(false) }
     LaunchedEffect(existing?.id) {
-        existing?.let { name = it.name; description = it.description; venue = it.venue }
+        existing?.let {
+            name = it.name
+            description = it.description
+            venue = it.venue
+            startDate = EventFormValidation.dateText(it.startsAt)
+            endDate = EventFormValidation.dateText(it.endsAt)
+        }
     }
-    val valid = name.trim().length >= 2
+    val validation = EventFormValidation.validate(name, venue, startDate, endDate)
     FeatureScaffold(if (eventId == null) "Create event" else "Edit event", "Back", onBack, viewModel) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text("Event name *") }, isError = submitted && !valid, supportingText = { if (submitted && !valid) Text("Enter at least 2 characters.") })
-            OutlinedTextField(description, { description = it }, Modifier.fillMaxWidth(), label = { Text("Description") })
-            OutlinedTextField(venue, { venue = it }, Modifier.fillMaxWidth(), label = { Text("Venue") }, singleLine = true)
-            PrimaryActionButton(if (eventId == null) "Create event" else "Save changes", saveEvent@{
-                submitted = true
-                if (!valid) return@saveEvent
-                val now = System.currentTimeMillis()
-                val event = existing?.copy(name = name.trim(), description = description.trim(), venue = venue.trim(), updatedAt = now)
-                    ?: Event(UUID.randomUUID().toString(), user.id, name.trim(), description.trim(), venue.trim(), now, now + 86_400_000L, "DRAFT", now, now)
-                viewModel.saveEvent(event, if (existing == null) "Event created" else "Event updated") { onSaved(it.id) }
-            }, Modifier.fillMaxWidth())
-            if (existing != null) {
-                SecondaryActionButton("Archive event", { viewModel.archiveEvent(existing!!.id, onBack) }, Modifier.fillMaxWidth())
-            }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("All fields marked * are required before the event can be saved.", style = MaterialTheme.typography.bodySmall, color = ReEventMuted)
+                OutlinedTextField(
+                    name,
+                    { name = it },
+                    Modifier.fillMaxWidth(),
+                    label = { Text("Event name *") },
+                    isError = submitted && validation.nameError != null,
+                    supportingText = { if (submitted) validation.nameError?.let { message -> Text(message) } }
+                )
+                OutlinedTextField(description, { description = it }, Modifier.fillMaxWidth(), label = { Text("Description") })
+                OutlinedTextField(
+                    venue,
+                    { venue = it },
+                    Modifier.fillMaxWidth(),
+                    label = { Text("Location *") },
+                    isError = submitted && validation.venueError != null,
+                    supportingText = { if (submitted) validation.venueError?.let { message -> Text(message) } },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    startDate,
+                    { startDate = it },
+                    Modifier.fillMaxWidth(),
+                    label = { Text("Start date *") },
+                    placeholder = { Text("YYYY-MM-DD") },
+                    isError = submitted && validation.startDateError != null,
+                    supportingText = { if (submitted) validation.startDateError?.let { message -> Text(message) } },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    endDate,
+                    { endDate = it },
+                    Modifier.fillMaxWidth(),
+                    label = { Text("End date *") },
+                    placeholder = { Text("YYYY-MM-DD") },
+                    isError = submitted && validation.endDateError != null,
+                    supportingText = { if (submitted) validation.endDateError?.let { message -> Text(message) } },
+                    singleLine = true
+                )
+                PrimaryActionButton(if (eventId == null) "Create event" else "Save changes", saveEvent@{
+                    submitted = true
+                    if (!validation.isValid) return@saveEvent
+                    val now = System.currentTimeMillis()
+                    val start = checkNotNull(EventFormValidation.parseDate(startDate))
+                    val end = checkNotNull(EventFormValidation.parseDate(endDate))
+                    val event = existing?.copy(
+                        name = name.trim(),
+                        description = description.trim(),
+                        venue = venue.trim(),
+                        startsAt = EventFormValidation.startOfDayMillis(start),
+                        endsAt = EventFormValidation.endOfDayMillis(end),
+                        updatedAt = now
+                    ) ?: Event(
+                        UUID.randomUUID().toString(), user.id, name.trim(), description.trim(), venue.trim(),
+                        EventFormValidation.startOfDayMillis(start), EventFormValidation.endOfDayMillis(end),
+                        "DRAFT", now, now
+                    )
+                    viewModel.saveEvent(event, if (existing == null) "Event created" else "Event updated") { onSaved(it.id) }
+                }, Modifier.fillMaxWidth())
+                if (existing != null) {
+                    Text(
+                        "Archive is available from Event details, where you can review linked resources before removing the event from active views.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ReEventMuted
+                    )
+                }
             }
         }
     }
@@ -484,8 +593,11 @@ fun EventDetailLiveScreen(
 ) {
     val event by viewModel.event(eventId).collectAsState(null)
     val resources by viewModel.resources(eventId).collectAsState(emptyList())
+    val transactions by viewModel.eventTransactions(eventId).collectAsState(emptyList())
     var searchQuery by rememberSaveable(eventId) { mutableStateOf("") }
     var statusFilter by rememberSaveable(eventId) { mutableStateOf("All statuses") }
+    var archiveResourceId by rememberSaveable(eventId) { mutableStateOf<String?>(null) }
+    var archiveEventConfirmation by rememberSaveable(eventId) { mutableStateOf(false) }
     val visibleResources = resources.filter { resource ->
         val matchesSearch = searchQuery.trim().let { query ->
             query.isBlank() || listOf(resource.title, resource.category, resource.material).any { it.contains(query, ignoreCase = true) }
@@ -500,10 +612,18 @@ fun EventDetailLiveScreen(
                     Text("Event workspace", style = MaterialTheme.typography.labelLarge, color = ReEventGreen)
                     Text(event?.description?.ifBlank { "No description yet" } ?: "Loading event…", style = MaterialTheme.typography.titleMedium)
                     Text(event?.venue?.ifBlank { "Venue to be confirmed" } ?: "", color = ReEventMuted)
+                    event?.let {
+                        Text(
+                            "${EventFormValidation.dateText(it.startsAt)} to ${EventFormValidation.dateText(it.endsAt)}",
+                            color = ReEventMuted,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        SyncStateChip(it.syncState)
+                    }
                     PrimaryActionButton("Add resource", onAddResource, Modifier.fillMaxWidth())
                     SecondaryActionButton("Scan resource QR", onScanResourceQr, Modifier.fillMaxWidth())
                     SecondaryActionButton("Edit event details", onEditEvent, Modifier.fillMaxWidth())
-                    SecondaryActionButton("Archive this event", { viewModel.archiveEvent(eventId, onArchiveEvent) }, Modifier.fillMaxWidth())
+                    SecondaryActionButton("Archive this event", { archiveEventConfirmation = true }, Modifier.fillMaxWidth())
                 }
             }
         }
@@ -531,11 +651,13 @@ fun EventDetailLiveScreen(
         if (resources.isEmpty()) item { EmptyPanel("No resources yet", "Add a resource to start this event's circular recovery flow.") {} }
         else if (visibleResources.isEmpty()) item { EmptyPanel("No matching resources", "Try a different name, material, or status.") {} }
         items(visibleResources, key = ResourceItem::id) { resource ->
+            val blockingTransactions = transactions.filter { it.blocksResourceArchive(resource.id) }
             Surface(Modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp), color = ReEventPaper, border = androidx.compose.foundation.BorderStroke(1.dp, ReEventLine)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(resource.title, style = MaterialTheme.typography.titleMedium)
-                    Text("${resource.quantity} ${resource.unit} · ${resource.category} · ${resource.condition.toDisplayLabel()}", color = ReEventMuted)
+                    Text("${ResourcePresentationRules.quantityLabel(resource.quantity, resource.unit)} · ${resource.category} · ${resource.condition.toDisplayLabel()}", color = ReEventMuted)
                     StatusChip(resource.status.toDisplayLabel(), resource.status.toUiColor())
+                    SyncStateChip(resource.syncState)
                     resource.imageUrls.firstOrNull()?.let { StoredResourcePhoto(it, viewModel) }
                     ResourceChoiceField("Update status", resource.status.toDisplayLabel(), ResourceStatus.entries.map(ResourceStatus::toDisplayLabel)) { selected ->
                         val status = ResourceStatus.entries.first { it.toDisplayLabel() == selected }
@@ -543,9 +665,72 @@ fun EventDetailLiveScreen(
                     }
                     PrimaryActionButton("Open digital passport", { onOpenPassport(resource.id) }, Modifier.fillMaxWidth())
                     SecondaryActionButton("Edit resource", { onEditResource(resource.id) }, Modifier.fillMaxWidth())
+                    if (blockingTransactions.isEmpty()) {
+                        SecondaryActionButton("Archive resource", { archiveResourceId = resource.id }, Modifier.fillMaxWidth())
+                    } else {
+                        Text(
+                            "Archive unavailable: ${blockingTransactions.size} active transaction${if (blockingTransactions.size == 1) "" else "s"} must be completed, rejected, or cancelled first.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ReEventMuted
+                        )
+                    }
                 }
             }
         }
+    }
+
+    val archiveCandidate = resources.firstOrNull { it.id == archiveResourceId }
+    archiveCandidate?.let { resource ->
+        val blockingTransactions = transactions.filter { it.blocksResourceArchive(resource.id) }
+        AlertDialog(
+            onDismissRequest = { archiveResourceId = null },
+            title = { Text(if (blockingTransactions.isEmpty()) "Archive resource?" else "Archive unavailable") },
+            text = {
+                Text(
+                    if (blockingTransactions.isEmpty()) {
+                        "${resource.title} will be removed from the active event inventory and marketplace. Its passport history stays as an archived record."
+                    } else {
+                        "This resource now has ${blockingTransactions.size} active transaction${if (blockingTransactions.size == 1) "" else "s"}. Complete, reject, or cancel ${if (blockingTransactions.size == 1) "it" else "them"} before archiving."
+                    }
+                )
+            },
+            confirmButton = {
+                if (blockingTransactions.isEmpty()) {
+                    TextButton(onClick = {
+                        archiveResourceId = null
+                        viewModel.archiveResource(resource.id, transactions) { }
+                    }) { Text("Archive") }
+                } else {
+                    TextButton(onClick = { archiveResourceId = null }) { Text("Back") }
+                }
+            },
+            dismissButton = {
+                if (blockingTransactions.isEmpty()) {
+                    TextButton(onClick = { archiveResourceId = null }) { Text("Cancel") }
+                }
+            }
+        )
+    }
+
+    if (archiveEventConfirmation) {
+        AlertDialog(
+            onDismissRequest = { archiveEventConfirmation = false },
+            title = { Text("Archive this event?") },
+            text = {
+                Text(
+                    "${event?.name ?: "This event"} will be removed from active organiser views. Marketplace visibility is controlled per resource, so review and archive any linked resources shown on this page before continuing. Existing passport history and completed transactions remain as records."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    archiveEventConfirmation = false
+                    viewModel.archiveEvent(eventId, onArchiveEvent)
+                }) { Text("Archive event") }
+            },
+            dismissButton = {
+                TextButton(onClick = { archiveEventConfirmation = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 
@@ -564,7 +749,7 @@ private fun ResourceChoiceField(label: String, selected: String, options: List<S
 }
 
 @Composable
-private fun LocalPhotoPreview(uri: Uri, onRemove: () -> Unit) {
+private fun LocalPhotoPreview(uri: Uri, onRemove: () -> Unit, removeLabel: String) {
     val context = LocalContext.current
     val bitmap by produceState<Bitmap?>(initialValue = null, uri) {
         value = withContext(Dispatchers.IO) {
@@ -575,7 +760,7 @@ private fun LocalPhotoPreview(uri: Uri, onRemove: () -> Unit) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (bitmap != null) androidx.compose.foundation.Image(bitmap!!.asImageBitmap(), "Selected resource photo", Modifier.fillMaxWidth().height(180.dp), contentScale = ContentScale.Crop)
             else Text("Photo selected. Preview is unavailable, but the image will still be uploaded when you save.")
-            SecondaryActionButton("Remove photo", onRemove, Modifier.fillMaxWidth())
+            SecondaryActionButton(removeLabel, onRemove, Modifier.fillMaxWidth())
         }
     }
 }
@@ -606,7 +791,7 @@ private fun ResourceStatus.toDisplayLabel() = name.lowercase().replace('_', ' ')
 private fun ResourceStatus.toUiColor() = when (this) {
     ResourceStatus.ACTIVE -> ReEventGreen
     ResourceStatus.RECOVERY_IN_PROGRESS -> ReEventAmber
-    ResourceStatus.RECOVERY_IN_PROGRESS, ResourceStatus.RECOVERED -> ReEventBlue
+    ResourceStatus.RECOVERED -> ReEventBlue
     ResourceStatus.ARCHIVED -> ReEventCoral
     ResourceStatus.DRAFT -> ReEventMuted
 }
@@ -626,7 +811,7 @@ fun PassportLiveScreen(resourceId: String, onMatch: (String) -> Unit, onBack: ()
             if (resource == null) EmptyPanel("Resource unavailable", "It may not be accessible for this workspace.") {}
             else {
                 Text(resource!!.title, style = MaterialTheme.typography.headlineMedium)
-                Text("${resource!!.quantity} ${resource!!.unit} • ${resource!!.material}")
+                Text("${ResourcePresentationRules.quantityLabel(resource!!.quantity, resource!!.unit)} • ${resource!!.material}")
                 HorizontalDivider()
                 Text("Passport code", fontWeight = FontWeight.Bold)
                 Text(passport?.qrPayload ?: "Passport is syncing")
@@ -639,8 +824,9 @@ fun PassportLiveScreen(resourceId: String, onMatch: (String) -> Unit, onBack: ()
 @Composable
 fun MatchingLiveScreen(user: User, resourceId: String, onBack: () -> Unit, viewModel: FeatureViewModel = hiltViewModel()) {
     val resource by viewModel.resource(resourceId).collectAsState(null)
+    val event by (resource?.eventId?.let(viewModel::event) ?: flowOf(null)).collectAsState(null)
     val programmes by viewModel.programmes().collectAsState(emptyList())
-    val recommendation = resource?.let { CircularRecommendationEngine.recommend(it, programmes) }
+    val recommendation = resource?.let { CircularRecommendationEngine.recommend(it, programmes, event?.venue.orEmpty()) }
     FeatureScaffold("Circular matches", "Back", onBack, viewModel) {
         when {
             resource == null -> item { EmptyPanel("Resource not found", "Return to the passport and choose a current resource.") {} }
@@ -651,6 +837,7 @@ fun MatchingLiveScreen(user: User, resourceId: String, onBack: () -> Unit, viewM
                 ) {}
             }
             else -> {
+                item { MatchingInputsCard(resource = resource!!, eventLocation = event?.venue.orEmpty()) }
                 item {
                     RecommendationRouteCard(
                         heading = "Recommended route",
@@ -689,21 +876,57 @@ private fun RecommendationRouteCard(
     onCreateHandover: (com.reevent.app.core.model.CircularProgramme) -> Unit
 ) {
     val compatible = programmes.filter { it.id in candidate.compatibleProgrammeIds }
+    var selectedProgramme by remember { mutableStateOf<com.reevent.app.core.model.CircularProgramme?>(null) }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(heading, style = MaterialTheme.typography.labelLarge, color = ReEventMuted)
             Text(candidate.action.name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase), style = MaterialTheme.typography.titleMedium)
             Text(candidate.explanation)
             Text("Match score: ${candidate.score}", style = MaterialTheme.typography.bodySmall, color = ReEventMuted)
+            Text("Programme capacity is confirmed by the server when you submit a request.", style = MaterialTheme.typography.bodySmall, color = ReEventMuted)
             compatible.forEach { programme ->
                 Text(programme.name, fontWeight = FontWeight.SemiBold)
                 Text(programme.location.ifBlank { "Location to be confirmed" }, color = ReEventMuted)
                 Button(
-                    onClick = { onCreateHandover(programme) },
+                    onClick = { selectedProgramme = programme },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = resource.ownerId == user.id && resource.status == ResourceStatus.ACTIVE
-                ) { Text("Create partner handover") }
+                    enabled = resource.ownerId == user.id && resource.status == ResourceStatus.ACTIVE && resource.quantity > 0
+                ) { Text("Request recovery") }
             }
+        }
+    }
+
+    selectedProgramme?.let { programme ->
+        AlertDialog(
+            onDismissRequest = { selectedProgramme = null },
+            title = { Text("Request recovery?") },
+            text = {
+                Text(
+                    "Send ${ResourcePresentationRules.quantityLabel(resource.quantity, resource.unit)} of ${resource.title} to ${programme.name}. " +
+                        "The partner will accept or decline the request, and the server will verify availability and capacity."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    selectedProgramme = null
+                    onCreateHandover(programme)
+                }) { Text("Send request") }
+            },
+            dismissButton = { TextButton(onClick = { selectedProgramme = null }) { Text("Cancel") } }
+        )
+    }
+}
+
+@Composable
+private fun MatchingInputsCard(resource: ResourceItem, eventLocation: String) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text("Resource considered", style = MaterialTheme.typography.titleMedium)
+            Text("Category: ${resource.category.ifBlank { "Not specified" }}", color = ReEventMuted)
+            Text("Material: ${resource.material.ifBlank { "Not specified" }}", color = ReEventMuted)
+            Text("Condition: ${resource.condition.name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)}", color = ReEventMuted)
+            Text("Available quantity: ${ResourcePresentationRules.quantityLabel(resource.quantity, resource.unit)}", color = ReEventMuted)
+            Text("Event location: ${eventLocation.ifBlank { "Not specified" }}", color = ReEventMuted)
         }
     }
 }
@@ -741,7 +964,7 @@ fun PartnerWorkbenchLiveScreen(user: User, onMap: () -> Unit, onProfile: () -> U
         if (programmes.isEmpty()) item { EmptyPanel("No programmes", "Create a programme so organisers can find your circular services.") {} }
         items(programmes, key = { it.id }) { programme -> Card(Modifier.fillMaxWidth()) { Text(programme.name, Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium) } }
         if (transactions.isNotEmpty()) item { Text("Assigned handovers", style = MaterialTheme.typography.titleLarge) }
-        items(transactions, key = { it.id }) { transaction -> Card(Modifier.fillMaxWidth()) { Text("${transaction.status.name} • ${transaction.quantity} item(s)", Modifier.padding(16.dp)) } }
+        items(transactions, key = { it.id }) { transaction -> Card(Modifier.fillMaxWidth()) { Text("${transaction.status.name} • ${ResourcePresentationRules.quantityLabel(transaction.quantity, "items")}", Modifier.padding(16.dp)) } }
     }
 }
 
@@ -793,7 +1016,7 @@ fun ImpactLiveScreen(eventId: String, onBack: () -> Unit, viewModel: FeatureView
 }
 
 @Composable private fun EventCard(event: Event, onAddResource: (String) -> Unit, onImpact: (String) -> Unit) = Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Text(event.name, style = MaterialTheme.typography.titleLarge); Text(event.venue.ifBlank { "Venue to be confirmed" }); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { onAddResource(event.id) }) { Text("Add resource") }; OutlinedButton(onClick = { onImpact(event.id) }) { Text("Impact") } } } }
-@Composable private fun ResourceLine(resource: ResourceItem, onClick: () -> Unit) = Card(Modifier.fillMaxWidth()) { Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(resource.title, style = MaterialTheme.typography.titleMedium); Text("${resource.quantity} ${resource.unit} • ${resource.status.name.lowercase()}") }; OutlinedButton(onClick = onClick) { Text("View") } } }
+@Composable private fun ResourceLine(resource: ResourceItem, onClick: () -> Unit) = Card(Modifier.fillMaxWidth()) { Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(resource.title, style = MaterialTheme.typography.titleMedium); Text("${ResourcePresentationRules.quantityLabel(resource.quantity, resource.unit)} • ${resource.status.name.lowercase()}") }; OutlinedButton(onClick = onClick) { Text("View") } } }
 @Composable
 private fun EmptyPanel(
     title: String,

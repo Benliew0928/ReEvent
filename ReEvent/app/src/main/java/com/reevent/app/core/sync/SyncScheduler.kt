@@ -41,6 +41,15 @@ class SyncScheduler @Inject constructor(
     private val environment: AppEnvironment
 ) : AccountSyncScheduler {
     override fun requestSync(accountId: String) {
+        enqueue(accountId, ExistingWorkPolicy.KEEP)
+    }
+
+    /** User initiated retry replaces a delayed WorkManager backoff with a fresh attempt. */
+    override fun retryNow(accountId: String) {
+        enqueue(accountId, ExistingWorkPolicy.REPLACE)
+    }
+
+    private fun enqueue(accountId: String, policy: ExistingWorkPolicy) {
         val identity = SyncWorkIdentity(environment, accountId)
         val request = OneTimeWorkRequestBuilder<SyncWorker>()
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
@@ -48,7 +57,7 @@ class SyncScheduler @Inject constructor(
             .build()
         WorkManager.getInstance(context).apply {
             cancelUniqueWork(SyncWorkIdentity.LEGACY_WORK_NAME)
-            enqueueUniqueWork(identity.uniqueWorkName, ExistingWorkPolicy.KEEP, request)
+            enqueueUniqueWork(identity.uniqueWorkName, policy, request)
         }
     }
 
@@ -61,6 +70,7 @@ class SyncScheduler @Inject constructor(
 
 interface AccountSyncScheduler {
     fun requestSync(accountId: String)
+    fun retryNow(accountId: String)
     suspend fun cancelSync(accountId: String)
 }
 

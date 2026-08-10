@@ -2,6 +2,7 @@ package com.reevent.app.core.data
 
 import com.reevent.app.core.model.CircularProgramme
 import com.reevent.app.core.model.CircularTransaction
+import com.reevent.app.core.model.MarketplaceListing
 import com.reevent.app.core.model.ProgrammeType
 import com.reevent.app.core.model.ResourceCondition
 import com.reevent.app.core.model.ResourceItem
@@ -31,6 +32,23 @@ class TransactionWorkflowTest {
             )
         )
         assertNull(TransactionWorkflow.validateMarketplaceRequest("buyer", active, 4))
+    }
+
+    @Test
+    fun marketplace_listing_preflight_uses_published_actions_and_quantity() {
+        val listed = resource(ownerId = "owner", quantity = 10.0).copy(
+            marketplaceListing = MarketplaceListing(
+                id = "listing",
+                allowedActions = listOf(TransactionType.BORROW, TransactionType.RENT),
+                publishedQuantity = 3.0,
+                defaultDurationDays = 7
+            )
+        )
+
+        assertNull(TransactionWorkflow.validateMarketplaceListingRequest("buyer", listed, TransactionType.BORROW, 3.0))
+        assertEquals(FailureReason.VALIDATION, TransactionWorkflow.validateMarketplaceListingRequest("buyer", listed, TransactionType.BUY, 1.0))
+        assertEquals(FailureReason.VALIDATION, TransactionWorkflow.validateMarketplaceListingRequest("buyer", listed, TransactionType.BORROW, 4.0))
+        assertEquals(FailureReason.VALIDATION, TransactionWorkflow.validateMarketplaceListingRequest("buyer", listed, TransactionType.BORROW, 1.5))
     }
 
     @Test

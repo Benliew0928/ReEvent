@@ -44,6 +44,32 @@ class CircularRecommendationEngineTest {
     }
 
     @Test
+    fun zero_quantity_resource_returns_a_clear_ineligibility_reason() {
+        val result = CircularRecommendationEngine.recommend(
+            resource(quantity = 0.0),
+            listOf(reuse("generic", emptyList()))
+        )
+
+        assertNull(result.primary)
+        assertEquals("This resource has no available quantity for a new recovery route.", result.ineligibilityReason)
+    }
+
+    @Test
+    fun exact_event_location_breaks_a_same_material_tie_deterministically() {
+        val result = CircularRecommendationEngine.recommend(
+            resource(material = "Acrylic"),
+            listOf(
+                reuse("other-location", listOf("Acrylic"), location = "Johor"),
+                reuse("event-location", listOf("Acrylic"), location = "Kuala Lumpur")
+            ),
+            eventLocation = "Kuala Lumpur"
+        )
+
+        assertEquals(listOf("event-location", "other-location"), result.primary?.compatibleProgrammeIds)
+        assertEquals(true, result.primary?.explanation?.contains("matches the event location"))
+    }
+
+    @Test
     fun missing_material_excludes_material_specific_programmes_but_keeps_generic_programmes() {
         val result = CircularRecommendationEngine.recommend(
             resource(material = ""),
@@ -67,7 +93,8 @@ class CircularRecommendationEngineTest {
     private fun resource(
         condition: ResourceCondition = ResourceCondition.GOOD,
         status: ResourceStatus = ResourceStatus.ACTIVE,
-        material: String = "Acrylic"
+        material: String = "Acrylic",
+        quantity: Double = 1.0
     ) = ResourceItem(
         id = "resource-id",
         eventId = "event-id",
@@ -76,7 +103,7 @@ class CircularRecommendationEngineTest {
         category = "Signage",
         material = material,
         condition = condition,
-        quantity = 1.0,
+        quantity = quantity,
         unit = "ITEM",
         status = status,
         valueCents = 1_000,
@@ -85,17 +112,17 @@ class CircularRecommendationEngineTest {
         updatedAt = NOW
     )
 
-    private fun reuse(id: String, materials: List<String>) = programme(id, ProgrammeType.REPAIR, materials)
+    private fun reuse(id: String, materials: List<String>, location: String = "Test location") = programme(id, ProgrammeType.REPAIR, materials, location)
     private fun repair(id: String, materials: List<String>) = programme(id, ProgrammeType.REPAIR, materials)
     private fun recycle(id: String, materials: List<String>) = programme(id, ProgrammeType.RECYCLE, materials)
 
-    private fun programme(id: String, type: ProgrammeType, materials: List<String>) = CircularProgramme(
+    private fun programme(id: String, type: ProgrammeType, materials: List<String>, location: String = "Test location") = CircularProgramme(
         id = id,
         partnerId = "partner-id",
         name = id,
         type = type,
         acceptedMaterials = materials,
-        location = "Test location",
+        location = location,
         active = true,
         createdAt = NOW,
         updatedAt = NOW

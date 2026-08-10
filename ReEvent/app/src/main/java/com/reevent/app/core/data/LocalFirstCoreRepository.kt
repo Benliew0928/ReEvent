@@ -17,15 +17,18 @@ import com.reevent.app.core.model.CircularProgramme
 import com.reevent.app.core.model.CircularTransaction
 import com.reevent.app.core.model.Event
 import com.reevent.app.core.model.ImpactRecord
+import com.reevent.app.core.model.MarketplaceListingDraft
 import com.reevent.app.core.model.ResourceItem
 import com.reevent.app.core.model.ResourcePassport
 import com.reevent.app.core.model.AllocationSide
+import com.reevent.app.core.model.SyncState
 import com.reevent.app.core.model.TransactionType
 import com.reevent.app.core.sync.AccountSyncScheduler
 import com.reevent.app.core.network.LifecycleCommandGateway
 import com.reevent.app.core.network.LifecycleCommandPayload
 import com.reevent.app.core.network.LifecycleCommandType
 import com.reevent.app.core.network.SupabaseCoreGateway
+import com.reevent.app.core.network.SupabaseMarketplaceListingGateway
 import com.reevent.app.core.network.isTerminalLifecycleFailure
 import com.reevent.app.core.network.lifecycleFailureReason
 import java.security.MessageDigest
@@ -33,6 +36,7 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -50,8 +54,9 @@ class LocalFirstCoreRepository @Inject constructor(
     private val accountScope: AccountScope,
     private val environment: AppEnvironment,
     private val remote: SupabaseCoreGateway,
-    private val lifecycle: LifecycleCommandGateway
-) : EventRepository, ResourceRepository, PassportRepository, PartnerRepository, TransactionRepository, ImpactRepository, CoreSyncRepository {
+    private val lifecycle: LifecycleCommandGateway,
+    private val marketplaceListings: SupabaseMarketplaceListingGateway
+) : EventRepository, ResourceRepository, MarketplaceListingRepository, PassportRepository, PartnerRepository, TransactionRepository, ImpactRepository, CoreSyncRepository {
     private val refreshMutex = Mutex()
     private val lifecycleMutex = Mutex()
 
@@ -67,6 +72,7 @@ class LocalFirstCoreRepository @Inject constructor(
     }
 
     override fun observeEventResources(eventId: String): Flow<List<ResourceItem>> = dao.observeResources(accountScope.requireId(), eventId).map(List<ResourceEntity>::toResources)
+    override fun observeOwnedResources(ownerId: String): Flow<List<ResourceItem>> = dao.observeOwnedResources(accountScope.requireId(), ownerId).map(List<ResourceEntity>::toResources)
     override fun observeMarketplace(): Flow<List<ResourceItem>> = dao.observeMarketplace(accountScope.requireId()).map(List<ResourceEntity>::toResources)
     override fun observeResource(resourceId: String): Flow<ResourceItem?> = dao.observeResource(accountScope.requireId(), resourceId).map { it?.toDomain() }
 
@@ -76,6 +82,28 @@ class LocalFirstCoreRepository @Inject constructor(
 
     override suspend fun archiveResource(resourceId: String): AppResult<Unit> = persistUnit("resource_items", resourceId, "archive") { accountId ->
         dao.archiveResource(accountId, resourceId, System.currentTimeMillis())
+    }
+
+    override suspend fun publishListing(resource: ResourceItem, draft: MarketplaceListingDraft): AppResult<Unit> = try {
+        val accountId = accountScope.requireId()
+        if (resource.ownerId != accountId) return AppResult.Failure(FailureReason.CONFLICT)
+        if (!MarketplaceListingDraftRules.validate(resource, draft).isValid) return AppResult.Failure(FailureReason.VALIDATION)
+        if (!marketplaceListings.isConfigured()) return AppResult.Failure(FailureReason.CONFIGURATION)
+
+        // Publication is an immediate protected RPC. It cannot safely be queued because an
+        // interrupted response is ambiguous; the server's one-open-listing rule resolves it.
+        val published = marketplaceListings.publish(resource.id, draft)
+        dao.upsertResource(
+            resource.copy(marketplaceListing = published, syncState = SyncState.SYNCED).toEntity(accountId)
+        )
+        when (val refreshed = refreshAuthorisedData()) {
+            is AppResult.Success -> Unit
+            is AppResult.Failure -> Log.w(TAG, "Listing published but snapshot refresh did not complete", refreshed.cause)
+        }
+        AppResult.Success(Unit)
+    } catch (error: Throwable) {
+        Log.e(TAG, "Marketplace listing publication failed", error)
+        AppResult.Failure(FailureReason.SERVER, error)
     }
 
     override fun observePassport(resourceId: String): Flow<ResourcePassport?> = dao.observePassport(accountScope.requireId(), resourceId).map { it?.toDomain() }
@@ -156,6 +184,7 @@ class LocalFirstCoreRepository @Inject constructor(
             // the response into a different account's cache.
             check(accountScope.accountId.value == accountId) { "The active account changed during refresh" }
             dao.applyAuthorisedSnapshot(
+                accountId = accountId,
                 events = snapshot.events.map { it.toEntity(accountId) },
                 resources = snapshot.resources.map { it.toEntity(accountId) },
                 passports = snapshot.passports.map { it.toEntity(accountId) },
@@ -172,6 +201,52 @@ class LocalFirstCoreRepository @Inject constructor(
             Log.e(TAG, "Authorised refresh failed", error)
             AppResult.Failure(FailureReason.SERVER, error)
         }
+    }
+
+    /**
+     * The scheduler always attempts lifecycle commands before local record changes. Keep the
+     * displayed order the same so a user never sees an action appear to overtake another one.
+     */
+    override fun observePendingSyncCommands(): Flow<List<SyncCommandStatus>> {
+        val accountId = accountScope.requireId()
+        return combine(
+            dao.observePendingLifecycleCommands(environment.wireValue, accountId),
+            dao.observePendingOperations(environment.wireValue, accountId)
+        ) { lifecycleCommands, operations ->
+            (lifecycleCommands.map { command ->
+                val payload = runCatching {
+                    lifecycleJson.decodeFromString<LifecycleCommandPayload>(command.payloadJson)
+                }.getOrNull()
+                SyncCommandStatus(
+                    id = command.idempotencyKey,
+                    queuePosition = 0,
+                    title = command.toSyncCommandLabel(),
+                    detail = "Authorised transaction action",
+                    syncState = command.lastError?.let { SyncState.FAILED } ?: SyncState.PENDING,
+                    attempts = command.attempts,
+                    lastError = command.lastError,
+                    transactionId = payload?.transactionId,
+                    lifecycleCommandType = command.commandType
+                )
+            } + operations.map { operation ->
+                SyncCommandStatus(
+                    id = "outbox-${operation.id}",
+                    queuePosition = 0,
+                    title = operation.toSyncCommandLabel(),
+                    detail = operation.toSyncCommandDetail(),
+                    syncState = operation.lastError?.let { SyncState.FAILED } ?: SyncState.PENDING,
+                    attempts = operation.attempts,
+                    lastError = operation.lastError
+                )
+            }).mapIndexed { index, command -> command.copy(queuePosition = index + 1) }
+        }
+    }
+
+    override suspend fun retryPendingSync(): AppResult<Unit> = try {
+        syncScheduler.retryNow(accountScope.requireId())
+        AppResult.Success(Unit)
+    } catch (error: Throwable) {
+        AppResult.Failure(FailureReason.UNKNOWN, error)
     }
 
     private suspend fun <T> persist(value: T, table: String, id: String, action: suspend (String) -> Unit): AppResult<T> = try {
@@ -205,6 +280,34 @@ class LocalFirstCoreRepository @Inject constructor(
             )
         )
         syncScheduler.requestSync(accountId)
+    }
+
+    private fun LifecycleCommandEntity.toSyncCommandLabel(): String = when (commandType) {
+        LifecycleCommandType.REQUEST_MARKETPLACE.name -> "Send marketplace request"
+        LifecycleCommandType.REQUEST_PROGRAMME.name -> "Send partner recovery request"
+        LifecycleCommandType.APPROVE.name -> "Approve transaction"
+        LifecycleCommandType.REJECT.name -> "Decline transaction"
+        LifecycleCommandType.CANCEL.name -> "Cancel transaction"
+        LifecycleCommandType.BEGIN_HANDOVER.name -> "Record handover"
+        LifecycleCommandType.CONFIRM_RECEIPT.name -> "Confirm receipt"
+        LifecycleCommandType.BEGIN_RETURN.name -> "Start return"
+        LifecycleCommandType.CONFIRM_RETURN.name -> "Confirm return"
+        else -> "Send authorised transaction action"
+    }
+
+    private fun SyncOperationEntity.toSyncCommandLabel(): String {
+        val record = when (tableName) {
+            "events" -> "event"
+            "resource_items" -> "resource"
+            "circular_programmes" -> "partner programme"
+            else -> "record"
+        }
+        return if (operation == "archive") "Archive $record" else "Save $record"
+    }
+
+    private fun SyncOperationEntity.toSyncCommandDetail(): String = when (operation) {
+        "archive" -> "The archived record will be removed from active views after sync."
+        else -> "This local change is waiting for the server."
     }
 
     private suspend fun transactionCommand(
