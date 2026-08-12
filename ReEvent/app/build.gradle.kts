@@ -1,3 +1,4 @@
+import java.net.URI
 import java.util.Properties
 
 plugins {
@@ -20,6 +21,14 @@ fun escapedBuildConfigValue(key: String): String =
     supabaseProperties.getProperty(key, "")
         .replace("\\", "\\\\")
         .replace("\"", "\\\"")
+
+fun passportVerifierHost(): String =
+    runCatching { URI(supabaseProperties.getProperty("PUBLIC_BASE_URL", "")).host }
+        .getOrNull()
+        ?.takeIf { it.isNotBlank() }
+        // Keep debug builds installable before local configuration exists. Verification starts
+        // only when PUBLIC_BASE_URL is supplied in the ignored local properties file.
+        ?: "invalid.reevent.local"
 
 android {
     namespace = "com.reevent.app"
@@ -44,6 +53,7 @@ android {
         buildConfigField("String", "SUPABASE_URL", "\"${escapedBuildConfigValue("SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${escapedBuildConfigValue("SUPABASE_ANON_KEY")}\"")
         buildConfigField("String", "PUBLIC_BASE_URL", "\"${escapedBuildConfigValue("PUBLIC_BASE_URL")}\"")
+        manifestPlaceholders["passportVerifierHost"] = passportVerifierHost()
     }
 
     compileOptions {

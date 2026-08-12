@@ -82,6 +82,9 @@ class FeatureViewModel @Inject constructor(
     fun refresh() {
         viewModelScope.launch { sync.refreshAuthorisedData() }
     }
+
+    /** A verified Android App Link waits for one authoritative refresh before cache lookup. */
+    suspend fun refreshForPassportLink(): AppResult<Unit> = sync.refreshAuthorisedData()
     fun events(ownerId: String): Flow<List<Event>> = events.observeOwnedEvents(ownerId)
     fun event(id: String): Flow<Event?> = events.observeEvent(id)
     fun resources(eventId: String): Flow<List<ResourceItem>> = resources.observeEventResources(eventId)

@@ -53,6 +53,17 @@
                     android:path="/password-reset"
                     android:scheme="reevent" />
             </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="${passportVerifierHost}"
+                    android:pathPrefix="/p/v1/"
+                    android:scheme="https" />
+            </intent-filter>
         </activity>
     </application>
 

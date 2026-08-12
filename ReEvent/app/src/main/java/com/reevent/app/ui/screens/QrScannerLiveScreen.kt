@@ -76,6 +76,7 @@ fun QrScannerLiveScreen(
     user: User,
     onOpenPassport: (String) -> Unit,
     onBack: () -> Unit,
+    initialPayload: String? = null,
     viewModel: FeatureViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -83,7 +84,7 @@ fun QrScannerLiveScreen(
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
     }
     var scannerActive by rememberSaveable { mutableStateOf(false) }
-    var rawPayload by rememberSaveable { mutableStateOf<String?>(null) }
+    var rawPayload by rememberSaveable(initialPayload) { mutableStateOf(initialPayload) }
     var resolvedResourceId by rememberSaveable { mutableStateOf<String?>(null) }
     var scanError by rememberSaveable { mutableStateOf<String?>(null) }
     var scannerSession by rememberSaveable { mutableIntStateOf(0) }
@@ -99,6 +100,7 @@ fun QrScannerLiveScreen(
     LaunchedEffect(Unit) { viewModel.refresh() }
     LaunchedEffect(rawPayload) {
         val payload = rawPayload ?: return@LaunchedEffect
+        if (payload == initialPayload) viewModel.refreshForPassportLink()
         when (val result = viewModel.resolvePassportPayload(payload, user.id)) {
             is PassportScanResolution.Verified -> {
                 resolvedResourceId = result.resourceId
