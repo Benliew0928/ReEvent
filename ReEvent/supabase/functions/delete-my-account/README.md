@@ -4,7 +4,7 @@ This Function is the only component permitted to use the Supabase service-role k
 
 ## Deploy manually
 
-1. Apply migrations through `0011_protected_account_deletion.sql` in order.
+1. Apply migrations through `0014_account_deletion_deidentification.sql` in order. Migration `0014` is required so Auth deletion can de-identify retained immutable history without permitting direct history mutation.
 2. From the `ReEvent` Android-project directory, link the intended Supabase project.
 3. Confirm `SUPABASE_SERVICE_ROLE_KEY` is configured as a Function secret in Supabase. Do not add it to `supabase.local.properties`, BuildConfig, source code, or a client request.
 4. Deploy with JWT verification enabled (do **not** use `--no-verify-jwt`):

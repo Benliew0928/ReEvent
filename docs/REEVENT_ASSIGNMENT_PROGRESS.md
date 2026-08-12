@@ -1,376 +1,466 @@
-# ReEvent Assignment Progress
+# ReEvent implementation and acceptance plan
 
-**Use this file for day-to-day progress.** It tracks what can be shown in the Android assignment: modules, pages, and user-visible functions. It deliberately does **not** count release pipelines, AppGallery work, legal operations, or every production test case.
+This file is the single day-to-day execution plan for the ReEvent assignment. It answers four questions:
 
-**Current assignment view:** 5 modules are **Done** and 11 are **In progress**. The server-authoritative transaction stage is **done** for assignment scope and recorded below.
+1. What is actually working now?
+2. What must be fixed before more feature work?
+3. What is the next task, in dependency order?
+4. What evidence is required before a module can be called complete?
 
-**Current local implementation note (2026-08-11):** The Participant Return, QR Scanner, Digital Passport, Partner Workbench, Partner Map, Matching, Resource Photo, Password Recovery, Profile/Support, visible Sync Status, protected account-deletion client/server source, Event Management validation, organiser Marketplace publication, Organiser-home empty states, per-transaction lifecycle feedback, and impact event-scope/latest-contribution presentation are implemented in the current working tree. They have not yet received a manual Android acceptance run with real role accounts and staging data. Matching, password rules, sign-up validation, event-form validation, Marketplace request/publication rules, account-deletion validation, transaction lifecycle presentation, impact aggregation, and passport-QR parsing have focused unit-test coverage and the debug Kotlin compilation succeeds; this is not a substitute for the pending manual checks.
+Do not use a checked box to mean "code exists." A module is complete only when its implementation, automated checks, required environment configuration, and manual acceptance have all passed.
 
-## Status key
+## 1. Baseline and current truth
 
-- **Done** — working and ready to show in a demo.
-- **In progress** — screen/function exists, but needs a visible gap closed.
-- **Needs work** — present as a mock, placeholder, or missing flow.
+**Implementation baseline:** teammate update `origin/main` at commit `135387b` (`Complete planned ReEvent modules`, 2026-08-11), plus the local repair work on branch `codex/must-fix-six`.
 
-## Modules
+**Branch state:** `codex/must-fix-six` contains `135387b`. The repair work remains uncommitted in the working tree. Migrations `0009`-`0014` and the checked `delete-my-account` Function are deployed to Supabase staging; password-reset redirect and public Passport verifier/App Link configuration are still pending.
 
-| Module | Status | What is currently there | Next product task |
-|---|---|---|---|
-| Onboarding and navigation | **Done** | Welcome flow, typed role navigation, account-specific back stacks | Keep polish work small unless a flow breaks |
-| Sign-in and role setup | **In progress** | Email sign-in/sign-up with local form validation/confirmation state, session restore, role selection, and full password-reset UI/deep-link path | Add the Supabase reset redirect URL and run the email-link acceptance pass |
-| Organiser home | **Done** | Live event/resource/impact dashboard, honest no-event/no-resource states, and real quick actions | Run one organiser acceptance pass after a server save |
-| Event management | **Done** | Event list, create/edit validation, detail with linked resources, and confirmed archive action | Run the organiser create/edit/archive acceptance pass |
-| Resource inventory | **In progress** | Add/edit validation, safe metadata editing, photo selection/camera capture, private upload/replacement, and shared list/detail/passport thumbnails | Run the photo acceptance pass and define the archive rule |
-| Marketplace | **In progress** | Published listing discovery/request flow and organiser publication form/RPC are implemented locally | Apply migrations and run a two-account acceptance pass |
-| Transaction lifecycle | **In progress** | Server-authoritative request, approve, handover, receipt, return, settlement, impact and retry-safe completion; cards now show state, responsible role, permitted action and queued-command feedback | Demonstrate the full flow through two signed Android sessions, including offline retry |
-| Participant return | **In progress** | Assigned return passport QR, scanner entry point, authorised return actions, and role-specific waiting/confirmed guidance are wired through repository data | Run the real two-account return journey |
-| Digital passports | **In progress** | Versioned privacy-safe QR parsing/rendering, role-aware passport screen and newest-first history | Configure public verifier/App Links and run the two-account QR acceptance pass |
-| QR scanner | **In progress** | Camera/scanner screen and scan routing exist | Complete physical scan-to-authorised-action journey |
-| Partner workbench | **In progress** | Partner workspace and programme foundations exist | Finish real recovery handover and passport navigation |
-| Partner map | **In progress** | Live partner-programme list, material filter, programme detail, and eligible-resource passport action | Populate a real active programme and confirm the visible programme-to-passport journey |
-| Matching | **In progress** | Deterministic matching uses resource inputs, material/location ranking, clear no-match reasons, and confirmed recovery requests | Populate a real programme and manually verify the server-authoritative capacity outcome |
-| Impact dashboard | **Done** | Completed lifecycle creates real impact/reward data; organiser impact is scoped per event and identifies its newest valid contribution | Run an organiser completion-to-dashboard acceptance pass |
-| Offline and account switching | **Done** | Room cache, durable command queue, account/environment isolation, sign-out cleanup, visible queue state and user-initiated retry | Run the offline/failed/retry acceptance pass |
-| Profile, help and deletion | **In progress** | Signed-in account details, data explanation, password-reset entry, support/privacy guidance, plus a re-authenticated deletion dialog, migration and Edge Function source | Deploy the protected server path, then run the disposable-account removal acceptance pass |
+### Verified evidence
 
-## Module-by-module completion plan
-
-Work through the modules in the order shown inside each section. A checked item should mean the behaviour is visible in the Android app and can be demonstrated; it does **not** require a production deployment checklist. A **Done** module is already core-demo-ready: its items are only small verification or polish tasks, not a reason to reopen its scope unless a real issue is found.
-
-### 1. Onboarding and navigation — Done
-
-**Current gap:** No known functional blocker. This needs only a short regression pass while other screens change.
-
-1. [ ] Confirm a first-time user reaches Welcome, Sign in, then Role setup without a blank screen.
-2. [ ] Confirm the chosen role opens its correct home screen and Back cannot return to onboarding.
-3. [ ] Keep every new page wired through the existing typed route graph in `ReEventApp.kt`.
-
-**Mark complete when:** the three role journeys open the correct starting page and each new page has a working Back destination.
-
-### 2. Sign-in and role setup — In progress
-
-**Current gap:** Sign-up now blocks malformed email, weak password, and mismatched confirmation locally; account confirmation, role persistence and credential feedback are visible in-app. Password recovery has a request screen, a dedicated deep-link recovery state, replacement-password validation, success/failure guidance, and a safe cancel/sign-out path. It still needs a real-device email pass. Before that pass, add `reevent://auth/password-reset` (or a suitably scoped `reevent://**`) to the Supabase project's Authentication Redirect URLs.
-
-1. [x] Make Sign up validate name, email, password and password confirmation before submitting.
-2. [x] Show a clear result after account creation: signed in immediately, or "check your email" when confirmation is required.
-3. [x] Add Forgot password: request reset email, open the update-password state, validate the replacement password and show success/failure. (Manual Supabase email-link acceptance is still pending.)
-4. [x] Persist the selected role only after its save succeeds; show an actionable error if it fails.
-5. [x] Add loading, offline and invalid-credentials messages that leave the entered email visible.
-
-**Mark complete when:** a new user can create an account, choose a role, sign out, sign back in, and recover a password without developer help.
-
-### 3. Organiser home — Done
-
-**Current gap:** The dashboard selects the signed-in organiser's current event, derives metrics/activity from that event, and supplies meaningful no-event/no-resource actions. The remaining work is one server-backed organiser acceptance pass.
-
-1. [x] Drive summary cards and recent activity from the signed-in organiser's data, not sample counts.
-2. [x] Give each empty card one useful next action: create event or add resource; listing discovery remains in Marketplace.
-3. [x] Wire every quick action to the real editor/list screen; a post-save return is pending manual Android acceptance.
-
-**Mark complete when:** a new organiser sees an honest empty state and a returning organiser sees their own current events/resources.
-
-### 4. Event management — Done
-
-**Current gap:** Create, edit and detail flows now validate title, location and ISO dates; archive requires a clear confirmation. The remaining work is a manual organiser acceptance pass with server save/failure states.
-
-1. [x] Validate title, dates and location before save; reject an end date before the start date with an inline explanation.
-2. [x] Preserve typed values while a save is pending or fails; shared sync/error feedback explains the result.
-3. [x] In Event detail, show linked resources and provide a direct path to add or edit them.
-4. [x] Require a confirmation before archive and explain that resource marketplace visibility remains controlled per resource.
-
-**Mark complete when:** an organiser can create, edit, view and archive an event with understandable validation and feedback.
-
-### 5. Resource inventory — In progress
-
-**Current gap:** The code path now covers image selection, camera capture, authenticated private upload/replacement, visible upload/retry guidance, stored thumbnails, and an archive guard that matches the server lifecycle rule. It has not been manually accepted on Android with the configured Supabase Storage bucket or an active transaction.
-
-1. [x] Make name, category, quantity/unit and condition mandatory, with plain-language validation.
-2. [x] Keep metadata edits separate from lifecycle actions: request/approval/return state must be refreshed from the server rather than locally guessed.
-3. [x] Add an image picker, camera capture, upload/replacement progress and a visible thumbnail on the resource detail/passport screens.
-4. [x] Define a simple archive rule: disable archive while a resource has an active transaction, explain why, and require confirmation before archiving an eligible resource.
-5. [x] Use the same saved resource record for list, detail and passport name, condition, availability and current photo.
-
-**Mark complete when:** an organiser can add a resource with a photo, edit safe fields, and understand why an in-use resource cannot be removed.
-
-### 6. Marketplace — In progress
-
-**Current gap:** Marketplace cards derive from cached published server listings; organisers can now select an owned active resource, enter validated terms, and invoke the protected publish RPC. This remains **In progress** until migrations `0009` and `0010` are applied and the two-account Android journey is accepted on real Supabase data.
-
-#### Planned implementation: organiser listing publication
-
-**Development steps (Android and migration files):**
-
-1. Add one typed `MarketplaceListingDraft` and pure validation rules. A draft must select at least one marketplace action, publish a positive quantity no greater than the resource quantity, use whole quantities for ITEM/BOX, require Buy/Rent prices only when those actions are selected, require a 1–365-day duration for Borrow/Rent, and limit terms to the server maximum.
-2. Add focused unit tests for accepted drafts and every invalid boundary. These tests must not require a Supabase account.
-3. Add an organiser-only **Publish to marketplace** entry from their active resource context. It must never be shown for another user's resource, an archived/non-active resource, or a resource that already has an open listing.
-4. Build an accessible publish dialog/form with selected action chips, quantity, optional prices, duration, terms, inline validation, loading state, and failure guidance that preserves typed values.
-5. Add a server-authoritative Supabase RPC migration for publication. It must re-check authenticated organiser ownership, active resource state, available quantity, listing terms, and no existing open listing. The Android client must call this RPC rather than write listing rows directly.
-6. Refresh the authorised Room snapshot after a successful publish so the organiser sees the listing card and another account can discover it. A failed/ambiguous response must tell the user to refresh/check their listings rather than blindly create a duplicate.
-
-**Expected deliverables:**
-
-- `MarketplaceListingDraft` validation and unit tests.
-- Organiser publish dialog/form wired to an owned resource.
-- Repository/gateway method that invokes the publish RPC and refreshes the shared snapshot.
-- A sequential Supabase migration (after `0009`) defining the protected publication RPC.
-- Updated Marketplace status and an explicit manual acceptance checklist.
-
-**Manual Supabase and Android acceptance after code completion:**
-
-1. In Supabase SQL Editor or CLI, apply `0009_listing_default_due_date.sql`, then the new publish-listing migration, in numeric order.
-2. Confirm the organiser account has role `ORGANIZER`, owns an `ACTIVE` resource, and has no open listing for it.
-3. On Android, publish a Donate-only listing; then publish/test a Borrow or Rent listing with a duration and the required price where applicable.
-4. Confirm an invalid form cannot submit: zero/excess quantity, fractional ITEM/BOX quantity, no action, missing price, missing duration, or terms longer than 2,000 characters.
-5. Sign in as a participant: search/filter the new listing, inspect its terms, submit one valid request, then sign in as organiser to approve or decline and verify both accounts refresh.
-6. Retry after a deliberately interrupted network request. Refresh the marketplace before retrying and confirm there is never more than one open listing for the resource.
-
-1. [x] Load only published listings from the active account snapshot; show an honest empty state when none match.
-2. [x] Make search, category and action filters work from the real published-listing fields.
-3. [x] On Listing detail, show published quantity, condition, material/category, event context/dates, allowed actions, price, duration and terms.
-4. [x] Validate request type and quantity against published terms before sending; the server repeats all checks and now derives Borrow/Rent due dates via migration `0009`.
-5. [x] Refresh the shared repository after a request or organiser decision; lifecycle cards distinguish pending, approved, declined and cancelled states.
-6. [x] Let an organiser enter one valid owned active resource publication through the app; local validation and the protected server-RPC migration reject invalid, duplicate, or unauthorised publication. (Applying migration `0010` and real Supabase acceptance remain manual.)
-
-**Mark complete when:** an organiser can publish one eligible resource in-app, a participant can find and request it, and both parties see the same resulting status after the server refresh.
-
-### 7. Transaction lifecycle — In progress
-
-**Current gap:** The Android cards now derive their state wording, next responsible person, permitted action, and pending/failed-command guidance from one shared model. The transaction command remains server-authoritative: a queued command never advances the visible server state locally. Supabase setup/migrations and the manual two-account/offline acceptance are still required before this module can be marked Done.
-
-#### Planned implementation: per-transaction lifecycle feedback
-
-**Development steps (Android only):**
-
-1. Define one pure, tested presentation model that maps a server `CircularTransaction`, signed user, and any matching queued-command state to: visible status label, next-step explanation, current responsible role, permitted action label (if any), and sync-feedback state.
-2. Cover Request, Approve, Handover, Receipt, Return started, Return confirmed, Rejected, Cancelled and Completed outcomes. Unknown/unauthorised roles must receive explanation only, never an action shortcut.
-3. Match pending/failed lifecycle commands to the correct transaction without exposing idempotency keys or treating a queued command as a server success. A failed command must direct the user to the existing Retry sync action.
-4. Update Marketplace and Partner transaction cards to render the shared model consistently: state, next person, permitted action, and a short pending/failed message. Reuse the existing `FeatureViewModel` lifecycle commands; do not add direct database mutations.
-5. Add focused unit tests for role/status mapping and command feedback. Tests must run without a Supabase account.
-
-**Expected deliverables:**
-
-- Pure `TransactionLifecyclePresentation` model/rules with unit tests.
-- Transaction cards showing a truthful status, next step and responsible role.
-- Per-transaction pending/failed command guidance linked to the existing Profile Retry action.
-- No new client-side lifecycle state transitions or server API changes.
-- Updated tracker status and explicit manual two-account/offline acceptance steps.
-
-**Manual Android acceptance after code completion:**
-
-1. Use a fresh resource and two signed accounts to request, approve, begin handover, confirm receipt, begin return and confirm return. At every stage, check that both accounts see the server-returned state and exactly one next responsible person.
-2. Test a rejected and a cancelled request. Confirm neither account sees a completion action afterwards.
-3. Disconnect network before one permitted action. Confirm the relevant card says pending or failed, does not claim server success, and directs the user to Profile → Retry sync.
-4. Restore network, choose Retry sync, refresh the affected card, and confirm the real server state replaces the pending/failed guidance.
-5. Include one Partner recovery handover and confirm Partner-only receipt guidance never appears for an unrelated user.
-
-1. [x] Keep each lifecycle button on the existing durable, typed command path; do not add client-side status shortcuts.
-2. [x] Display the server-returned state after request, approval, handover, receipt, return and completion through one shared card model.
-3. [x] Hide actions the current signed user is not allowed to perform and explain the next permitted action/responsible role.
-4. [x] Match a temporary failure or pending command to its transaction, show truthful guidance, and direct the user to Profile → Retry sync rather than claiming completion.
-5. [ ] Run one manual two-account Android demonstration using a fresh resource: participant requests/receives/returns; organiser approves/hands over/completes.
-
-**Mark complete when:** the full lifecycle is shown through two signed Android accounts and the final settlement/reward is visible without manual database changes.
-
-### 8. Participant return — In progress
-
-**Current gap:** The runtime screen displays the assigned resource's real passport QR rather than a fake panel, and explains the waiting, organiser-confirmation, and completed states. The implementation has not yet received a manual Android check with a Participant's active transaction, and still needs a two-account confirmation that scanning works through the live lifecycle.
-
-1. [x] Remove the runtime fake QR panel from the participant return journey.
-2. [x] Load the participant's active received/returnable transaction and its assigned resource passport from the signed account.
-3. [x] Render the real, canonical passport QR payload using the shared QR component.
-4. [x] Provide a clear return action: scan the organiser/resource code or open the assigned passport, then submit the authorised return command.
-5. [x] Show waiting, confirmed and failure guidance, including that the organiser must confirm a started return.
-
-**Mark complete when:** a participant can open their assigned passport, use a real QR/return action, and see the transaction move to the next lifecycle state.
-
-### 9. Digital passports — In progress
-
-**Current gap:** Passport QR output now follows the configured HTTPS `/p/v1/<opaque-token>` contract, with no resource/account identifier in new codes. The Passport view shows authorised viewer context and newest-first server history, with privacy-safe owner wording and unit-aware quantity labels. A real verifier host, App Link configuration, two-account Android scan, and the Android presentation checks below are still needed for final acceptance.
-
-#### Planned refinement: readable ownership and unit-aware quantities
-
-**Development steps (Android only):**
-
-1. Add one pure, tested resource-presentation helper. It must render whole-count units (`item`/`items`, `box`/`boxes`, including the existing plural unit values) without a trailing `.0`, render `kg` using only meaningful decimal places, and preserve the stored numeric value without rounding it for business logic.
-2. Use that helper for every read-only resource quantity shown in the current organiser inventory, Marketplace, listing detail, recovery guidance, and passport paths. Numeric form fields may remain numeric inputs, but their “up to”/summary labels must use the same helper.
-3. Replace the Passport's raw `ownerId`-derived visual text with a privacy-safe viewer-relative label. It may say **You** or **Your organisation** only when the signed-in user owns the resource; otherwise it must use a neutral label such as **Owner identity protected**, never a database ID or guessed personal name.
-4. Keep this a presentation-only change: do not alter Supabase schema, ownership checks, quantities, transactions, passport payloads, or Room data.
-5. Add unit tests for count units, `kg` decimal trimming, singular/plural wording, and each allowed owner-label outcome. The tests must run without Supabase.
-
-**Expected deliverables:**
-
-- A reusable, deterministic resource display helper with focused unit tests.
-- Passport metadata that never exposes a raw owner UUID.
-- Consistent quantity labels across the live resource and Marketplace views, including `11 items` rather than `11.0 items` and `2.5 kg` rather than padded decimals.
-- No database migration or behavioural change to inventory/lifecycle rules.
-
-**Manual Android acceptance after code completion:**
-
-1. Open an owned organiser resource Passport and confirm the owner wording is **Your organisation** rather than an ID.
-2. Open the same resource from a non-owner account (or a cached non-owner listing) and confirm no raw UUID or invented name appears.
-3. Check an item/box resource with quantities `1` and `11`: labels must read `1 item`/`1 box` and `11 items`/`11 boxes`, with no `.0`.
-4. Check `kg` resources with `2`, `2.5`, and `0.125`: labels must read `2 kg`, `2.5 kg`, and `0.125 kg` wherever the quantity is presented.
-5. Confirm editing, publishing, requesting, and lifecycle actions retain their original stored quantities and validation behaviour.
-
-1. [x] Define one versioned passport payload: the configured HTTPS `/p/v1/<opaque-token>` URL contains no resource/account identifier or private data. Legacy UUID codes are accepted only for read-only migration compatibility.
-2. [x] Generate and display that exact payload as a real QR on the passport screen when `PUBLIC_BASE_URL` is configured; otherwise show a truthful configuration message instead of rendering an opaque token.
-3. [x] Load the passport's resource details and lifecycle history from the authorised server snapshot, ordered newest first.
-4. [x] Show whether the viewer is organiser/owner, current holder, assigned partner, requester, or marketplace viewer; only an active organiser-owner sees the partner-match action.
-5. [x] Add a safe scan result: recognised opens the cached authorised passport; a valid but unavailable/unauthorised code and a malformed code have distinct guidance without leaking resource details.
-6. [x] Apply the readable owner label and shared unit-aware quantity formatting described above. `ResourcePresentationRulesTest` and debug Kotlin compilation pass; Android presentation verification on owned/non-owner Passport plus inventory/Marketplace surfaces remains manual.
-
-**Mark complete when:** the same real QR opens the correct resource passport and history for an authorised user, without exposing private data to an unauthorised viewer.
-
-### 10. QR scanner — In progress
-
-**Current gap:** The scanner page, permission/fallback UI, and routing are implemented, but none of the new scanner behaviour has yet been manually checked with a physical camera scan or real passport payload.
-
-1. [x] Request camera permission with an understandable denied-state and a manual code-entry fallback.
-2. [x] Accept only the defined ReEvent passport payload; reject arbitrary QR values with a useful message.
-3. [x] Resolve the scanned identifier against the signed user's authorised data, not a mock record.
-4. [x] Route a recognised code to the correct passport, handover, receipt or return action for that user's role.
-5. [ ] Test one physical camera scan between two Android sessions or a printed/on-screen QR.
-
-**Mark complete when:** scanning a real ReEvent passport QR opens the correct authorised resource/action and malformed codes fail safely.
-
-### 11. Partner workbench — In progress
-
-**Current gap:** The workspace now shows its active programmes and non-terminal assigned recovery tasks. Passport navigation and the existing server-authorised accept/decline/receipt actions are wired, but the new workbench path has not yet had a real Partner-account walkthrough.
-
-1. [x] Show the signed partner's active programmes, eligible materials and current non-terminal recovery tasks.
-2. [x] Replace the Workbench passport no-op callback with navigation to the relevant passport.
-3. [x] Let the partner open a resource passport and see its condition, material category and recovery eligibility.
-4. [x] Provide server-authorised Partner actions to accept/decline a recovery task and confirm recovery receipt when it is handed over.
-5. [x] Refresh the workbench and impact outcome after a lifecycle action succeeds through the shared repository refresh.
-
-**Mark complete when:** a partner can open a real task, inspect its passport and complete one authorised recovery action with a visible result.
-
-### 12. Partner map — In progress
-
-**Current gap:** `PartnerMapScreen.kt` now uses an honest live list fallback instead of `map_partner_mock.png`. It has not yet been manually checked with an active staging programme, material filter, eligible resource, and programme-to-passport action.
-
-1. [x] Remove the static mock image from the runtime page.
-2. [x] Start with a real list/card view of partner programmes showing name, supported materials, service area and availability.
-3. [x] Add a category/material filter that changes the displayed programmes.
-4. [x] Open a programme detail screen with a useful next action: view eligible resource and its passport.
-5. [x] Keep the well-labelled list view because real coordinates and map setup are not yet available.
-
-**Mark complete when:** the page presents real partner programme data and every visible action works, without a decorative mock map.
-
-### 13. Matching — In progress
-
-**Current gap:** Matching now shows the resource inputs, deterministic material/location ranking, clear no-match reasons, and a confirmed recovery-request action. Matching unit tests pass, but the new UI and recovery request have not yet been manually checked against an active staging programme. Live capacity and distance are not exposed by the current Android programme contract, so capacity remains server-authoritative at request time and location ranking uses the recorded service-area text.
-
-1. [x] Use resource material/category, condition, available quantity and relevant event location as the matching inputs.
-2. [x] Filter inactive and material-incompatible programmes; the server verifies remaining capacity on a recovery request.
-3. [x] Rank remaining options deterministically by material match, then service-area text, name, and ID; show the reason and its data limits.
-4. [x] State whether the resource is unavailable, has no quantity, lacks material, has no active programme, or has no compatible programme.
-5. [x] Let an organiser confirm and submit a real partner recovery request from a recommended programme.
-
-**Mark complete when:** an organiser can choose a resource, understand why a partner matched (or did not), and continue to a real follow-up action.
-
-### 14. Impact dashboard — Done
-
-**Current gap:** The dashboard only aggregates records tied to completed transactions, lets an organiser choose the event scope, labels estimates/missing factors, and shows the newest valid contribution. The remaining work is a manual completion-to-dashboard acceptance pass.
-
-1. [x] Aggregate only completed server transactions for the current organiser/event scope.
-2. [x] Show a clear breakdown for reuse/recovery outcome, CO2e estimate and ReCoins/reward where available.
-3. [x] Label estimates and missing factors honestly rather than showing invented precision.
-4. [x] Refresh the dashboard after a transaction is completed and make the latest contribution identifiable.
-
-**Mark complete when:** completing a real transaction produces a visible, traceable impact update in the dashboard.
-
-### 15. Offline and account switching — Done
-
-**Current gap:** The profile now shows actual account-scoped queued commands in scheduler order, record-level event/resource sync chips, failed reasons, and a Retry action that replaces delayed WorkManager backoff. The remaining work is a manual offline/failure/retry acceptance pass; no mock status is used.
-
-1. [x] Add visible labels for pending sync, synced and failed command states; local unsynced writes are labelled Pending sync.
-2. [x] Give a failed queued command an explicit Retry action and preserve its error until it succeeds or is discarded.
-3. [x] Show queue order using the same lifecycle-first, stable ordering as the scheduler, so actions cannot appear to overtake each other.
-4. [x] Keep account-scoped cache cleanup and sync cancellation on sign out; run a final visible account-switching acceptance check.
-
-**Mark complete when:** a user can tell whether a change is local, syncing, completed or needs a retry, and account switching never exposes the prior user's data.
-
-### 16. Profile, help and deletion — In progress
-
-**Current gap:** Profile now has a protected self-service deletion dialog, Android-side validation, and local source for its migration and Edge Function. The server flow re-authenticates the current user with the submitted password, blocks unsafe active work, removes private media, preserves only de-identified historical workflow records, deletes the Auth account, and clears the local session after the server acknowledgement. It cannot be marked Done until migration `0011` and the Function are deployed and accepted against real Supabase data.
-
-#### Planned implementation: protected account deletion
-
-**Development steps (Android, migration and Edge Function):**
-
-1. Add a typed deletion request/result contract and pure confirmation/password validation. The user must type an exact destructive confirmation phrase and their current password; neither value is persisted, logged, placed in Room, or included in error text.
-2. Extend the Auth gateway/repository with a dedicated deletion call that sends the current password only in the authenticated TLS request. The Edge Function must prove it belongs to the same user identified by the caller JWT; a wrong password must not clear local account data.
-3. Add a protected `delete-my-account` Edge Function. It must require a valid caller JWT, identify the target solely from that JWT, re-authenticate that caller with the submitted current password in the same request, call privileged database/storage APIs only on the server, and never expose a service-role key to Android.
-4. Add a sequential migration that safely prepares deletion: block active transactions, resources/custody, open listings, active programmes and unsettled coin holds; remove private media metadata; close/burn an eligible wallet; de-identify retained historical workflow records; and keep historical foreign-key references valid after Auth deletion. The operation must be safely retryable after a Storage/Auth finalisation failure.
-5. In Profile, replace the guide-only card with a warning dialog, password + phrase confirmation, non-dismissable loading state, success message, and a safe signed-out state. Server rejection must show the reason and leave the account signed in.
-6. Add local unit tests for confirmation validation and result/error mapping. These tests must run without a Supabase account.
-
-**Expected deliverables:**
-
-- `AccountDeletionRules` tests and Android confirmation dialog/state.
-- A repository/gateway call that sends the typed current password only to the authenticated Edge Function; the Function re-authenticates that same JWT caller before any privileged work.
-- Migration `0011` with a server-only deletion-preparation RPC and active-work guards.
-- `supabase/functions/delete-my-account` source plus deployment/environment instructions; the service-role secret remains server-only.
-- Profile success safely clears local data and returns to Sign in; failure keeps the signed-in session and says what must be resolved.
-- Updated tracker status and explicit Supabase/manual acceptance steps.
-
-**Manual Supabase and Android acceptance after code completion:**
-
-1. Apply migrations `0001` through `0011` in order. Deploy `delete-my-account` with JWT verification enabled and configure its service-role secret only in Supabase Function Secrets; never add that secret to `supabase.local.properties` or Android BuildConfig.
-2. Create a disposable verified account with no active resources, listings, programmes, transactions or coin holds. Sign in on Android, enter a wrong phrase/password, then verify the account remains signed in with no data change.
-3. Repeat with the correct phrase/password. Confirm the app signs out, the Auth user cannot sign in again, private Storage objects under that user folder are gone, and retained historical records show de-identified actor data only.
-4. With a separate account, create each blocked condition (requested/active transaction, in-custody resource, open listing, active programme, unsettled hold). Attempt deletion and confirm it is rejected with the specific safe-resolution message; the account must remain usable.
-5. Call the deployed Function with a valid user JWT but no/wrong password and confirm it returns an authentication failure without changing data. After a successful deletion, refresh/reopen the app and verify the server session is gone; keep the Auth JWT lifetime short for production-like revocation behaviour.
-
-1. [x] Show the signed-in email, selected role and a short explanation of what account data is stored.
-2. [x] Add working Help/Support content with a safe assignment support route and clear privacy/data guidance.
-3. [x] Finish the password-recovery journey described in Module 2 and link to it from Profile.
-4. [x] Implement the re-authenticated deletion dialog, protected server operation source, success sign-out and safe failure guidance. (Supabase deployment/acceptance remains manual.)
-5. [x] Avoid a misleading immediate Delete control until the secure server path is available; after deployment, expose it only through the explicit confirmation flow above.
-
-**Mark complete when:** every visible account-support action works end-to-end, or is clearly scoped out rather than pretending to work.
-
-## Recommended build order
-
-1. **Core demo journey:** Modules 8, 9 and 10 (real participant return and QR) followed by the two-account app demonstration in Module 7.
-2. **Partner journey:** Modules 11, 12 and 13 (workbench, real partner list, and matching follow-through).
-3. **Trust and polish:** Modules 5, 2, 15 and 16 (photos, recovery, visible sync state and account support).
-4. **Presentation pass:** Modules 3, 4, 6 and 14 (empty states, validation, marketplace state and impact clarity).
-
-## Pages to show in the assignment
-
-| Page | Main function | Status |
+| Check | Result | Meaning |
 |---|---|---|
-| Welcome / sign-in / role choice | Enter the correct role experience | **In progress** |
-| Organiser Home | View event/resource actions and impact shortcut | **Done** |
-| Events List / Editor / Detail | Create and manage event information | **Done** |
-| Add / Edit Resource | Capture resource details and inventory | **Done** |
-| Resource Passport | Show privacy-safe QR identity, role-aware authorised view and newest-first history | **In progress** — real verifier/App Link and two-account scan remain |
-| Marketplace | Publish an eligible organiser resource, then discover and request it | **In progress** — apply `0009`/`0010` and complete two-account acceptance |
-| Participant Return | Scan and return an assigned resource | **In progress** — real QR is wired; two-account lifecycle verification remains |
-| Partner Workbench | Manage partner programmes and recovery work | **In progress** |
-| Partner Map | Find a recovery option | **In progress** — real programme-list fallback is implemented; active-data verification remains |
-| Matching | Explain suggested circular options | **In progress** |
-| Impact | Show reuse, ReCoins and impact after completion | **Done** |
-| QR Scanner | Scan a real passport and open the right context | **In progress** |
-| Profile | Show active account and supported settings | **In progress** — password recovery, support guidance and the protected deletion flow are implemented locally; Supabase deployment/acceptance remains |
+| Android debug and Android-test Kotlin compilation | **Passed** | Application and instrumented-test source compile. |
+| Android JVM unit tests | **65/65 passed** | Includes deletion routing/status, QR renderability, and photo snapshot mapping. |
+| Android lint | **Passed with 29 warnings** | There are no lint errors, but warnings remain as polish work. |
+| Android instrumented tests | **15/15 passed on Medium Phone API 35** | Includes the real Room 5-to-6 migration with retained resource and lifecycle-command rows. |
+| Supabase contract tests | **19/19 passed** | Fresh PGlite applies `0001`-`0014`; direct protected-table/history DML is denied, protected RPC paths pass, and Auth deletion de-identifies retained history. |
+| Edge Function type check | **Passed** | `deno check` passes for `delete-my-account`. |
+| Edge Storage pagination tests | **2/2 passed** | More than 1,000 root and nested objects are enumerated. |
+| Real-device/manual acceptance of teammate update | **Not recorded** | No module may be called accepted based only on compilation or unit tests. |
 
-## Recently completed
+The earlier Stage 3 staging lifecycle proof remains useful historical evidence. It does not accept the new photo, QR, account-deletion, partner, Marketplace-publication, or presentation changes in `135387b`.
 
-- [x] **Server-authoritative transaction lifecycle (Stage 3)** — staging proof completed for organiser/participant RENT, partner wrong-actor denial, exact-once settlement/impact, and lost-response retry. The retry response bug was fixed in `ReEvent/supabase/migrations/0008_idempotent_replay_response.sql`.
-- [x] **Staging demo setup** — three disposable staging accounts and a staging-bound debug APK are ready for the Android demo.
+### Review findings and current resolution
 
-## Focus next — product work only
+| ID | Priority | Area | Status | Resolution or next action |
+|---|---|---|---|---|
+| B-01 | **P0** | Supabase tests | **RESOLVED** | Harness creates `service_role`; listing fixtures use `publish_marketplace_listing`; 19/19 tests pass through `0014`. |
+| B-02 | **P0** | Account deletion | **RESOLVED / STAGING BACKEND VERIFIED** | Migrations `0011`, `0012`, and `0014` plus the Function are deployed. Live tests proved wrong-password no-mutation, active-work blocking, terminal retry, successful Auth/profile/media cleanup, and retained de-identified history. Manual Compose/provider review remains. |
+| B-03 | **P0** | Resource photos | **RESOLVED / STAGING BACKEND VERIFIED** | Migration `0013`, deterministic private Storage, protected metadata RPCs, replacement, reads, cleanup, snapshot mapping, and Room updates are implemented. Live owner/non-owner backend probes pass; gallery/camera/offline UI acceptance remains. |
+| B-04 | **P0** | Participant return QR | **RESOLVED LOCALLY / CONFIG PENDING** | Passport and Return use one renderability rule; raw tokens are canonicalised or replaced by explicit configuration guidance. Configure verifier/App Link and run a physical scan. |
+| B-05 | **P1** | Room database | **RESOLVED LOCALLY** | The 5-to-6 test retained representative resource/photo-path and lifecycle-command data on API 35. |
+| B-06 | **P1** | Event detail | **OPEN - NEXT CODE FIX** | Remove/replace the misleading status control with read-only state, or implement only explicitly permitted server actions. |
+| B-07 | **P1** | Marketplace detail | **OPEN - DECISION REQUIRED** | Choose a privacy-safe event projection, or stop promising unavailable event data. |
+| B-08 | **P2** | Presentation | **OPEN - POLISH** | Replace corrupted literals and scan user-facing source/docs for similar encoding errors. |
 
-1. Run the first manual Android acceptance pass: active staging programme → Partner Map filter/detail/passport → Matching recovery request → Partner Workbench action.
-2. Run the second manual Android acceptance pass: Participant assigned passport → camera/manual QR scan → authorised return state.
-3. Run the photo acceptance pass: gallery/camera selection → private Storage upload → resource-detail and Passport thumbnail, including a failed-upload retry.
-4. Add the reset redirect URL and run its Android email-link acceptance pass; deploy the protected account-deletion Function/migration and run its disposable-account acceptance pass.
-5. Run the offline/failure/retry acceptance pass: create or edit a record offline â†’ inspect Pending sync â†’ restore network â†’ inspect Synced; then force one safe failure and use Retry.
+## 2. Status and priority rules
 
-6. Apply `0009_listing_default_due_date.sql`, then `0010_publish_marketplace_listing_rpc.sql`, and run the Marketplace two-account acceptance pass: publish a listing -> filter/details -> request -> approve or decline -> verify the refreshed lifecycle state.
+### Overall status
 
-## Old tracker
+- **FIX REQUIRED** - a known correctness or safety defect must be resolved before acceptance.
+- **CONFIG REQUIRED** - implementation exists, but a migration, secret, redirect, public URL, or staging fixture is missing.
+- **READY TO VERIFY** - no known code blocker; automated or manual acceptance is still required.
+- **ACCEPTED** - all required gates passed and evidence is recorded in this file.
 
-`docs/REEVENT_RELEASE_TRUTH_CHECKLIST.md` is an archived production-release audit with 168 granular acceptance items. It no longer controls assignment progress. Keep it only if you want a future production checklist; otherwise it can be deleted after you have reviewed this file.
+### Priority
+
+- **P0** - correctness, security, data-loss, or test-trust blocker. Do this before deployment or broad manual testing.
+- **P1** - required for the core assignment demonstration. Do this after all P0 gates are green.
+- **P2** - important regression, clarity, accessibility, and presentation work.
+- **P3** - optional polish that must not displace P0/P1 work.
+
+### Checkbox rule
+
+- `[ ]` means not proved, even if source code exists.
+- `[x]` means the named result was run and evidence was recorded.
+- When a later change invalidates evidence, change `[x]` back to `[ ]` and explain why.
+- "Works on my machine" without the command/result or manual scenario is not acceptance evidence.
+
+## 3. Required repair gate - completed locally
+
+These six tasks were completed in dependency order on `codex/must-fix-six` and are backed by the evidence above.
+
+1. [x] **Sync the implementation baseline.** `codex/must-fix-six` contains teammate commit `135387b`; migrations now run sequentially through `0014`.
+2. [x] **Repair the Supabase test harness.** `service_role` exists, Marketplace fixtures use the protected RPC, and direct DML denial is tested.
+3. [x] **Fix account-deletion recovery safety.** Deletion is terminal and retryable; role/wallet recreation is blocked; Storage pagination and OAuth-only guidance are implemented.
+4. [x] **Fix resource-photo persistence.** Metadata, authorised reads, Room snapshot persistence, deterministic replacement, and retryable cleanup are implemented.
+5. [x] **Fix Participant Return QR generation.** Passport and Return share canonical renderability rules and never render a raw token.
+6. [x] **Add the Room 5-to-6 migration test and rerun every automated gate.** JVM, Android instrumentation, lint, Supabase, and Deno gates pass.
+
+**Start next:** finish the remaining Phase 4 configuration in this order: commit the deployed source so it has a reproducible revision, configure password reset, deploy/configure the public verifier/App Link, then run photo, QR, and deletion UI acceptance on target devices. The staging database and deletion Function are already deployed and backend-verified; do not rerun those migrations blindly.
+
+## 4. Module progress dashboard
+
+This table is the authoritative summary. Update it only after updating the detailed phase and evidence log below.
+
+| # | Module | Implementation reality | Environment | Acceptance | Status | Next phase |
+|---:|---|---|---|---|---|---:|
+| 1 | Onboarding and navigation | Core flow exists | Not required | Not run on teammate update | **READY TO VERIFY** | 9 |
+| 2 | Sign-in and role setup | Core flow and reset UI exist | Reset redirect missing | Not run | **CONFIG REQUIRED** | 4, 8 |
+| 3 | Organiser home | Live-data and empty states exist | Staging data required | Not run | **READY TO VERIFY** | 9 |
+| 4 | Event management | Create/edit/archive exist; status control is misleading | Staging data required | Not run | **FIX REQUIRED** | 6, 9 |
+| 5 | Resource inventory | Persistent one-photo contract, metadata RPCs, snapshot/Room mapping, and cleanup exist | `0013` and owner/non-owner private-bucket rules verified on staging | Backend passed; gallery/camera/offline UI not run | **READY TO VERIFY** | 4, 9 |
+| 6 | Marketplace | Discovery/request/publication source exists; SQL gate is green | `0009`/`0010` applied and staging smoke passed | Android flow not run | **READY TO VERIFY** | 5 |
+| 7 | Transaction lifecycle | Server-authoritative commands and presentation exist | Earlier staging proof only | New flow not run | **READY TO VERIFY** | 6 |
+| 8 | Participant return | Assigned-return flow renders only canonical scanner-compatible QR values | Public URL/App Link missing | Not run | **CONFIG REQUIRED** | 4 |
+| 9 | Digital passports | Privacy-safe token contract and history exist | Public verifier/App Link missing | Not run | **CONFIG REQUIRED** | 3, 4 |
+| 10 | QR scanner | Camera/manual entry and routing exist | Public verifier/App Link missing | Physical scan not run | **CONFIG REQUIRED** | 3, 4 |
+| 11 | Partner workbench | Programme/task/actions source exists | Active programme/task data required | Not run | **READY TO VERIFY** | 7 |
+| 12 | Partner map | Live list/filter/detail fallback exists | Active programme data required | Not run | **READY TO VERIFY** | 7 |
+| 13 | Matching | Deterministic matching and recovery request exist | Active programme/capacity data required | Not run | **READY TO VERIFY** | 7 |
+| 14 | Impact dashboard | Completed-transaction aggregation exists | Completed staging transaction required | Not run | **READY TO VERIFY** | 6, 9 |
+| 15 | Offline and account switching | Queue state, retry, and isolation source exists | Failure scenario required | Not run | **READY TO VERIFY** | 6 |
+| 16 | Profile, help and deletion | Terminal retry state, protected function, provider guidance, and SQL guards exist | `0011`/`0012`/`0014` and Function deployed | Disposable password-account backend acceptance passed; Compose/OAuth-only UI not run | **READY TO VERIFY** | 8 |
+
+**Current accepted count under this plan:** 0 of 16. This is intentionally stricter than the previous "5 Done / 11 In progress" summary.
+
+## 5. Ordered implementation and acceptance phases
+
+### Phase 0 - Restore a trustworthy automated baseline
+
+- **Priority:** P0
+- **Modules affected:** 5, 6, 7, 8, 9, 10, 16
+- **Depends on:** a branch containing `135387b`
+
+#### Steps
+
+1. [x] Confirm the working branch contains `135387b` with `git merge-base --is-ancestor 135387b HEAD`.
+2. [x] Run the existing Android baseline from `ReEvent/`:
+   - `./gradlew :app:testDebugUnitTest :app:compileDebugKotlin`
+   - `./gradlew :app:lintDebug`
+3. [x] In the PGlite bootstrap, create every role referenced by grants in the migrations, including `anon`, `authenticated`, and `service_role`, before applying migrations.
+4. [x] Stop inserting `marketplace_listings` directly in lifecycle fixtures. Create an organiser/resource and call `publish_marketplace_listing`, matching migration `0010`'s security boundary.
+5. [x] Apply `0001` through `0014` to a fresh PGlite database in numeric order for every contract-test run.
+6. [x] Keep explicit tests proving direct listing/photo DML is rejected while the protected RPC succeeds for an authorised organiser.
+7. [x] Run `npm test` from `ReEvent/supabase/tests/`; 19/19 tests pass. Run `npm ci` again from a clean checkout before commit/release handoff.
+8. [x] Add an instrumented Room migration case that creates representative version-5 rows, runs `MIGRATION_5_6`, and checks both schema and retained data.
+9. [x] Run the targeted migration and complete Android instrumented suite on Medium Phone API 35; 15/15 tests pass.
+
+#### Success looks like
+
+- Android debug compilation and JVM tests pass.
+- Android lint has zero errors; warning count is recorded.
+- The committed Supabase test command passes from a clean install and fresh database.
+- The tests prove both the permitted RPC path and rejected direct-DML path.
+- A version-5 installed database opens as version 6 without destructive fallback or lost representative data.
+
+#### Do not proceed if
+
+- A test passes only after a manual SQL edit that is not in source control.
+- Fixtures bypass the same RPC/RLS path used by Android.
+- The Room test recreates an empty database instead of exercising an upgrade.
+
+### Phase 1 - Make account deletion terminal and retry-safe
+
+- **Priority:** P0 security/data integrity
+- **Module:** 16
+- **Depends on:** Phase 0 harness repair
+
+#### Steps
+
+1. [x] Add `0012_account_deletion_retry_guard.sql`; do not rewrite applied migration `0011`.
+2. [x] Make `deletion_started_at` terminal. `complete_profile_role` rejects a deletion-pending user.
+3. [x] Ensure no retry path grants the initial 1,000 ReCoins again and no role can be restored after deletion preparation.
+4. [x] Return typed results for blocked work, bad re-authentication, unsupported password re-authentication, finalisation pending, and complete.
+5. [x] Route a surviving deletion-pending session to retry/sign-out only, before onboarding, password recovery, or role setup.
+6. [x] Make repeated preparation and finalisation retry idempotent; finalisation failure returns a terminal pending result instead of restoring access.
+7. [x] Paginate root and nested Storage listing beyond 1,000 objects; two deterministic Deno tests pass.
+8. [x] Define the OAuth-only policy: password deletion is unavailable and the app gives a truthful project-support path instead of attempting preparation.
+9. [x] Add contract tests for:
+   - role completion rejected after `deletion_started_at`;
+   - wallet/reward cannot be recreated;
+   - repeated preparation is safe;
+   - active work blocks deletion without partial de-identification;
+   - a finalisation failure maps to the terminal retry route;
+   - cleanup handles more than 1,000 objects, or the pagination helper is covered deterministically.
+10. [x] Add JVM tests for deletion-pending routing and typed provider/retry outcomes. Manual Compose/provider acceptance remains in Phase 8.
+11. [x] Add `0014_account_deletion_deidentification.sql` after staging exposed `IMMUTABLE_RECORD` during Auth deletion. Permit only nested FK-driven identity nulling while keeping direct immutable-history mutation rejected; prove both paths in the contract suite and on staging.
+
+#### Success looks like
+
+- After any failure point, reopening the app cannot create a new role, wallet, or initial reward.
+- Retrying completes cleanup without duplicating or corrupting historical records.
+- Wrong credentials and blocked-work cases leave the account usable and unchanged.
+- A successful request removes private media and Auth access, signs out locally, and retains only the intended de-identified history.
+
+### Phase 2 - Complete resource-photo persistence
+
+- **Priority:** P0 data integrity
+- **Module:** 5
+- **Depends on:** Phase 0
+
+#### Steps
+
+1. [x] Use one primary photo per resource for assignment scope; older rows exist only as tracked cleanup work.
+2. [x] Flush the resource row first, upload one deterministic private object, and commit metadata through protected RPC `replace_resource_photo`.
+3. [x] Query authorised `resource_photos` rows in `SupabaseCoreGateway.fetchAuthorisedSnapshot` and group them by resource.
+4. [x] Map only the newest metadata row into the domain resource image list.
+5. [x] Persist the server-confirmed path in Room so list, detail, Passport, and offline views share one source of truth.
+6. [x] Replace bytes at a deterministic path, update metadata idempotently, and retain legacy/replaced rows until Storage deletion and `complete_resource_photo_cleanup` both succeed.
+7. [x] Revoke direct metadata DML, enforce owner-only RPC writes, and allow Storage reads only for the owner or an authorised current-photo viewer.
+8. [x] Add SQL contract tests for owner/non-owner replacement and cleanup plus JVM tests for primary snapshot mapping. Live upload failure remains part of manual acceptance.
+9. [x] On staging, upload real PNG bytes to the deterministic private path, commit metadata through `replace_resource_photo`, download as the authorised owner, replace at the same path, and prove one current metadata row. Prove public download and direct metadata DML are denied; prove account deletion removes metadata and the object.
+10. [ ] Run manual acceptance with gallery and camera input, app restart, forced refresh, offline reopen, replacement, and a failed upload retry.
+
+#### Success looks like
+
+- The selected photo remains visible after server refresh, app restart, and navigation across inventory/detail/Passport.
+- Replacement shows only the new photo and does not leave an untracked old Storage object.
+- A failed upload or metadata write produces a retryable state, not a false "saved" result.
+- Another account sees only the deliberately authorised representation.
+
+### Phase 3 - Unify Passport, Return, and scanner QR behavior
+
+- **Priority:** P0 for invalid QR prevention; P1 for physical acceptance
+- **Modules:** 8, 9, 10
+- **Depends on:** Phase 0
+
+#### Steps
+
+1. [x] Define one shared result for QR presentation: canonical HTTPS payload or an explicit unavailable reason.
+2. [x] Build only `https://<PUBLIC_BASE_URL>/p/v1/<opaque-token>` for rendered v1 codes; raw tokens are never passed to `QrCodePanel`.
+3. [x] Use the shared result in both Resource Passport and Participant Return; missing configuration disables the QR and explains the problem.
+4. [x] Keep legacy UUID parsing read-only and require reissue before rendering it as a return QR.
+5. [x] Keep scanner/manual parsing on the same canonical contract with distinct malformed and unavailable/unauthorised outcomes.
+6. [x] Add unit tests for canonical URL creation, missing configuration, raw-token canonicalisation, malformed input, legacy input, and wrong-host rejection.
+7. [ ] After Phase 4 configuration, scan an on-screen/printed QR between two physical sessions and complete one authorised return action.
+
+#### Success looks like
+
+- Every QR the app displays is accepted by the same app's scanner.
+- Missing configuration produces an honest non-QR state.
+- A participant's assigned return Passport opens the correct authorised resource and advances only through the server lifecycle.
+- Malformed or unauthorised scans reveal no private resource details.
+
+### Phase 4 - Configure one controlled staging environment
+
+- **Priority:** P1 deployment/configuration
+- **Modules:** 2, 6, 8, 9, 10, 16
+- **Depends on:** Phases 0-3 green
+
+#### Steps
+
+1. [ ] Record the staging project reference and exact committed revision. Project ref `kxkdugzyjmoteguesoti` is recorded, but the deployed repair source is still an uncommitted working tree on top of `135387b`; commit it before any promotion. Never place a service-role secret in Android properties, BuildConfig, logs, or this document.
+2. [x] Apply migrations in numeric order through `0014`. Live capability queries confirm `0009`-`0014` objects, grants, policies, and server-owned fields are present.
+3. [x] Run read-only capability/permission probes and the rollback-only `staging-authority-smoke.sql`; all returned `PASS`. This project was originally built with manual SQL and has no reliable CLI migration-history ledger, so adopt a tracked CLI migration workflow before production promotion.
+4. [x] Deploy `delete-my-account` with JWT verification enabled. Unauthenticated and publishable-key-only calls return 401; an authenticated disposable-account flow reaches the Function. The privileged key remains server-side only.
+5. [ ] Add `reevent://auth/password-reset` (or the intentionally scoped equivalent) to Supabase Authentication Redirect URLs.
+6. [ ] Configure `PUBLIC_BASE_URL`, deploy the `/p/v1/<token>` verifier, and configure the Android App Link/intent handling for that host.
+7. [x] Verify the private resource-photo bucket and metadata-table policies with an owner and unauthenticated/direct-DML probes. Authorised upload/download/replacement succeed; public read and direct table mutation fail.
+8. [ ] Prepare reusable disposable organiser, participant, and partner accounts plus one active event, resource, programme, and eligible listing for Android acceptance. The destructive backend fixtures were deleted and must not be reused.
+9. [x] Record the live failure and recovery path: pre-`0014` Auth deletion returned `FINALIZATION_PENDING` because immutable-history triggers blocked FK de-identification; `0014` fixed only nested FK identity nulling, the same pending request retried to `DELETED`, and direct history mutation remains rejected.
+
+#### Staging deployment record - 2026-08-11
+
+- **Project:** `ReEvent-staging` (`kxkdugzyjmoteguesoti`).
+- **Database source:** `0009`-`0014` from the current working tree; migration SHA-256 prefixes are `95346789D034`, `9E87713DBF37`, `C2DC3B493DCF`, `3FE2D102653A`, `801F1132DFAF`, and `AD072B4E7850` respectively.
+- **Function source:** `delete-my-account/index.ts` `B6531FB387FD`; `storage-cleanup.ts` `378CF87D7076`.
+- **Live deletion proof:** wrong password -> `FRESH_REAUTHENTICATION_REQUIRED`; active resource -> `BLOCKED_ACTIVE_RESOURCES`; forced pre-fix finalisation failure -> terminal `FINALIZATION_PENDING`; post-`0014` retry -> `DELETED`; old token -> 403; new sign-in -> 400.
+- **Live cleanup proof:** Auth user, profile, resource-photo metadata, and private Storage object are absent; the archived resource remains with `created_by` and `current_owner_id` null.
+- **Promotion warning:** dashboard SQL application proves live state but does not create a trustworthy migration ledger. Do not promote by replaying ad hoc SQL; first commit this source and establish tracked migration history.
+
+#### Immediate manual validation handoff
+
+Run these in order and add one evidence-log row per numbered scenario. Use disposable staging accounts and keep screenshots free of email addresses, tokens, and keys.
+
+1. [ ] **Finish configuration first.** Commit the deployed working tree, configure the password-reset redirect, then configure `PUBLIC_BASE_URL`, the `/p/v1/<token>` verifier, and the matching Android App Link. Expected: a clean build has a traceable revision and no QR/reset feature depends on an unstated local value.
+2. [ ] **Clean-install authentication.** Install the staging debug build, create one disposable user, select each role with separate accounts, sign out/in, and complete password reset from the email link. Expected: the link returns to ReEvent, the session is recovered once, and no other account's cached data appears.
+3. [ ] **Gallery and camera photo persistence.** As an organiser, create an active event/resource with a gallery photo, force refresh, kill/reopen the app, open list/detail/Passport, then repeat with a camera photo and replace it. Expected: the same current image appears everywhere and survives restart; replacement leaves one visible image.
+4. [ ] **Photo failure/offline behavior.** Disable networking immediately before one upload/save, observe the retryable failure, reopen offline, then reconnect and retry once. Expected: the UI never claims an uncommitted photo was saved, the prior confirmed photo remains, and retry creates no duplicate metadata/object.
+5. [ ] **Passport/Return QR interoperability.** Display a configured Passport QR on one physical session and scan it from another; repeat from Participant Return, then try malformed text and a wrong-host URL. Expected: both app-generated codes resolve to the authorised resource/action, while malformed/wrong-host/unauthorised input reveals no private resource details.
+6. [ ] **Account-deletion UI.** With a disposable password account, keep one active resource and request deletion, then archive/finish it; retry once with a wrong password and once with the correct password. Expected: active work blocks without changing access, wrong password preserves the account, correct password signs out, and subsequent sign-in fails. Also open an OAuth-only account and confirm the app shows the truthful support/unavailable path rather than asking for a password.
+7. [ ] **Supabase visual review.** In Authentication verify the deleted disposable user is gone; in Storage verify its folder is gone; in Edge Function Logs confirm the request sequence has no secret/password output; rerun `supabase/tests/staging-authority-smoke.sql` and expect one `PASS` row with all fixtures rolled back.
+
+#### Success looks like
+
+- A clean staging install can reset a password through the email link.
+- The public Passport URL opens the app or safe verifier without exposing a raw resource/account ID.
+- Android never contains the service-role key.
+- Owner/non-owner policy probes produce the expected allow/deny results.
+- The exact deployed migration/function versions are recorded in the evidence log.
+
+### Phase 5 - Accept Marketplace publication and request
+
+- **Priority:** P1 core demo
+- **Module:** 6
+- **Depends on:** Phases 0 and 4
+
+#### Steps
+
+1. [ ] Resolve review item B-07: provide a privacy-safe event title/date projection to Marketplace viewers, or remove unavailable event details from the promised UI and acceptance criteria.
+2. [ ] As organiser, publish a Donate-only listing from one owned, active, unlisted resource.
+3. [ ] Publish a Borrow or Rent listing with valid duration and price rules.
+4. [ ] Prove local and server rejection for: no action, zero/excess quantity, fractional ITEM/BOX quantity, missing price/duration, excessive terms, non-owner, archived resource, and duplicate open listing.
+5. [ ] As participant, search/filter the listing, inspect all actually available terms/context, and submit a valid request.
+6. [ ] As organiser, approve one request and decline/cancel another; refresh both accounts after each result.
+7. [ ] Interrupt one publication response, refresh before retrying, and prove there is never more than one open listing for the resource.
+
+#### Success looks like
+
+- Publication is possible only through the protected RPC and only for an eligible owned resource.
+- Both accounts see the same server-returned listing/request status after refresh.
+- An ambiguous/lost response does not create a duplicate.
+- The UI does not promise event data that RLS does not provide.
+
+### Phase 6 - Accept lifecycle, event status, offline queue, and impact
+
+- **Priority:** P1 core demo
+- **Modules:** 4, 7, 14, 15
+- **Depends on:** Phases 0, 4, and 5
+
+#### Steps
+
+1. [ ] Remove the Event Detail "Update status" selector and show read-only server state unless a specific authorised server transition is implemented and tested.
+2. [ ] With fresh organiser/participant accounts, run Request -> Approve -> Handover -> Receipt -> Return started -> Return confirmed -> Completed.
+3. [ ] At every step, verify both accounts see the server-returned state, exactly one responsible role, and only the permitted action.
+4. [ ] Verify rejected and cancelled requests expose no later completion action.
+5. [ ] Disconnect before one permitted action. Confirm the card says pending/failed and does not claim the server state changed.
+6. [ ] Restore network, use Profile -> Retry sync, refresh, and confirm the server result replaces the queued guidance without duplicate settlement.
+7. [ ] Sign out and into another account while work is queued; prove cached data and commands never cross account/environment boundaries.
+8. [ ] Complete the transaction and verify event-scoped impact, reward, and newest contribution update exactly once.
+
+#### Success looks like
+
+- No visible control performs a no-op or guesses a lifecycle transition locally.
+- The two accounts agree at every stage after refresh.
+- Retry is idempotent and the final reward/impact is created once.
+- Account switching reveals no previous account's cached records or queued commands.
+
+### Phase 7 - Accept the partner journey
+
+- **Priority:** P1 assignment journey
+- **Modules:** 11, 12, 13
+- **Depends on:** Phases 4 and 6
+
+#### Steps
+
+1. [ ] Seed one active programme with supported material/service-area data and capacity for the chosen resource.
+2. [ ] As organiser, open Partner Map, filter by material, open programme detail, and navigate to the eligible resource Passport.
+3. [ ] Open Matching and verify the visible inputs, deterministic reason, and honest no-match states for incompatible/inactive programmes.
+4. [ ] Submit a confirmed recovery request and verify the server, not the client, enforces current capacity.
+5. [ ] As the assigned partner, open Workbench, inspect the task/Passport, accept or decline as appropriate, and confirm receipt after handover.
+6. [ ] Verify an unrelated partner cannot see or act on the task.
+7. [ ] Refresh Workbench and Impact after the action and verify the visible result.
+
+#### Success looks like
+
+- Map/list -> programme -> Passport -> matching -> recovery request -> Workbench is one unbroken, real-data journey.
+- Capacity/authorization failures are truthful and do not advance local state.
+- Only the assigned partner receives the task and permitted actions.
+
+### Phase 8 - Accept authentication, role, profile, and deletion
+
+- **Priority:** P1 trust journey
+- **Modules:** 2 and 16
+- **Depends on:** Phases 1 and 4
+
+#### Steps
+
+1. [ ] Create a new email account; verify malformed email, weak password, and mismatch are blocked without clearing input.
+2. [ ] Complete confirmation if enabled, choose a role, sign out, and sign back in. Confirm the persisted role opens the correct home.
+3. [ ] Request a password reset, open the real email link on device, set a valid replacement, and sign in with it.
+4. [ ] Verify the selected OAuth-only deletion policy with a Google-only account.
+5. [ ] With a disposable eligible account, try wrong phrase/password and confirm no change; then complete deletion and verify Auth, private Storage, local session, and de-identified history outcomes.
+6. [ ] For each blocked condition - active transaction/custody, open listing, active programme, unsettled hold - verify deletion is rejected before destructive preparation and gives a safe resolution.
+7. [ ] Simulate a finalisation failure after preparation, restart the app, verify the deletion-pending route, then retry to completion without new role/wallet/reward creation.
+
+#### Success looks like
+
+- Sign-up, role restore, sign-in, and email password recovery work without developer intervention.
+- Provider-specific deletion UI asks only for credentials the account actually has.
+- Every failed deletion path is either unchanged and usable or explicitly deletion-pending and safely retryable.
+- Successful deletion makes future sign-in impossible and leaves no private media.
+
+### Phase 9 - Accept organiser basics and assignment presentation
+
+- **Priority:** P2 regression/completeness
+- **Modules:** 1, 3, 4, 5, 9, 14
+- **Depends on:** all P0/P1 phases relevant to those modules
+
+#### Steps
+
+1. [ ] First-time navigation: Welcome -> Sign in -> Role setup -> correct home, with no blank screen or Back path into onboarding.
+2. [ ] Organiser empty state: no event/resource counts are invented, and each action opens the correct editor.
+3. [ ] Create, edit, view, and archive an event; verify date/location validation, input preservation on failure, linked resources, and archive confirmation.
+4. [ ] Create/edit/archive an eligible resource and verify the server blocks archive while an active transaction exists.
+5. [ ] Check Passport owner labels and unit formatting for `1 item`, `11 items`, `1 box`, `11 boxes`, `2 kg`, `2.5 kg`, and `0.125 kg`; no raw owner UUID may be displayed.
+6. [ ] Verify organiser Impact switches event scope correctly and labels estimates/missing factors honestly.
+
+#### Success looks like
+
+- A marker can follow the organiser journey without sample data, dead controls, raw IDs, or unexplained validation.
+- List, detail, Passport, Marketplace, and Impact agree after refresh.
+
+### Phase 10 - Polish only after functional acceptance
+
+- **Priority:** P2/P3
+- **Depends on:** P0 and P1 complete
+
+#### Steps
+
+1. [ ] Replace the corrupted bullet and em-dash literals in `RestoredVisualLiveScreens.kt`, then scan user-visible Kotlin/Markdown for U+00E2/U+00C3 mojibake sequences and replacement characters.
+2. [ ] Review the 29 lint warnings. Fix warnings that affect accessibility, adaptive layout, localization, or correctness first; record intentionally deferred warnings.
+3. [ ] Verify loading, empty, offline, error, and success states at compact and expanded widths for the demo-critical screens.
+4. [ ] Remove unused runtime mock assets only after confirming no tests/previews still reference them.
+5. [ ] Capture final screenshots and a short demo script only after all relevant module rows are ACCEPTED.
+
+#### Success looks like
+
+- No visible encoding corruption or placeholder control remains.
+- Demo-critical screens are readable and actionable on the target device sizes.
+- Documentation and screenshots describe the behavior that was actually accepted.
+
+## 6. Decisions that need explicit review
+
+Record each decision before implementing around it; otherwise different contributors can build incompatible assumptions.
+
+| Decision | Recommended choice | Why it needs review |
+|---|---|---|
+| D-01: account deletion after preparation failure | Treat `deletion_started_at` as terminal; allow finalisation retry/sign-out only. | Restoring role/home can recreate privileges and rewards on a partially deleted account. |
+| D-02: OAuth-only account deletion | Implement provider re-auth if feasible; otherwise show a truthful support/unavailable path and do not ask for a password. | Google-only users may have no current password. |
+| D-03: resource photo cardinality | Use one primary photo for assignment scope unless the UI truly supports a gallery. | Metadata, replacement, ordering, and cleanup differ significantly for one versus many photos. |
+| D-04: Marketplace event context | Expose only a deliberate privacy-safe projection, or remove the unavailable fields from the participant promise. | Current participant RLS does not supply the event object used by owner views. |
+| D-05: Event Detail status | Prefer read-only derived status until a specific server-authorised transition is required. | A visible no-op/manual status selector undermines the server-authoritative lifecycle. |
+| D-06: public Passport behavior | The URL may identify only an opaque token and must reveal nothing until authorization is established. | Public QR convenience must not leak resource/account identifiers. |
+
+## 7. Module completion checklist
+
+For each module, copy this checklist into the evidence log or a linked issue. A module moves to **ACCEPTED** only when every applicable item is checked.
+
+- [ ] Implementation steps for the module are complete.
+- [ ] Focused unit/contract/migration tests pass.
+- [ ] Full Android and Supabase gates still pass.
+- [ ] Required migration, redirect, secret, bucket, public URL, and staging data are configured.
+- [ ] Happy path passes on the target Android device/session.
+- [ ] At least one relevant validation/authorization/error path passes.
+- [ ] Refresh/restart shows the same server-authoritative result.
+- [ ] Offline/retry/account-switch behavior is checked where applicable.
+- [ ] No private ID, secret, or unauthorised data is shown.
+- [ ] Evidence is dated and recorded below.
+
+## 8. Evidence log
+
+Add rows; do not replace failed evidence with an unsupported claim. Link an issue, screenshot, test report, or commit when available.
+
+| Date | Commit/build | Environment/device | Module/scenario | Result | Evidence/notes |
+|---|---|---|---|---|---|
+| 2026-08-11 | `codex/must-fix-six` working tree | Local JVM | Debug compile + JVM tests | Pass, 65/65 | Includes deletion route/outcome, QR renderability, and photo snapshot tests. |
+| 2026-08-11 | `codex/must-fix-six` working tree | Medium Phone AVD API 35 | Full Android instrumented suite | Pass, 15/15 | Includes `migrate5To6_preservesResourcesAndLifecycleCommandsWhileAddingMarketplaceProjection`. |
+| 2026-08-11 | `codex/must-fix-six` working tree | Local lint | Android lint | Pass, 0 errors / 29 warnings | Warnings remain for Phase 10 review. |
+| 2026-08-11 | `codex/must-fix-six` working tree | Fresh PGlite | Migrations `0001`-`0014` and contract tests | Pass, 19/19 | Includes protected Marketplace/photo DML, deletion terminality/idempotency, active-work no-mutation, Auth-deletion de-identification, and continued direct-history-mutation denial. |
+| 2026-08-11 | `codex/must-fix-six` working tree | Deno 2.9.5 | Edge Function check + Storage pagination tests | Pass, check + 2/2 | Pagination covers 1,001 root and nested objects. |
+| 2026-08-11 | staging-bound debug APK | Medium Phone AVD API 35 | Clean install and cold launch to Welcome -> Sign in | Pass | `assembleDebug`, streamed install, cold `MainActivity` launch, Welcome navigation, email/password form, and no fatal/configuration-incomplete log were verified. This is a launch smoke, not physical-device acceptance. |
+| 2026-08-11 | working tree on `135387b` | `ReEvent-staging` | Migrations `0009`-`0014`, capabilities, permissions, rollback-only authority smoke | Pass | Final smoke returned `PASS` after `0014`; listing/photo direct-DML denial, protected RPCs, three roles, lifecycle replay, and rollback were exercised. |
+| 2026-08-11 | Function hashes recorded in Phase 4 | `ReEvent-staging` | Private resource-photo upload/read/replace/delete | Pass | Real PNG bytes and metadata matched; public read/direct DML failed; replacement stayed singular; deletion removed the row and object. |
+| 2026-08-11 | Function hashes recorded in Phase 4 | `ReEvent-staging` | Disposable password-account deletion and retry | Pass | Wrong password and active work caused no mutation; pre-fix finalisation stayed terminal; `0014` retry returned `DELETED`; Auth/profile/media cleanup and retained de-identification all verified. |
+| TBD | TBD | Staging + target Android device | First P0/P1 acceptance | Not run | Record account roles, seed IDs (non-secret), exact steps, and screenshot/test report link. |
+
+## 9. Final assignment acceptance sequence
+
+After Phases 0-10 are complete, run one clean end-to-end demonstration in this order:
+
+1. New user signs up, confirms, selects a role, signs out/in, and proves password recovery.
+2. Organiser creates an event and resource with a persistent photo.
+3. Organiser publishes the resource; participant discovers and requests it.
+4. Organiser approves/hands over; participant confirms receipt.
+5. Participant opens/scans the canonical Passport QR and starts return; organiser confirms return.
+6. Completion creates exactly one reward/impact contribution visible in the correct event scope.
+7. Organiser matches another eligible resource to a real partner; assigned partner completes its authorised Workbench action.
+8. One offline command visibly queues, retries, and reconciles without duplicate effects or account-data leakage.
+9. A disposable account proves blocked, failed-finalisation/retry, and successful deletion behavior.
+
+**The assignment is complete when:** all 16 module rows are **ACCEPTED**, the full automated baseline is green from a clean checkout, the staging configuration is recorded, and the final sequence can be demonstrated without SQL edits, fake data substitutions, dead controls, or developer intervention.
+
+## 10. Historical trackers
+
+The granular production-release audit is archived at [`archive/historical-plans/REEVENT_RELEASE_TRUTH_CHECKLIST.md`](../archive/historical-plans/REEVENT_RELEASE_TRUTH_CHECKLIST.md). It does not control assignment progress. Keep historical scope there; keep current priorities, proof, and next actions in this file.

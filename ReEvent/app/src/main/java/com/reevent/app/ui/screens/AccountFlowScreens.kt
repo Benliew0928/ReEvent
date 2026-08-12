@@ -468,6 +468,94 @@ fun CompleteRoleFlowScreen(viewModel: AuthViewModel = hiltViewModel()) {
     }
 }
 
+/**
+ * A prepared account has already lost its role and normal workspace privileges. This screen is
+ * intentionally outside every role navigation graph: the only safe actions are retrying the
+ * protected server finalisation or clearing the local session.
+ */
+@Composable
+fun AccountDeletionPendingFlowScreen(
+    user: User,
+    viewModel: AuthViewModel = hiltViewModel()
+) {
+    val state by viewModel.state.collectAsState()
+    var currentPassword by remember { mutableStateOf("") }
+    var passwordVisible by rememberSaveable { mutableStateOf(false) }
+    var submitted by rememberSaveable { mutableStateOf(false) }
+
+    AccountScaffold(
+        eyebrow = "ACCOUNT DELETION PENDING",
+        title = "Finish removing your account",
+        subtitle = "Your ReEvent workspace is locked and cannot be restored. Retry the protected final step when you have a connection."
+    ) {
+        AccountCard {
+            Text("Signed in as ${user.email}", style = MaterialTheme.typography.titleMedium, color = ReEventInk)
+            Text(
+                "No role, wallet, event, resource, Marketplace, or partner action is available while deletion is pending.",
+                color = ReEventTextSecondary,
+                style = MaterialTheme.typography.bodyMedium
+            )
+            AccountTextField(
+                value = currentPassword,
+                onValueChange = { currentPassword = it; submitted = false; viewModel.clearFeedback() },
+                label = "Current password",
+                icon = { Icon(Icons.Outlined.Lock, contentDescription = null) },
+                keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Done,
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(
+                            imageVector = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                            contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                        )
+                    }
+                },
+                isError = submitted && currentPassword.isBlank(),
+                supportingText = if (submitted && currentPassword.isBlank()) "Enter your current password to retry." else null
+            )
+            if (state.accountDeletionPending) {
+                Text(
+                    "The server still could not finish private-file or sign-in removal. Nothing was restored; check your connection and retry.",
+                    color = ReEventCoral,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            if (state.accountDeletionReauthenticationRequired) {
+                Text("That password did not re-authenticate this account.", color = ReEventCoral, style = MaterialTheme.typography.bodySmall)
+            }
+            if (state.passwordReauthenticationUnavailable) {
+                Text(
+                    "This account does not support password re-authentication. Sign out and contact the ReEvent project team to finish deletion.",
+                    color = ReEventCoral,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            state.error?.let { error ->
+                Text(errorText(error), color = ReEventCoral, style = MaterialTheme.typography.bodySmall)
+            }
+            Button(
+                onClick = {
+                    submitted = true
+                    if (currentPassword.isNotBlank()) viewModel.deleteAccount(currentPassword)
+                },
+                enabled = !state.loading && !state.passwordReauthenticationUnavailable,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = ReEventCoral, contentColor = Color.White)
+            ) {
+                if (state.loading) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(if (state.loading) "Retrying" else "Retry permanent deletion")
+            }
+        }
+        TextButton(onClick = viewModel::signOut, enabled = !state.loading, modifier = Modifier.fillMaxWidth()) {
+            Text("Sign out without restoring access")
+        }
+    }
+}
+
 @Composable
 fun ProfileFlowScreen(
     user: User,
@@ -727,6 +815,16 @@ private fun AccountDeletionDialog(
                 )
                 state.accountDeletionBlocked?.let { blocked ->
                     Text(blocked.userMessage, color = ReEventCoral, style = MaterialTheme.typography.bodySmall)
+                }
+                if (state.accountDeletionReauthenticationRequired) {
+                    Text("That password did not re-authenticate this account.", color = ReEventCoral, style = MaterialTheme.typography.bodySmall)
+                }
+                if (state.passwordReauthenticationUnavailable) {
+                    Text(
+                        "Password re-authentication is unavailable for this sign-in provider. Contact the ReEvent project team for account removal.",
+                        color = ReEventCoral,
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
                 if (state.error != null) {
                     Text(errorText(state.error), color = ReEventCoral, style = MaterialTheme.typography.bodySmall)

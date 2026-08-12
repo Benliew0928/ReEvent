@@ -17,6 +17,7 @@ async function createDatabase() {
     create schema storage;
     create role anon;
     create role authenticated;
+    create role service_role bypassrls;
     create table auth.users (
       id uuid primary key,
       email text,
@@ -33,8 +34,8 @@ async function createDatabase() {
     create or replace function storage.foldername(name text) returns text[] language sql immutable as $$
       select string_to_array(name, '/')
     $$;
-    grant usage on schema auth, storage to anon, authenticated;
-    grant execute on function auth.uid(), auth.jwt(), storage.foldername(text) to anon, authenticated;
+    grant usage on schema auth, storage to anon, authenticated, service_role;
+    grant execute on function auth.uid(), auth.jwt(), storage.foldername(text) to anon, authenticated, service_role;
   `)
 
   const migrationFiles = (await readdir(migrationsDirectory))
@@ -73,6 +74,15 @@ async function runAs(database, actorId, callback) {
   }
 }
 
+async function runAsServiceRole(database, callback) {
+  await database.exec('set role service_role')
+  try {
+    return await callback()
+  } finally {
+    await database.exec('reset role')
+  }
+}
+
 async function createMarketplaceFixture(database) {
   const organizerId = '10000000-0000-4000-8000-000000000011'
   const participantId = '10000000-0000-4000-8000-000000000012'
@@ -101,16 +111,21 @@ async function createMarketplaceFixture(database) {
       returning id
     `, [event.rows[0].id, organizerId])
     const listing = await database.query(`
-      insert into public.marketplace_listings(
-        resource_id, seller_id, allowed_actions, published_quantity,
-        unit_coin_price_buy, unit_coin_price_rent, default_duration_days,
-        terms, status, published_at
-      ) values (
-        $1, $2, array['BORROW', 'RENT', 'BUY', 'DONATE', 'EXCHANGE']::public.transaction_type[], 5,
-        25, 10, 7, 'Return clean and on time.', 'PUBLISHED', now()
-      ) returning id
-    `, [resource.rows[0].id, organizerId])
-    return { eventId: event.rows[0].id, resourceId: resource.rows[0].id, listingId: listing.rows[0].id }
+      select public.publish_marketplace_listing(
+        $1,
+        array['BORROW', 'RENT', 'BUY', 'DONATE', 'EXCHANGE']::public.transaction_type[],
+        5,
+        25,
+        10,
+        7,
+        'Return clean and on time.'
+      ) as result
+    `, [resource.rows[0].id])
+    return {
+      eventId: event.rows[0].id,
+      resourceId: resource.rows[0].id,
+      listingId: listing.rows[0].result.id,
+    }
   })
 
   const programme = await runAs(database, partnerId, async () => {
@@ -152,6 +167,8 @@ test('all migrations apply and expose the frozen release schema', async () => {
 test('critical workflow and history tables deny direct authenticated writes', async () => {
   const database = await createDatabase()
   const criticalTables = [
+    'marketplace_listings',
+    'resource_photos',
     'circular_transactions', 'transaction_allocations', 'transaction_confirmations',
     'recoin_wallets', 'recoin_holds', 'recoin_ledger_entries', 'impact_records', 'idempotency_records'
   ]
@@ -287,6 +304,255 @@ test('role onboarding grants one wallet and root resources receive one passport'
   assert.equal(passport.rows.length, 1)
   assert.match(passport.rows[0].public_token, /^[A-Za-z0-9_-]{22}$/)
   assert.equal(passport.rows[0].event_count, 1)
+  await database.close()
+})
+
+test('resource photo replacement persists one current path and keeps failed cleanup retryable', async () => {
+  const database = await createDatabase()
+  const fixture = await createMarketplaceFixture(database)
+  const oldPath = `${fixture.organizerId}/resources/${fixture.resourceId}/legacy.jpg`
+  const currentPath = `${fixture.organizerId}/resources/${fixture.resourceId}/primary`
+
+  const first = await runAs(database, fixture.organizerId, () => database.query(`
+    select public.replace_resource_photo($1, $2, 'image/jpeg', 640, 480, 1200) as result
+  `, [fixture.resourceId, oldPath]))
+  assert.equal(first.rows[0].result.storage_path, oldPath)
+  assert.deepEqual(first.rows[0].result.cleanup_paths, [])
+
+  const replacement = await runAs(database, fixture.organizerId, () => database.query(`
+    select public.replace_resource_photo($1, $2, 'image/webp', 800, 600, 1500) as result
+  `, [fixture.resourceId, currentPath]))
+  assert.equal(replacement.rows[0].result.storage_path, currentPath)
+  assert.deepEqual(replacement.rows[0].result.cleanup_paths, [oldPath])
+
+  const beforeCleanup = await database.query(`
+    select storage_path, mime_type, sort_order
+    from public.resource_photos
+    where resource_id = $1
+    order by sort_order
+  `, [fixture.resourceId])
+  assert.deepEqual(beforeCleanup.rows, [
+    { storage_path: oldPath, mime_type: 'image/jpeg', sort_order: 0 },
+    { storage_path: currentPath, mime_type: 'image/webp', sort_order: 1 },
+  ])
+
+  await assert.rejects(
+    runAs(database, fixture.otherParticipantId, () => database.query(`
+      select public.replace_resource_photo($1, $2, 'image/png', 10, 10, 100)
+    `, [fixture.resourceId, `${fixture.otherParticipantId}/resources/${fixture.resourceId}/primary`])),
+    /RESOURCE_OWNER_REQUIRED/
+  )
+  await assert.rejects(
+    runAs(database, fixture.organizerId, () => database.query(`
+      select public.complete_resource_photo_cleanup($1, $2)
+    `, [fixture.resourceId, currentPath])),
+    /CURRENT_RESOURCE_PHOTO_CANNOT_BE_CLEANED/
+  )
+
+  await runAs(database, fixture.organizerId, () => database.query(`
+    select public.complete_resource_photo_cleanup($1, $2)
+  `, [fixture.resourceId, oldPath]))
+  const afterCleanup = await database.query(`
+    select storage_path, mime_type, width, height, byte_size
+    from public.resource_photos where resource_id = $1
+  `, [fixture.resourceId])
+  assert.deepEqual(afterCleanup.rows, [{
+    storage_path: currentPath,
+    mime_type: 'image/webp',
+    width: 800,
+    height: 600,
+    byte_size: 1500,
+  }])
+
+  // Replacing the same deterministic object updates metadata without creating another row.
+  await runAs(database, fixture.organizerId, () => database.query(`
+    select public.replace_resource_photo($1, $2, 'image/png', 1024, 768, 2000)
+  `, [fixture.resourceId, currentPath]))
+  const retried = await database.query(`
+    select count(*)::int as count, max(mime_type) as mime_type
+    from public.resource_photos where resource_id = $1
+  `, [fixture.resourceId])
+  assert.deepEqual(retried.rows, [{ count: 1, mime_type: 'image/png' }])
+
+  await database.close()
+})
+
+test('prepared account deletion is terminal, idempotent, and cannot recreate its wallet grant', async () => {
+  const database = await createDatabase()
+  const actorId = '10000000-0000-4000-8000-000000000099'
+  await createActor(database, actorId, 'PARTICIPANT')
+
+  await assert.rejects(
+    runAs(database, actorId, () => database.query(
+      `select public.prepare_account_deletion($1)`,
+      [actorId]
+    )),
+    /permission denied/
+  )
+
+  const wallet = await database.query(
+    `select id from public.recoin_wallets where profile_id = $1`,
+    [actorId]
+  )
+  const walletId = wallet.rows[0].id
+
+  const first = await runAsServiceRole(database, () => database.query(
+    `select public.prepare_account_deletion($1) as result`,
+    [actorId]
+  ))
+  assert.equal(first.rows[0].result.status, 'READY_FOR_AUTH_DELETION')
+
+  const repeated = await runAsServiceRole(database, () => database.query(
+    `select public.prepare_account_deletion($1) as result`,
+    [actorId]
+  ))
+  assert.equal(repeated.rows[0].result.status, 'READY_FOR_AUTH_DELETION')
+
+  await assert.rejects(
+    runAs(database, actorId, () => database.query(
+      `select public.complete_profile_role('ORGANIZER'::public.user_role)`
+    )),
+    /ACCOUNT_DELETION_PENDING/
+  )
+
+  const profile = await database.query(`
+    select role, role_frozen_at, deletion_started_at
+    from public.profiles where id = $1
+  `, [actorId])
+  assert.equal(profile.rows[0].role, null)
+  assert.equal(profile.rows[0].role_frozen_at, null)
+  assert(profile.rows[0].deletion_started_at)
+
+  const walletAfter = await database.query(`
+    select profile_id, available_balance, held_balance, closed_at
+    from public.recoin_wallets where id = $1
+  `, [walletId])
+  assert.equal(walletAfter.rows[0].profile_id, null)
+  assert.equal(walletAfter.rows[0].available_balance, 0)
+  assert.equal(walletAfter.rows[0].held_balance, 0)
+  assert(walletAfter.rows[0].closed_at)
+
+  const ledger = await database.query(`
+    select entry_type, count(*)::int as count
+    from public.recoin_ledger_entries
+    where wallet_id = $1
+    group by entry_type
+    order by entry_type
+  `, [walletId])
+  assert.deepEqual(ledger.rows, [
+    { entry_type: 'INITIAL_GRANT', count: 1 },
+    { entry_type: 'ACCOUNT_CLOSE_BURN', count: 1 },
+  ])
+  assert.equal(
+    Number((await database.query(`select count(*) from public.recoin_wallets where profile_id = $1`, [actorId])).rows[0].count),
+    0
+  )
+
+  await database.close()
+})
+
+test('auth deletion de-identifies immutable completed history without opening direct mutation', async () => {
+  const database = await createDatabase()
+  const fixture = await createMarketplaceFixture(database)
+
+  const transaction = await database.query(`
+    insert into public.circular_transactions(
+      listing_id, origin_event_id, resource_id, requester_id, sender_id, receiver_id,
+      transaction_type, status, quantity, unit,
+      approved_at, in_transit_at, completed_at
+    ) values (
+      $1, $2, $3, $4, $5, $4,
+      'DONATE', 'COMPLETED', 1, 'ITEM', now(), now(), now()
+    ) returning id
+  `, [
+    fixture.listingId,
+    fixture.eventId,
+    fixture.resourceId,
+    fixture.participantId,
+    fixture.organizerId,
+  ])
+  const transactionId = transaction.rows[0].id
+
+  const passportEvent = await database.query(`
+    insert into public.passport_events(
+      passport_id, transaction_id, event_type, actor_id,
+      quantity, unit, public_summary, idempotency_key
+    )
+    select id, $2, 'RETURNED', $3, 1, 'ITEM',
+      'Retained account-deletion history', gen_random_uuid()
+    from public.resource_passports
+    where resource_id = $1
+    returning id
+  `, [fixture.resourceId, transactionId, fixture.participantId])
+  const passportEventId = passportEvent.rows[0].id
+
+  const prepared = await runAsServiceRole(database, () => database.query(
+    `select public.prepare_account_deletion($1) as result`,
+    [fixture.participantId]
+  ))
+  assert.equal(prepared.rows[0].result.status, 'READY_FOR_AUTH_DELETION')
+
+  await database.query(`delete from auth.users where id = $1`, [fixture.participantId])
+
+  const retainedTransaction = await database.query(`
+    select requester_id, sender_id, receiver_id, status
+    from public.circular_transactions where id = $1
+  `, [transactionId])
+  assert.deepEqual(retainedTransaction.rows, [{
+    requester_id: null,
+    sender_id: fixture.organizerId,
+    receiver_id: null,
+    status: 'COMPLETED',
+  }])
+  const retainedPassportEvent = await database.query(`
+    select actor_id, public_summary
+    from public.passport_events where id = $1
+  `, [passportEventId])
+  assert.deepEqual(retainedPassportEvent.rows, [{
+    actor_id: null,
+    public_summary: 'Retained account-deletion history',
+  }])
+  assert.equal(
+    Number((await database.query(`select count(*) from public.profiles where id = $1`, [fixture.participantId])).rows[0].count),
+    0
+  )
+
+  await assert.rejects(
+    database.query(`update public.passport_events set public_summary = 'tampered' where id = $1`, [passportEventId]),
+    /IMMUTABLE_RECORD/
+  )
+  await assert.rejects(
+    database.query(`update public.circular_transactions set request_reason = 'tampered' where id = $1`, [transactionId]),
+    /TERMINAL_TRANSACTION_IMMUTABLE/
+  )
+
+  await database.close()
+})
+
+test('account deletion blocks active work before changing profile or wallet state', async () => {
+  const database = await createDatabase()
+  const fixture = await createMarketplaceFixture(database)
+
+  const result = await runAsServiceRole(database, () => database.query(
+    `select public.prepare_account_deletion($1) as result`,
+    [fixture.organizerId]
+  ))
+  assert.equal(result.rows[0].result.status, 'BLOCKED_ACTIVE_RESOURCES')
+
+  const profile = await database.query(`
+    select role, role_frozen_at, deletion_started_at
+    from public.profiles where id = $1
+  `, [fixture.organizerId])
+  assert.equal(profile.rows[0].role, 'ORGANIZER')
+  assert(profile.rows[0].role_frozen_at)
+  assert.equal(profile.rows[0].deletion_started_at, null)
+
+  const wallet = await database.query(`
+    select available_balance, held_balance, closed_at
+    from public.recoin_wallets where profile_id = $1
+  `, [fixture.organizerId])
+  assert.deepEqual(wallet.rows, [{ available_balance: 1000, held_balance: 0, closed_at: null }])
+
   await database.close()
 })
 

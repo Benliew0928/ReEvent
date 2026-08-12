@@ -47,6 +47,7 @@ class SupabaseCoreGateway @Inject constructor(private val authGateway: SupabaseA
         supervisorScope {
             val events = async { client.from("events").select().decodeList<EventRow>() }
             val resources = async { client.from("resource_items").select().decodeList<ResourceRow>() }
+            val resourcePhotos = async { client.from("resource_photos").select().decodeList<ResourcePhotoRow>() }
             val passports = async { client.from("resource_passports").select().decodeList<PassportRow>() }
             val passportEvents = async { client.from("passport_events").select().decodeList<PassportEventRow>() }
             val programmes = async { client.from("circular_programmes").select().decodeList<ProgrammeRow>() }
@@ -57,8 +58,12 @@ class SupabaseCoreGateway @Inject constructor(private val authGateway: SupabaseA
             val publishedListingsByResource = listings.awaitOrEmpty()
                 .mapNotNull(MarketplaceListingRow::toPublishedDomainOrNull)
                 .associateBy { it.resourceId }
+            val primaryPhotoPathsByResource = primaryResourcePhotoPaths(resourcePhotos.awaitOrEmpty())
             val resourceModels = resourceRows.mapNotNull { row ->
-                row.toDomainOrNull(publishedListingsByResource[row.id]?.listing)
+                row.toDomainOrNull(
+                    listing = publishedListingsByResource[row.id]?.listing,
+                    imagePaths = primaryPhotoPathsByResource[row.id].orEmpty()
+                )
             }
             if (resourceModels.size != resourceRows.size) {
                 Log.w(TAG, "Skipped ${resourceRows.size - resourceModels.size} malformed marketplace resource row(s)")
@@ -92,15 +97,21 @@ class SupabaseCoreGateway @Inject constructor(private val authGateway: SupabaseA
         val status: String, @SerialName("archived_at") val archivedAt: String? = null,
         @SerialName("created_at") val createdAt: String, @SerialName("updated_at") val updatedAt: String
     ) {
-        fun toDomainOrNull(listing: MarketplaceListing?) = runCatching {
+        fun toDomainOrNull(listing: MarketplaceListing?, imagePaths: List<String>) = runCatching {
             ResourceItem(
                 id, eventId, requireNotNull(ownerId), title, category, material,
                 enumValue(condition, ResourceCondition.entries), quantity, unit,
                 enumValue(status, ResourceStatus.entries), listing?.buyUnitPrice ?: listing?.rentUnitPrice ?: 0,
-                emptyList(), millis(createdAt), millis(updatedAt), SyncState.SYNCED, archivedAt != null, listing
+                imagePaths, millis(createdAt), millis(updatedAt), SyncState.SYNCED, archivedAt != null, listing
             )
         }.onFailure { Log.w(TAG, "Ignoring malformed resource row $id", it) }.getOrNull()
     }
+
+    @Serializable internal data class ResourcePhotoRow(
+        @SerialName("resource_id") val resourceId: String,
+        @SerialName("storage_path") val storagePath: String,
+        @SerialName("sort_order") val sortOrder: Int
+    )
 
     @Serializable private data class MarketplaceListingRow(
         val id: String,
@@ -230,5 +241,14 @@ class SupabaseCoreGateway @Inject constructor(private val authGateway: SupabaseA
         }
     }
 }
+
+internal fun primaryResourcePhotoPaths(
+    rows: List<SupabaseCoreGateway.ResourcePhotoRow>
+): Map<String, List<String>> = rows
+    .filter { it.resourceId.isNotBlank() && it.storagePath.isNotBlank() }
+    .groupBy(SupabaseCoreGateway.ResourcePhotoRow::resourceId)
+    .mapValues { (_, photos) ->
+        listOf(photos.maxWith(compareBy<SupabaseCoreGateway.ResourcePhotoRow> { it.sortOrder }.thenBy { it.storagePath }).storagePath)
+    }
 
 private suspend fun <T> Deferred<List<T>>.awaitOrEmpty(): List<T> = runCatching { await() }.getOrDefault(emptyList())

@@ -29,6 +29,8 @@ interface CoreDao {
     @Query("SELECT * FROM resource_items WHERE accountId = :accountId AND id = :id") suspend fun resource(accountId: String, id: String): ResourceEntity?
     @Query("UPDATE resource_items SET archived = 1, syncState = 'PENDING', updatedAt = :updatedAt WHERE accountId = :accountId AND id = :id") suspend fun archiveResource(accountId: String, id: String, updatedAt: Long)
     @Query("UPDATE resource_items SET syncState = :state WHERE accountId = :accountId AND id = :id") suspend fun setResourceSyncState(accountId: String, id: String, state: String)
+    @Query("UPDATE resource_items SET imageUrlsJson = :imageUrlsJson WHERE accountId = :accountId AND id = :id")
+    suspend fun setResourceImageUrls(accountId: String, id: String, imageUrlsJson: String)
     @Query("UPDATE resource_items SET marketplaceListingId = NULL, marketplaceAllowedActionsJson = '[]', marketplacePublishedQuantity = NULL, marketplaceBuyUnitPrice = NULL, marketplaceRentUnitPrice = NULL, marketplaceDefaultDurationDays = NULL, marketplaceTerms = '' WHERE accountId = :accountId")
     suspend fun clearMarketplaceListingData(accountId: String)
 

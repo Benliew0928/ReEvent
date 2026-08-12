@@ -33,7 +33,9 @@ data class User(
     val role: UserRole?,
     val avatarUrl: String? = null,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    /** Server preparation is terminal; this account may only retry deletion or sign out. */
+    val deletionPending: Boolean = false
 )
 
 data class Event(

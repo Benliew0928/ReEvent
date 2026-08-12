@@ -26,6 +26,7 @@ import com.reevent.app.core.auth.SessionViewModel
 import com.reevent.app.core.model.User
 import com.reevent.app.core.model.UserRole
 import com.reevent.app.ui.screens.CompleteRoleFlowScreen
+import com.reevent.app.ui.screens.AccountDeletionPendingFlowScreen
 import com.reevent.app.ui.screens.MatchingLiveScreen
 import com.reevent.app.ui.screens.OnboardingFlowScreen
 import com.reevent.app.ui.screens.MarketplaceVisualScreen
@@ -76,6 +77,7 @@ fun ReEventApp() {
         AppEntry.ONBOARDING -> OnboardingFlowScreen(sessionViewModel::completeOnboarding)
         AppEntry.SIGN_IN -> SignInFlowScreen()
         AppEntry.PASSWORD_RESET -> PasswordRecoveryFlowScreen()
+        AppEntry.DELETION_PENDING -> AccountDeletionPendingFlowScreen(requireNotNull(session.user))
         AppEntry.COMPLETE_ROLE -> CompleteRoleFlowScreen()
         AppEntry.ORGANIZER, AppEntry.PARTICIPANT, AppEntry.PARTNER -> {
             val user = requireNotNull(session.user)

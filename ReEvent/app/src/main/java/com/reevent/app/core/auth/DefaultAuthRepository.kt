@@ -103,6 +103,7 @@ class DefaultAuthRepository @Inject constructor(
 
     override suspend fun completeRole(role: UserRole): AppResult<User> {
         val localUser = mutableCurrentUser.value ?: return AppResult.Failure(FailureReason.UNAUTHENTICATED)
+        if (localUser.deletionPending) return AppResult.Failure(FailureReason.CONFLICT)
         if (!gateway.isConfigured()) {
             val updated = localUser.copy(role = role, updatedAt = System.currentTimeMillis())
             persistAuthenticatedUser(updated)
@@ -112,7 +113,10 @@ class DefaultAuthRepository @Inject constructor(
             is AppResult.Failure -> remote
             is AppResult.Success -> {
                 val serverUser = remote.value ?: return AppResult.Failure(FailureReason.UNAUTHENTICATED)
-                if (serverUser.role != null) {
+                if (serverUser.deletionPending) {
+                    persistAuthenticatedUser(serverUser)
+                    AppResult.Failure(FailureReason.CONFLICT)
+                } else if (serverUser.role != null) {
                     persistAuthenticatedUser(serverUser)
                     AppResult.Success(serverUser)
                 } else when (val saved = remoteCall { gateway.saveRole(serverUser, role) }) {
@@ -184,6 +188,22 @@ class DefaultAuthRepository @Inject constructor(
                     runCatching { gateway.clearSessionAfterAccountDeletion() }
                     AppResult.Success(AccountDeletionOutcome.Deleted)
                 }
+                AccountDeletionOutcome.FinalizationPending -> {
+                    // Preparation has already removed role/workspace privileges. Persist a
+                    // terminal local state immediately so this process cannot remain on a home
+                    // screen while Storage/Auth finalisation is waiting for a safe retry.
+                    persistAuthenticatedUser(
+                        localUser.copy(
+                            displayName = "Deletion pending",
+                            role = null,
+                            updatedAt = System.currentTimeMillis(),
+                            deletionPending = true
+                        )
+                    )
+                    AppResult.Success(AccountDeletionOutcome.FinalizationPending)
+                }
+                AccountDeletionOutcome.ReauthenticationRequired,
+                AccountDeletionOutcome.PasswordReauthenticationUnavailable,
                 is AccountDeletionOutcome.Blocked -> result
             }
         }

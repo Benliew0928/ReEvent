@@ -3,7 +3,7 @@ package com.reevent.app.core.network
 import android.content.Intent
 import com.reevent.app.BuildConfig
 import com.reevent.app.core.auth.AccountDeletionOutcome
-import com.reevent.app.core.auth.accountDeletionBlockForServerStatus
+import com.reevent.app.core.auth.accountDeletionOutcomeForServerStatus
 import com.reevent.app.core.config.AppEnvironment
 import com.reevent.app.core.model.User
 import com.reevent.app.core.model.UserRole
@@ -42,6 +42,7 @@ private data class ProfilePayload(
     val display_name: String,
     val role: String? = null,
     val avatar_path: String? = null,
+    val deletion_started_at: String? = null,
     val created_at: String? = null,
     val updated_at: String? = null
 )
@@ -130,12 +131,8 @@ class SupabaseAuthGateway @Inject constructor() : SyncGateway {
         val response = client.functions
             .invoke("delete-my-account", DeleteMyAccountRequest(currentPassword))
             .body<DeleteMyAccountResponse>()
-        when {
-            response.status == "DELETED" -> AccountDeletionOutcome.Deleted
-            accountDeletionBlockForServerStatus(response.status) != null ->
-                AccountDeletionOutcome.Blocked(requireNotNull(accountDeletionBlockForServerStatus(response.status)))
-            else -> error("The deletion service returned an unsupported result")
-        }
+        accountDeletionOutcomeForServerStatus(response.status)
+            ?: error("The deletion service returned an unsupported result")
     }
 
     /** The remote user is gone; only clear credentials locally, without making another API call. */
@@ -251,7 +248,8 @@ class SupabaseAuthGateway @Inject constructor() : SyncGateway {
             role = profile.role?.let(::parseRole),
             avatarUrl = profile.avatar_path,
             createdAt = now,
-            updatedAt = now
+            updatedAt = now,
+            deletionPending = profile.deletion_started_at != null
         )
     }
 
@@ -259,7 +257,8 @@ class SupabaseAuthGateway @Inject constructor() : SyncGateway {
         displayName = profile.display_name.ifBlank { displayName },
         role = profile.role?.let(::parseRole),
         avatarUrl = profile.avatar_path,
-        updatedAt = System.currentTimeMillis()
+        updatedAt = System.currentTimeMillis(),
+        deletionPending = profile.deletion_started_at != null
     )
 
     private fun parseRole(value: String): UserRole = UserRole.entries.firstOrNull { it.name == value }

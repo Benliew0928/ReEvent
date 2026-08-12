@@ -30,6 +30,7 @@ class ReEventDatabaseMigrationTest {
         context.deleteDatabase(V2_DATABASE)
         context.deleteDatabase(V3_DATABASE)
         context.deleteDatabase(V4_DATABASE)
+        context.deleteDatabase(V5_DATABASE)
     }
 
     @Test
@@ -206,6 +207,74 @@ class ReEventDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrate5To6_preservesResourcesAndLifecycleCommandsWhileAddingMarketplaceProjection() {
+        helper.createDatabase(V5_DATABASE, 5).use { database ->
+            database.execSQL(
+                """
+                INSERT INTO resource_items (
+                    id, accountId, eventId, ownerId, title, category, material, condition,
+                    quantity, unit, status, valueCents, imageUrlsJson, createdAt, updatedAt,
+                    syncState, archived
+                ) VALUES (
+                    'resource-v5', '$ACCOUNT_A', 'event-v5', '$ACCOUNT_A', 'Saved resource',
+                    'DECOR', 'WOOD', 'GOOD', 2.5, 'KG', 'ACTIVE', 25,
+                    '["owner/resources/resource-v5/primary"]', 10, 42, 'SYNCED', 0
+                )
+                """.trimIndent()
+            )
+            database.execSQL(
+                """
+                INSERT INTO lifecycle_commands (
+                    idempotencyKey, environment, accountId, dedupeKey, commandType,
+                    payloadJson, attempts, lastError, createdAt, updatedAt
+                ) VALUES (
+                    'command-v5', '$LOCAL', '$ACCOUNT_A', 'dedupe-v5', 'BEGIN_RETURN',
+                    '{"transactionId":"transaction-v5"}', 2, 'offline', 11, 43
+                )
+                """.trimIndent()
+            )
+        }
+
+        helper.runMigrationsAndValidate(
+            V5_DATABASE,
+            6,
+            true,
+            ReEventDatabase.MIGRATION_5_6
+        ).use { database ->
+            assertEquals(
+                listOf(
+                    "Saved resource",
+                    "2.5",
+                    "[\"owner/resources/resource-v5/primary\"]",
+                    "42",
+                    null,
+                    "[]",
+                    null,
+                    ""
+                ),
+                database.nullableRow(
+                    "SELECT title, quantity, imageUrlsJson, updatedAt, marketplaceListingId, " +
+                        "marketplaceAllowedActionsJson, marketplacePublishedQuantity, marketplaceTerms " +
+                        "FROM resource_items WHERE id = 'resource-v5'"
+                )
+            )
+            assertEquals(
+                listOf("command-v5", LOCAL, ACCOUNT_A, "BEGIN_RETURN", "2", "offline", "43"),
+                database.row(
+                    "SELECT idempotencyKey, environment, accountId, commandType, attempts, lastError, updatedAt " +
+                        "FROM lifecycle_commands WHERE idempotencyKey = 'command-v5'"
+                )
+            )
+            assertEquals(
+                "REAL",
+                database.singleString(
+                    "SELECT type FROM pragma_table_info('resource_items') WHERE name = 'marketplacePublishedQuantity'"
+                )
+            )
+        }
+    }
+
     private fun createVersion1Database(): SupportSQLiteDatabase {
         context.deleteDatabase(V1_DATABASE)
         val callback = object : SupportSQLiteOpenHelper.Callback(1) {
@@ -241,6 +310,12 @@ class ReEventDatabaseMigrationTest {
             List(cursor.columnCount) { column -> cursor.getString(column) }
         }
 
+    private fun SupportSQLiteDatabase.nullableRow(query: String): List<String?> =
+        query(query).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            List(cursor.columnCount) { column -> if (cursor.isNull(column)) null else cursor.getString(column) }
+        }
+
     private companion object {
         const val ACCOUNT_A = "account-a"
         const val LOCAL = "local"
@@ -248,6 +323,7 @@ class ReEventDatabaseMigrationTest {
         const val V2_DATABASE = "reevent-migration-v2"
         const val V3_DATABASE = "reevent-migration-v3"
         const val V4_DATABASE = "reevent-migration-v4"
+        const val V5_DATABASE = "reevent-migration-v5"
 
         val ACCOUNT_SCOPED_TABLES = listOf(
             "events",

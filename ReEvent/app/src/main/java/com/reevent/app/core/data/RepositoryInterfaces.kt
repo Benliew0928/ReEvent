@@ -88,6 +88,8 @@ interface ImpactRepository {
 /** Shared refresh boundary. Runtime screens use this rather than Supabase directly. */
 interface CoreSyncRepository {
     suspend fun refreshAuthorisedData(): AppResult<Unit>
+    /** Flushes the current account's queue in-process when a following operation needs its row. */
+    suspend fun syncPendingNow(): AppResult<Unit>
     fun observePendingSyncCommands(): Flow<List<SyncCommandStatus>>
     suspend fun retryPendingSync(): AppResult<Unit>
 }
