@@ -13,7 +13,7 @@ Do not use a checked box to mean "code exists." A module is complete only when i
 
 **Implementation baseline:** teammate update `origin/main` at commit `135387b` (`Complete planned ReEvent modules`, 2026-08-11), plus the local repair work on branch `codex/must-fix-six`.
 
-**Branch state:** `codex/must-fix-six` contains `135387b`. The repair work remains uncommitted in the working tree. Migrations `0009`-`0014` and the checked `delete-my-account` Function are deployed to Supabase staging; password-reset redirect and public Passport verifier/App Link configuration are still pending.
+**Branch state:** `codex/must-fix-six` contains the teammate baseline plus the local repair and staging-configuration work. Migrations `0009`-`0015` and the checked `delete-my-account` Function are deployed to Supabase staging. Password reset, the public Passport verifier, and the debug Android App Link are configured; physical-device acceptance remains pending.
 
 ### Verified evidence
 
@@ -23,7 +23,7 @@ Do not use a checked box to mean "code exists." A module is complete only when i
 | Android JVM unit tests | **65/65 passed** | Includes deletion routing/status, QR renderability, and photo snapshot mapping. |
 | Android lint | **Passed with 29 warnings** | There are no lint errors, but warnings remain as polish work. |
 | Android instrumented tests | **15/15 passed on Medium Phone API 35** | Includes the real Room 5-to-6 migration with retained resource and lifecycle-command rows. |
-| Supabase contract tests | **19/19 passed** | Fresh PGlite applies `0001`-`0014`; direct protected-table/history DML is denied, protected RPC paths pass, and Auth deletion de-identifies retained history. |
+| Supabase contract tests | **20/20 passed** | Fresh PGlite applies `0001`-`0015`; protected DML is denied and anonymous public-passport resolution returns only the approved safe projection. |
 | Edge Function type check | **Passed** | `deno check` passes for `delete-my-account`. |
 | Edge Storage pagination tests | **2/2 passed** | More than 1,000 root and nested objects are enumerated. |
 | Real-device/manual acceptance of teammate update | **Not recorded** | No module may be called accepted based only on compilation or unit tests. |
@@ -34,10 +34,10 @@ The earlier Stage 3 staging lifecycle proof remains useful historical evidence. 
 
 | ID | Priority | Area | Status | Resolution or next action |
 |---|---|---|---|---|
-| B-01 | **P0** | Supabase tests | **RESOLVED** | Harness creates `service_role`; listing fixtures use `publish_marketplace_listing`; 19/19 tests pass through `0014`. |
+| B-01 | **P0** | Supabase tests | **RESOLVED** | Harness creates `service_role`; listing fixtures use `publish_marketplace_listing`; 20/20 tests pass through `0015`. |
 | B-02 | **P0** | Account deletion | **RESOLVED / STAGING BACKEND VERIFIED** | Migrations `0011`, `0012`, and `0014` plus the Function are deployed. Live tests proved wrong-password no-mutation, active-work blocking, terminal retry, successful Auth/profile/media cleanup, and retained de-identified history. Manual Compose/provider review remains. |
 | B-03 | **P0** | Resource photos | **RESOLVED / STAGING BACKEND VERIFIED** | Migration `0013`, deterministic private Storage, protected metadata RPCs, replacement, reads, cleanup, snapshot mapping, and Room updates are implemented. Live owner/non-owner backend probes pass; gallery/camera/offline UI acceptance remains. |
-| B-04 | **P0** | Participant return QR | **RESOLVED LOCALLY / CONFIG PENDING** | Passport and Return use one renderability rule; raw tokens are canonicalised or replaced by explicit configuration guidance. Configure verifier/App Link and run a physical scan. |
+| B-04 | **P0** | Participant return QR | **STAGING DEPLOYED / DEVICE ACCEPTANCE PENDING** | Password-reset redirect, verifier, token resolver, and debug App Link are live. Scan from a physical device and complete one authorised action before acceptance. |
 | B-05 | **P1** | Room database | **RESOLVED LOCALLY** | The 5-to-6 test retained representative resource/photo-path and lifecycle-command data on API 35. |
 | B-06 | **P1** | Event detail | **OPEN - NEXT CODE FIX** | Remove/replace the misleading status control with read-only state, or implement only explicitly permitted server actions. |
 | B-07 | **P1** | Marketplace detail | **OPEN - DECISION REQUIRED** | Choose a privacy-safe event projection, or stop promising unavailable event data. |
@@ -70,14 +70,14 @@ The earlier Stage 3 staging lifecycle proof remains useful historical evidence. 
 
 These six tasks were completed in dependency order on `codex/must-fix-six` and are backed by the evidence above.
 
-1. [x] **Sync the implementation baseline.** `codex/must-fix-six` contains teammate commit `135387b`; migrations now run sequentially through `0014`.
+1. [x] **Sync the implementation baseline.** `codex/must-fix-six` contains teammate commit `135387b`; migrations now run sequentially through `0015`.
 2. [x] **Repair the Supabase test harness.** `service_role` exists, Marketplace fixtures use the protected RPC, and direct DML denial is tested.
 3. [x] **Fix account-deletion recovery safety.** Deletion is terminal and retryable; role/wallet recreation is blocked; Storage pagination and OAuth-only guidance are implemented.
 4. [x] **Fix resource-photo persistence.** Metadata, authorised reads, Room snapshot persistence, deterministic replacement, and retryable cleanup are implemented.
 5. [x] **Fix Participant Return QR generation.** Passport and Return share canonical renderability rules and never render a raw token.
 6. [x] **Add the Room 5-to-6 migration test and rerun every automated gate.** JVM, Android instrumentation, lint, Supabase, and Deno gates pass.
 
-**Start next:** finish the remaining Phase 4 configuration in this order: commit the deployed source so it has a reproducible revision, configure password reset, deploy/configure the public verifier/App Link, then run photo, QR, and deletion UI acceptance on target devices. The staging database and deletion Function are already deployed and backend-verified; do not rerun those migrations blindly.
+**Start next:** run the physical-device acceptance scenarios in Phase 4/8: install the configured debug build, complete a real password reset, scan a Passport QR, then test photo and deletion UI flows. The staging database and deletion Function are already deployed and backend-verified; do not rerun migrations blindly.
 
 ## 4. Module progress dashboard
 
@@ -86,15 +86,15 @@ This table is the authoritative summary. Update it only after updating the detai
 | # | Module | Implementation reality | Environment | Acceptance | Status | Next phase |
 |---:|---|---|---|---|---|---:|
 | 1 | Onboarding and navigation | Core flow exists | Not required | Not run on teammate update | **READY TO VERIFY** | 9 |
-| 2 | Sign-in and role setup | Core flow and reset UI exist | Reset redirect missing | Not run | **CONFIG REQUIRED** | 4, 8 |
+| 2 | Sign-in and role setup | Core flow and reset UI exist | Reset redirect saved in staging | Real email/device flow not run | **READY TO VERIFY** | 8 |
 | 3 | Organiser home | Live-data and empty states exist | Staging data required | Not run | **READY TO VERIFY** | 9 |
 | 4 | Event management | Create/edit/archive exist; status control is misleading | Staging data required | Not run | **FIX REQUIRED** | 6, 9 |
 | 5 | Resource inventory | Persistent one-photo contract, metadata RPCs, snapshot/Room mapping, and cleanup exist | `0013` and owner/non-owner private-bucket rules verified on staging | Backend passed; gallery/camera/offline UI not run | **READY TO VERIFY** | 4, 9 |
 | 6 | Marketplace | Discovery/request/publication source exists; SQL gate is green | `0009`/`0010` applied and staging smoke passed | Android flow not run | **READY TO VERIFY** | 5 |
 | 7 | Transaction lifecycle | Server-authoritative commands and presentation exist | Earlier staging proof only | New flow not run | **READY TO VERIFY** | 6 |
-| 8 | Participant return | Assigned-return flow renders only canonical scanner-compatible QR values | Public URL/App Link missing | Not run | **CONFIG REQUIRED** | 4 |
-| 9 | Digital passports | Privacy-safe token contract and history exist | Public verifier/App Link missing | Not run | **CONFIG REQUIRED** | 3, 4 |
-| 10 | QR scanner | Camera/manual entry and routing exist | Public verifier/App Link missing | Physical scan not run | **CONFIG REQUIRED** | 3, 4 |
+| 8 | Participant return | Assigned-return flow renders only canonical scanner-compatible QR values | Staging verifier/App Link deployed | Physical scan/action not run | **READY TO VERIFY** | 3, 4 |
+| 9 | Digital passports | Privacy-safe token contract, anonymous resolver, and verifier exist | Staging verifier/App Link deployed | Actual-device verification not run | **READY TO VERIFY** | 3, 4 |
+| 10 | QR scanner | Camera/manual entry and App Link routing exist | Staging verifier/App Link deployed | Physical scan not run | **READY TO VERIFY** | 3, 4 |
 | 11 | Partner workbench | Programme/task/actions source exists | Active programme/task data required | Not run | **READY TO VERIFY** | 7 |
 | 12 | Partner map | Live list/filter/detail fallback exists | Active programme data required | Not run | **READY TO VERIFY** | 7 |
 | 13 | Matching | Deterministic matching and recovery request exist | Active programme/capacity data required | Not run | **READY TO VERIFY** | 7 |
@@ -120,9 +120,9 @@ This table is the authoritative summary. Update it only after updating the detai
    - `./gradlew :app:lintDebug`
 3. [x] In the PGlite bootstrap, create every role referenced by grants in the migrations, including `anon`, `authenticated`, and `service_role`, before applying migrations.
 4. [x] Stop inserting `marketplace_listings` directly in lifecycle fixtures. Create an organiser/resource and call `publish_marketplace_listing`, matching migration `0010`'s security boundary.
-5. [x] Apply `0001` through `0014` to a fresh PGlite database in numeric order for every contract-test run.
+5. [x] Apply `0001` through `0015` to a fresh PGlite database in numeric order for every contract-test run.
 6. [x] Keep explicit tests proving direct listing/photo DML is rejected while the protected RPC succeeds for an authorised organiser.
-7. [x] Run `npm test` from `ReEvent/supabase/tests/`; 19/19 tests pass. Run `npm ci` again from a clean checkout before commit/release handoff.
+7. [x] Run `npm test` from `ReEvent/supabase/tests/`; 20/20 tests pass. Run `npm ci` again from a clean checkout before commit/release handoff.
 8. [x] Add an instrumented Room migration case that creates representative version-5 rows, runs `MIGRATION_5_6`, and checks both schema and retained data.
 9. [x] Run the targeted migration and complete Android instrumented suite on Medium Phone API 35; 15/15 tests pass.
 
@@ -230,12 +230,12 @@ This table is the authoritative summary. Update it only after updating the detai
 
 #### Steps
 
-1. [ ] Record the staging project reference and exact committed revision. Project ref `kxkdugzyjmoteguesoti` is recorded, but the deployed repair source is still an uncommitted working tree on top of `135387b`; commit it before any promotion. Never place a service-role secret in Android properties, BuildConfig, logs, or this document.
-2. [x] Apply migrations in numeric order through `0014`. Live capability queries confirm `0009`-`0014` objects, grants, policies, and server-owned fields are present.
+1. [x] Record the staging project reference and exact committed revision. Project ref `kxkdugzyjmoteguesoti` is recorded; the public verifier is versioned separately with its source commit and deployment record. Never place a service-role secret in Android properties, BuildConfig, logs, or this document.
+2. [x] Apply migrations in numeric order through `0015`. Live capability queries confirm `0009`-`0015` objects, grants, policies, and server-owned fields are present.
 3. [x] Run read-only capability/permission probes and the rollback-only `staging-authority-smoke.sql`; all returned `PASS`. This project was originally built with manual SQL and has no reliable CLI migration-history ledger, so adopt a tracked CLI migration workflow before production promotion.
 4. [x] Deploy `delete-my-account` with JWT verification enabled. Unauthenticated and publishable-key-only calls return 401; an authenticated disposable-account flow reaches the Function. The privileged key remains server-side only.
-5. [ ] Add `reevent://auth/password-reset` (or the intentionally scoped equivalent) to Supabase Authentication Redirect URLs.
-6. [ ] Configure `PUBLIC_BASE_URL`, deploy the `/p/v1/<token>` verifier, and configure the Android App Link/intent handling for that host.
+5. [x] Add `reevent://auth/password-reset` to Supabase Authentication Redirect URLs. The allow-list now contains both callback and recovery paths.
+6. [x] Configure `PUBLIC_BASE_URL`, deploy the `/p/v1/<token>` verifier, deploy `0015_public_passport_resolver.sql`, and configure Android App Link/intent handling for that host. The verifier's anonymous RPC returns only title/category/material/condition/status/latest public event; its `assetlinks.json` contains the debug certificate. Add the release signing-certificate SHA-256 before a release build.
 7. [x] Verify the private resource-photo bucket and metadata-table policies with an owner and unauthenticated/direct-DML probes. Authorised upload/download/replacement succeed; public read and direct table mutation fail.
 8. [ ] Prepare reusable disposable organiser, participant, and partner accounts plus one active event, resource, programme, and eligible listing for Android acceptance. The destructive backend fixtures were deleted and must not be reused.
 9. [x] Record the live failure and recovery path: pre-`0014` Auth deletion returned `FINALIZATION_PENDING` because immutable-history triggers blocked FK de-identification; `0014` fixed only nested FK identity nulling, the same pending request retried to `DELETED`, and direct history mutation remains rejected.
@@ -253,7 +253,7 @@ This table is the authoritative summary. Update it only after updating the detai
 
 Run these in order and add one evidence-log row per numbered scenario. Use disposable staging accounts and keep screenshots free of email addresses, tokens, and keys.
 
-1. [ ] **Finish configuration first.** Commit the deployed working tree, configure the password-reset redirect, then configure `PUBLIC_BASE_URL`, the `/p/v1/<token>` verifier, and the matching Android App Link. Expected: a clean build has a traceable revision and no QR/reset feature depends on an unstated local value.
+1. [x] **Finish configuration first.** The reset redirect, `PUBLIC_BASE_URL`, `/p/v1/<token>` verifier, anonymous resolver, and debug Android App Link are live. Expected: a clean build has no QR/reset feature that depends on an unstated local value.
 2. [ ] **Clean-install authentication.** Install the staging debug build, create one disposable user, select each role with separate accounts, sign out/in, and complete password reset from the email link. Expected: the link returns to ReEvent, the session is recovered once, and no other account's cached data appears.
 3. [ ] **Gallery and camera photo persistence.** As an organiser, create an active event/resource with a gallery photo, force refresh, kill/reopen the app, open list/detail/Passport, then repeat with a camera photo and replace it. Expected: the same current image appears everywhere and survives restart; replacement leaves one visible image.
 4. [ ] **Photo failure/offline behavior.** Disable networking immediately before one upload/save, observe the retryable failure, reopen offline, then reconnect and retry once. Expected: the UI never claims an uncommitted photo was saved, the prior confirmed photo remains, and retry creates no duplicate metadata/object.
@@ -443,6 +443,7 @@ Add rows; do not replace failed evidence with an unsupported claim. Link an issu
 | 2026-08-11 | working tree on `135387b` | `ReEvent-staging` | Migrations `0009`-`0014`, capabilities, permissions, rollback-only authority smoke | Pass | Final smoke returned `PASS` after `0014`; listing/photo direct-DML denial, protected RPCs, three roles, lifecycle replay, and rollback were exercised. |
 | 2026-08-11 | Function hashes recorded in Phase 4 | `ReEvent-staging` | Private resource-photo upload/read/replace/delete | Pass | Real PNG bytes and metadata matched; public read/direct DML failed; replacement stayed singular; deletion removed the row and object. |
 | 2026-08-11 | Function hashes recorded in Phase 4 | `ReEvent-staging` | Disposable password-account deletion and retry | Pass | Wrong password and active work caused no mutation; pre-fix finalisation stayed terminal; `0014` retry returned `DELETED`; Auth/profile/media cleanup and retained de-identification all verified. |
+| 2026-08-12 | public verifier version 2 | `ReEvent-staging` + public site | Reset redirect, public Passport resolver/verifier, Android App Link configuration | Pass | Supabase allow-list has both `reevent://auth/callback` and `reevent://auth/password-reset`; `0015` succeeded; anonymous unknown-token RPC returned `200 []`; a staged valid passport rendered its public title without internal IDs; hosted `assetlinks.json` returned JSON and matched the debug APK's certificate. |
 | TBD | TBD | Staging + target Android device | First P0/P1 acceptance | Not run | Record account roles, seed IDs (non-secret), exact steps, and screenshot/test report link. |
 
 ## 9. Final assignment acceptance sequence

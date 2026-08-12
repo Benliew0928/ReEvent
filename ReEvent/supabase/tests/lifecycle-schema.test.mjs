@@ -74,6 +74,15 @@ async function runAs(database, actorId, callback) {
   }
 }
 
+async function runAsAnon(database, callback) {
+  await database.exec('set role anon')
+  try {
+    return await callback()
+  } finally {
+    await database.exec('reset role')
+  }
+}
+
 async function runAsServiceRole(database, callback) {
   await database.exec('set role service_role')
   try {
@@ -258,6 +267,39 @@ test('release enums and idempotency uniqueness match the frozen contract', async
     where conrelid = 'public.idempotency_records'::regclass and contype = 'p'
   `)
   assert.equal(constraint.rows.length, 1)
+  await database.close()
+})
+
+test('public passport resolution exposes only the safe active-token projection', async () => {
+  const database = await createDatabase()
+  const fixture = await createMarketplaceFixture(database)
+  const passport = await database.query(
+    `select public_token from public.resource_passports where resource_id = $1`,
+    [fixture.resourceId]
+  )
+  const token = passport.rows[0].public_token
+
+  const publicResult = await runAsAnon(database, () => database.query(
+    `select * from public.resolve_public_passport($1)`, [token]
+  ))
+  assert.equal(publicResult.rows.length, 1)
+  assert.deepEqual(Object.keys(publicResult.rows[0]).sort(), [
+    'category', 'condition', 'latest_occurred_at', 'latest_summary', 'material',
+    'resource_status', 'title'
+  ])
+  assert.equal(publicResult.rows[0].title, 'Reusable cups')
+  assert.equal(publicResult.rows[0].latest_summary, 'Resource passport created')
+
+  const malformed = await runAsAnon(database, () => database.query(
+    `select * from public.resolve_public_passport('not-a-v1-token')`
+  ))
+  assert.equal(malformed.rows.length, 0)
+
+  await database.query(`update public.resource_passports set token_status = 'REVOKED' where resource_id = $1`, [fixture.resourceId])
+  const revoked = await runAsAnon(database, () => database.query(
+    `select * from public.resolve_public_passport($1)`, [token]
+  ))
+  assert.equal(revoked.rows.length, 0)
   await database.close()
 })
 

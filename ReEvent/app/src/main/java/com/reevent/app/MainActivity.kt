@@ -8,6 +8,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
 import com.reevent.app.core.data.AuthRepository
 import com.reevent.app.core.data.AppResult
+import com.reevent.app.feature.passports.PassportAppLink
+import com.reevent.app.feature.passports.PassportQrPayload
 import com.reevent.app.ui.ReEventApp
 import com.reevent.app.ui.theme.ReEventTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -21,7 +23,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        handleAuthenticationIntent(intent)
+        handleIncomingIntent(intent)
         setContent {
             ReEventTheme {
                 ReEventApp()
@@ -32,10 +34,10 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleAuthenticationIntent(intent)
+        handleIncomingIntent(intent)
     }
 
-    private fun handleAuthenticationIntent(intent: android.content.Intent) {
+    private fun handleIncomingIntent(intent: android.content.Intent) {
         if (intent.data?.scheme == "reevent") {
             lifecycleScope.launch {
                 when (val result = authRepository.handleOAuthCallback(intent)) {
@@ -53,6 +55,12 @@ class MainActivity : ComponentActivity() {
                     ).show()
                 }
             }
+            return
+        }
+
+        val passportUrl = intent.data?.toString() ?: return
+        if (PassportQrPayload.validate(passportUrl, BuildConfig.PUBLIC_BASE_URL) is PassportQrPayload.Validation.Canonical) {
+            PassportAppLink.submit(passportUrl)
         }
     }
 }
