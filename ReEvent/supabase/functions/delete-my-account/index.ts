@@ -1,15 +1,24 @@
 // Deploy with JWT verification enabled. The Android app sends only its user JWT; this function
 // alone reads SUPABASE_SERVICE_ROLE_KEY and performs privileged Storage/Auth work.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { collectStoragePaths } from "./storage-cleanup.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const PRIVATE_BUCKETS = ["resource-photos", "event-photos", "partner-logos", "profile-avatars"];
 
+const createServerClient = (url: string, key: string) => createClient(url, key, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
+type ServerClient = ReturnType<typeof createServerClient>;
+
 type DeletionStatus =
   | "DELETED"
   | "READY_FOR_AUTH_DELETION"
+  | "FINALIZATION_PENDING"
+  | "FRESH_REAUTHENTICATION_REQUIRED"
+  | "PASSWORD_REAUTHENTICATION_UNAVAILABLE"
   | "BLOCKED_ACTIVE_TRANSACTIONS"
   | "BLOCKED_ACTIVE_RESOURCES"
   | "BLOCKED_ACTIVE_EVENTS"
@@ -24,24 +33,22 @@ const json = (body: Record<string, string>, status = 200) =>
   });
 
 async function storagePathsUnderPrefix(
-  admin: ReturnType<typeof createClient>,
+  admin: ServerClient,
   bucket: string,
   prefix: string,
 ): Promise<string[]> {
-  const { data, error } = await admin.storage.from(bucket).list(prefix, { limit: 1000 });
-  if (error) throw new Error(`Unable to list private objects in ${bucket}`);
-
-  const paths: string[] = [];
-  for (const object of data ?? []) {
-    const childPath = `${prefix}/${object.name}`;
-    // Storage folders have no object id; recurse so resource/<id>/<photo> is handled too.
-    if (object.id == null) paths.push(...await storagePathsUnderPrefix(admin, bucket, childPath));
-    else paths.push(childPath);
-  }
-  return paths;
+  return collectStoragePaths(async (pageBucket, pagePrefix, limit, offset) => {
+    const { data, error } = await admin.storage.from(pageBucket).list(pagePrefix, {
+      limit,
+      offset,
+      sortBy: { column: "name", order: "asc" },
+    });
+    if (error) throw new Error(`Unable to list private objects in ${pageBucket}`);
+    return data ?? [];
+  }, bucket, prefix);
 }
 
-async function removePrivateStorage(admin: ReturnType<typeof createClient>, userId: string) {
+async function removePrivateStorage(admin: ServerClient, userId: string) {
   for (const bucket of PRIVATE_BUCKETS) {
     const paths = await storagePathsUnderPrefix(admin, bucket, userId);
     for (let start = 0; start < paths.length; start += 100) {
@@ -82,7 +89,13 @@ Deno.serve(async (request) => {
   // A token issue time does not prove password re-entry because refresh tokens can issue a newer
   // JWT. Verify the submitted password server-side, then require that it authenticates the same
   // account identified by the already-verified caller JWT. Never log the password or request body.
-  if (!userData.user.email) return json({ status: "CURRENT_PASSWORD_REQUIRED" }, 401);
+  const providers = new Set<string>([
+    typeof userData.user.app_metadata?.provider === "string" ? userData.user.app_metadata.provider : "",
+    ...(userData.user.identities ?? []).map((identity) => identity.provider),
+  ]);
+  if (!userData.user.email || !providers.has("email")) {
+    return json({ status: "PASSWORD_REAUTHENTICATION_UNAVAILABLE" });
+  }
   const passwordVerifier = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -91,12 +104,10 @@ Deno.serve(async (request) => {
     password: currentPassword,
   });
   if (reauthenticationError || reauthenticated.user?.id !== userData.user.id) {
-    return json({ status: "FRESH_REAUTHENTICATION_REQUIRED" }, 401);
+    return json({ status: "FRESH_REAUTHENTICATION_REQUIRED" });
   }
 
-  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  const admin = createServerClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   const { data: preparation, error: preparationError } = await admin.rpc("prepare_account_deletion", {
     p_user_id: userData.user.id,
   });
@@ -119,6 +130,6 @@ Deno.serve(async (request) => {
     console.error("account deletion finalisation failed", error instanceof Error ? error.message : "unknown error");
     // The prepared profile remains unable to perform lifecycle actions. A fresh sign-in and retry
     // can safely continue the Storage/Auth finalisation without repeating any visible work.
-    return json({ status: "DELETION_REQUIRES_RETRY" }, 500);
+    return json({ status: "FINALIZATION_PENDING" });
   }
 });

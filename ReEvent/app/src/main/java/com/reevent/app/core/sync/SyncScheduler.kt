@@ -34,6 +34,8 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.decodeFromString
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 @Singleton
 class SyncScheduler @Inject constructor(
@@ -101,7 +103,9 @@ class SyncCoordinator @Inject constructor(
     private val accountScope: AccountScope,
     private val environment: AppEnvironment
 ) {
-    suspend fun syncPending(identity: SyncWorkIdentity): SyncOutcome {
+    private val syncMutex = Mutex()
+
+    suspend fun syncPending(identity: SyncWorkIdentity): SyncOutcome = syncMutex.withLock {
         if (!gateway.isConfigured()) return SyncOutcome.NOT_CONFIGURED
         if (!matchesCurrentIdentity(identity)) return SyncOutcome.STALE_IDENTITY
         syncLifecycleCommands(identity)?.let { return it }

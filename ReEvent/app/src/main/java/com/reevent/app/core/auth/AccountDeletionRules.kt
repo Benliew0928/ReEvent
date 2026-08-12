@@ -24,6 +24,9 @@ data class AccountDeletionValidation(
 
 sealed interface AccountDeletionOutcome {
     data object Deleted : AccountDeletionOutcome
+    data object FinalizationPending : AccountDeletionOutcome
+    data object ReauthenticationRequired : AccountDeletionOutcome
+    data object PasswordReauthenticationUnavailable : AccountDeletionOutcome
     data class Blocked(val reason: AccountDeletionBlock) : AccountDeletionOutcome
 }
 
@@ -45,4 +48,12 @@ internal fun accountDeletionBlockForServerStatus(status: String): AccountDeletio
     "BLOCKED_ACTIVE_PROGRAMMES" -> AccountDeletionBlock.ACTIVE_PROGRAMMES
     "BLOCKED_UNSETTLED_COINS" -> AccountDeletionBlock.UNSETTLED_COINS
     else -> null
+}
+
+internal fun accountDeletionOutcomeForServerStatus(status: String): AccountDeletionOutcome? = when (status) {
+    "DELETED" -> AccountDeletionOutcome.Deleted
+    "FINALIZATION_PENDING" -> AccountDeletionOutcome.FinalizationPending
+    "FRESH_REAUTHENTICATION_REQUIRED" -> AccountDeletionOutcome.ReauthenticationRequired
+    "PASSWORD_REAUTHENTICATION_UNAVAILABLE" -> AccountDeletionOutcome.PasswordReauthenticationUnavailable
+    else -> accountDeletionBlockForServerStatus(status)?.let { AccountDeletionOutcome.Blocked(it) }
 }

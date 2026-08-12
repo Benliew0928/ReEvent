@@ -205,6 +205,7 @@ class AccountSessionCleanerTest {
     private class FakeAccountSyncScheduler : AccountSyncScheduler {
         val cancelledAccounts = mutableListOf<String>()
         override fun requestSync(accountId: String) = Unit
+        override fun retryNow(accountId: String) = Unit
         override suspend fun cancelSync(accountId: String) {
             cancelledAccounts += accountId
         }

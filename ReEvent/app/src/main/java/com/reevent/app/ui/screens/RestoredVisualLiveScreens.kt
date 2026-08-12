@@ -449,13 +449,14 @@ fun PassportVisualScreen(
         passport?.historyJson?.toPassportHistorySteps(item.condition).orEmpty()
     }.orEmpty()
     val viewerAccess = resource?.let { PassportViewerAccessPolicy.forViewer(user, it, viewerTransactions) }
-    val qrPayload = passport?.qrPayload?.takeIf {
-        PassportQrPayload.validate(it, BuildConfig.PUBLIC_BASE_URL) is PassportQrPayload.Validation.Canonical
+    val qrPresentation = passport?.qrPayload?.let {
+        PassportQrPayload.renderablePayload(it, BuildConfig.PUBLIC_BASE_URL)
     }
-    val qrUnavailableMessage = when {
-        passport == null -> "QR code pending until the server issues this resource passport."
-        qrPayload == null -> "QR verifier is not configured for this build, or this is a legacy passport that must be reissued."
-        else -> null
+    val qrPayload = (qrPresentation as? PassportQrPayload.RenderResult.Ready)?.payload
+    val qrUnavailableMessage = when (qrPresentation) {
+        null -> "QR code pending until the server issues this resource passport."
+        is PassportQrPayload.RenderResult.Unavailable -> qrPresentation.message
+        is PassportQrPayload.RenderResult.Ready -> null
     }
     PassportScreen(
         onBack = onBack,
@@ -512,12 +513,21 @@ fun ParticipantReturnVisualScreen(
     }
     val returnResource by (displayTransaction?.resourceId?.let(viewModel::resource) ?: flowOf(null)).collectAsState(null)
     val returnPassport by (returnTransaction?.resourceId?.let(viewModel::passport) ?: flowOf(null)).collectAsState(null)
+    val returnQrPresentation = returnPassport?.qrPayload?.let {
+        PassportQrPayload.renderablePayload(it, BuildConfig.PUBLIC_BASE_URL)
+    }
     ParticipantReturnScreen(
         onNavigate = onNavigate,
         onScanResourceQr = onScanResourceQr,
         transactions = transactions,
         returnResourceTitle = returnResource?.title,
-        returnQrPayload = returnPassport?.qrPayload,
+        returnPassportAssigned = returnPassport != null,
+        returnQrPayload = (returnQrPresentation as? PassportQrPayload.RenderResult.Ready)?.payload,
+        returnQrUnavailableMessage = when (returnQrPresentation) {
+            null -> "No return passport is assigned yet."
+            is PassportQrPayload.RenderResult.Unavailable -> returnQrPresentation.message
+            is PassportQrPayload.RenderResult.Ready -> null
+        },
         returnStatus = displayTransaction?.status,
         returnActionError = action.error
     )

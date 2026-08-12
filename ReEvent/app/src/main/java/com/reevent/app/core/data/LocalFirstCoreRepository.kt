@@ -24,6 +24,9 @@ import com.reevent.app.core.model.AllocationSide
 import com.reevent.app.core.model.SyncState
 import com.reevent.app.core.model.TransactionType
 import com.reevent.app.core.sync.AccountSyncScheduler
+import com.reevent.app.core.sync.SyncCoordinator
+import com.reevent.app.core.sync.SyncOutcome
+import com.reevent.app.core.sync.SyncWorkIdentity
 import com.reevent.app.core.network.LifecycleCommandGateway
 import com.reevent.app.core.network.LifecycleCommandPayload
 import com.reevent.app.core.network.LifecycleCommandType
@@ -55,7 +58,8 @@ class LocalFirstCoreRepository @Inject constructor(
     private val environment: AppEnvironment,
     private val remote: SupabaseCoreGateway,
     private val lifecycle: LifecycleCommandGateway,
-    private val marketplaceListings: SupabaseMarketplaceListingGateway
+    private val marketplaceListings: SupabaseMarketplaceListingGateway,
+    private val syncCoordinator: SyncCoordinator
 ) : EventRepository, ResourceRepository, MarketplaceListingRepository, PassportRepository, PartnerRepository, TransactionRepository, ImpactRepository, CoreSyncRepository {
     private val refreshMutex = Mutex()
     private val lifecycleMutex = Mutex()
@@ -201,6 +205,18 @@ class LocalFirstCoreRepository @Inject constructor(
             Log.e(TAG, "Authorised refresh failed", error)
             AppResult.Failure(FailureReason.SERVER, error)
         }
+    }
+
+    override suspend fun syncPendingNow(): AppResult<Unit> = try {
+        val accountId = accountScope.requireId()
+        when (syncCoordinator.syncPending(SyncWorkIdentity(environment, accountId))) {
+            SyncOutcome.SYNCED -> AppResult.Success(Unit)
+            SyncOutcome.NOT_CONFIGURED -> AppResult.Failure(FailureReason.CONFIGURATION)
+            SyncOutcome.STALE_IDENTITY -> AppResult.Failure(FailureReason.UNAUTHENTICATED)
+            SyncOutcome.RETRY -> AppResult.Failure(FailureReason.SERVER)
+        }
+    } catch (error: Throwable) {
+        AppResult.Failure(FailureReason.SERVER, error)
     }
 
     /**

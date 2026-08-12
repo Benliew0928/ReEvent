@@ -161,30 +161,42 @@ class FeatureViewModel @Inject constructor(
     }
 
     fun saveResource(resource: ResourceItem, photo: Uri?, onSaved: () -> Unit) = launchAction("Resource saved; passport will be issued by the server") {
-        val resourceWithPhoto = when {
-            photo == null -> resource
-            else -> when (val upload = media.uploadResourcePhoto(resource.id, photo)) {
-                is AppResult.Success -> resource.copy(imageUrls = listOf(upload.value))
-                is AppResult.Failure -> return@launchAction upload
-            }
-        }
-        when (val resourceResult = resources.saveResource(resourceWithPhoto)) {
+        when (val resourceResult = resources.saveResource(resource)) {
             is AppResult.Failure -> resourceResult
-            is AppResult.Success -> { onSaved(); AppResult.Success(Unit) }
+            is AppResult.Success -> {
+                if (photo != null) {
+                    when (val flushed = sync.syncPendingNow()) {
+                        is AppResult.Failure -> return@launchAction flushed
+                        is AppResult.Success -> Unit
+                    }
+                    when (val upload = media.uploadResourcePhoto(resource.id, photo)) {
+                        is AppResult.Failure -> return@launchAction upload
+                        is AppResult.Success -> sync.refreshAuthorisedData()
+                    }
+                }
+                onSaved()
+                AppResult.Success(Unit)
+            }
         }
     }
 
     fun updateResource(resource: ResourceItem, photo: Uri? = null, onSaved: () -> Unit) = launchAction("Resource updated") {
-        val updated = when (photo) {
-            null -> resource
-            else -> when (val upload = media.uploadResourcePhoto(resource.id, photo)) {
-                is AppResult.Success -> resource.copy(imageUrls = listOf(upload.value))
-                is AppResult.Failure -> return@launchAction upload
-            }
-        }
-        when (val result = resources.saveResource(updated)) {
-            is AppResult.Success -> { onSaved(); result }
+        when (val result = resources.saveResource(resource)) {
             is AppResult.Failure -> result
+            is AppResult.Success -> {
+                if (photo != null) {
+                    when (val flushed = sync.syncPendingNow()) {
+                        is AppResult.Failure -> return@launchAction flushed
+                        is AppResult.Success -> Unit
+                    }
+                    when (val upload = media.uploadResourcePhoto(resource.id, photo)) {
+                        is AppResult.Failure -> return@launchAction upload
+                        is AppResult.Success -> sync.refreshAuthorisedData()
+                    }
+                }
+                onSaved()
+                result
+            }
         }
     }
 

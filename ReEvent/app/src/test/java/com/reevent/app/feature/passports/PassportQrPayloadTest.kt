@@ -32,4 +32,33 @@ class PassportQrPayloadTest {
         assertEquals(PassportQrPayload.Validation.Legacy, PassportQrPayload.validate(legacy, baseUrl))
         assertTrue(PassportQrPayload.validate("reevent://passport/not-a-uuid", baseUrl) is PassportQrPayload.Validation.Invalid)
     }
+
+    @Test
+    fun `raw server token is canonicalised before either screen may render it`() {
+        assertEquals(
+            PassportQrPayload.RenderResult.Ready("https://verify.reevent.example/p/v1/$token"),
+            PassportQrPayload.renderablePayload(token, baseUrl)
+        )
+        assertTrue(PassportQrPayload.renderablePayload(token, "") is PassportQrPayload.RenderResult.Unavailable)
+        assertTrue(
+            PassportQrPayload.renderablePayload(
+                "reevent://passport/20000000-0000-0000-0000-000000000001",
+                baseUrl
+            ) is PassportQrPayload.RenderResult.Unavailable
+        )
+    }
+
+    @Test
+    fun `canonical stored URL remains renderable only for the configured verifier`() {
+        val payload = "https://verify.reevent.example/p/v1/$token"
+
+        assertEquals(
+            PassportQrPayload.RenderResult.Ready(payload),
+            PassportQrPayload.renderablePayload(payload, baseUrl)
+        )
+        assertTrue(
+            PassportQrPayload.renderablePayload(payload, "https://different.example")
+                is PassportQrPayload.RenderResult.Unavailable
+        )
+    }
 }

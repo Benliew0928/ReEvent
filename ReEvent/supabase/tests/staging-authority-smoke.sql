@@ -41,18 +41,73 @@ with inserted as (
 )
 select set_config('reevent_smoke.resource_id', id::text, true) from inserted;
 
-with inserted as (
-  insert into public.marketplace_listings(
-    resource_id, seller_id, allowed_actions, published_quantity,
-    unit_coin_price_buy, unit_coin_price_rent, default_duration_days,
-    terms, status, published_at
-  ) values (
-    current_setting('reevent_smoke.resource_id')::uuid, auth.uid(),
+with published as (
+  select public.publish_marketplace_listing(
+    current_setting('reevent_smoke.resource_id')::uuid,
     array['BORROW', 'RENT', 'BUY', 'DONATE', 'EXCHANGE']::public.transaction_type[],
-    5, 25, 10, 7, 'Rollback-only staging smoke fixture.', 'PUBLISHED', now()
-  ) returning id
+    5, 25, 10, 7, 'Rollback-only staging smoke fixture.'
+  ) as result
 )
-select set_config('reevent_smoke.listing_id', id::text, true) from inserted;
+select set_config('reevent_smoke.listing_id', result ->> 'id', true) from published;
+
+select public.replace_resource_photo(
+  current_setting('reevent_smoke.resource_id')::uuid,
+  format(
+    '%s/resources/%s/primary',
+    current_setting('reevent_smoke.organizer_id'),
+    current_setting('reevent_smoke.resource_id')
+  ),
+  'image/jpeg', 800, 600, 12345
+);
+
+-- A lost response may retry the same deterministic path without creating duplicate metadata.
+select public.replace_resource_photo(
+  current_setting('reevent_smoke.resource_id')::uuid,
+  format(
+    '%s/resources/%s/primary',
+    current_setting('reevent_smoke.organizer_id'),
+    current_setting('reevent_smoke.resource_id')
+  ),
+  'image/jpeg', 1024, 768, 23456
+);
+
+do $$
+declare
+  photo_path text := format(
+    '%s/resources/%s/primary',
+    current_setting('reevent_smoke.organizer_id'),
+    current_setting('reevent_smoke.resource_id')
+  );
+begin
+  if (
+    select count(*)
+    from public.resource_photos
+    where resource_id = current_setting('reevent_smoke.resource_id')::uuid
+      and storage_path = photo_path
+      and width = 1024
+      and byte_size = 23456
+  ) <> 1 then
+    raise exception 'RESOURCE_PHOTO_RETRY_NOT_IDEMPOTENT';
+  end if;
+
+  begin
+    insert into public.resource_photos(resource_id, storage_path, sort_order)
+    values (current_setting('reevent_smoke.resource_id')::uuid, photo_path || '-direct', 1);
+    raise exception 'DIRECT_RESOURCE_PHOTO_WRITE_NOT_DENIED';
+  exception when insufficient_privilege then null;
+  end;
+
+  begin
+    perform public.complete_resource_photo_cleanup(
+      current_setting('reevent_smoke.resource_id')::uuid,
+      photo_path
+    );
+    raise exception 'CURRENT_RESOURCE_PHOTO_CLEANUP_NOT_DENIED';
+  exception when others then
+    if sqlerrm <> 'CURRENT_RESOURCE_PHOTO_CANNOT_BE_CLEANED' then raise; end if;
+  end;
+end;
+$$;
 
 -- Even the owner cannot directly mutate lifecycle status.
 do $$
@@ -74,6 +129,25 @@ reset role;
 -- receives the same transaction for the same persisted idempotency key.
 select set_config('request.jwt.claim.sub', current_setting('reevent_smoke.participant_id'), true);
 set local role authenticated;
+
+do $$
+begin
+  begin
+    perform public.replace_resource_photo(
+      current_setting('reevent_smoke.resource_id')::uuid,
+      format(
+        '%s/resources/%s/not-owned',
+        current_setting('reevent_smoke.participant_id'),
+        current_setting('reevent_smoke.resource_id')
+      ),
+      'image/jpeg', 200, 200, 1000
+    );
+    raise exception 'NON_OWNER_RESOURCE_PHOTO_WRITE_NOT_DENIED';
+  exception when others then
+    if sqlerrm <> 'RESOURCE_OWNER_REQUIRED' then raise; end if;
+  end;
+end;
+$$;
 
 with requested as (
   select public.request_listing_transaction(
@@ -226,4 +300,4 @@ $$;
 rollback;
 
 select 'PASS' as staging_authority_smoke,
-       'three roles; denial, request/decision, handover/return, completion replay; fixtures rolled back' as coverage;
+       'three roles; listing/photo RPC and direct-DML denial; photo retry/cleanup authorization; request/decision, handover/return, completion replay; fixtures rolled back' as coverage;

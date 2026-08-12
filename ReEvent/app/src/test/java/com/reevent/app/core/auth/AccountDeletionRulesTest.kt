@@ -31,4 +31,21 @@ class AccountDeletionRulesTest {
         assertEquals(AccountDeletionBlock.UNSETTLED_COINS, accountDeletionBlockForServerStatus("BLOCKED_UNSETTLED_COINS"))
         assertNull(accountDeletionBlockForServerStatus("UNTRUSTED_SERVER_TEXT"))
     }
+
+    @Test
+    fun `maps deletion retry and reauthentication statuses without exposing raw text`() {
+        assertEquals(
+            AccountDeletionOutcome.FinalizationPending,
+            accountDeletionOutcomeForServerStatus("FINALIZATION_PENDING")
+        )
+        assertEquals(
+            AccountDeletionOutcome.ReauthenticationRequired,
+            accountDeletionOutcomeForServerStatus("FRESH_REAUTHENTICATION_REQUIRED")
+        )
+        assertEquals(
+            AccountDeletionOutcome.PasswordReauthenticationUnavailable,
+            accountDeletionOutcomeForServerStatus("PASSWORD_REAUTHENTICATION_UNAVAILABLE")
+        )
+        assertNull(accountDeletionOutcomeForServerStatus("UNTRUSTED_SERVER_TEXT"))
+    }
 }

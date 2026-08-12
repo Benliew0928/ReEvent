@@ -19,6 +19,41 @@ object PassportQrPayload {
         data class Invalid(val message: String) : Validation
     }
 
+    sealed interface RenderResult {
+        data class Ready(val payload: String) : RenderResult
+        data class Unavailable(val message: String) : RenderResult
+    }
+
+    /**
+     * Converts an authorised cached token/URL into the only value the UI may render. Both the
+     * Passport and Participant Return screens use this boundary, so a raw token can never become
+     * a QR that the scanner rejects.
+     */
+    fun renderablePayload(storedPayload: String, publicBaseUrl: String): RenderResult {
+        val value = storedPayload.trim()
+        if (value != storedPayload || value.isEmpty()) {
+            return RenderResult.Unavailable("This passport does not contain a valid QR value.")
+        }
+
+        if (tokenPattern.matches(value)) {
+            val canonical = canonicalPayload(publicBaseUrl, value)
+                ?: return RenderResult.Unavailable(
+                    "QR verifier is not configured for this build. Configure PUBLIC_BASE_URL before showing or scanning this passport."
+                )
+            return RenderResult.Ready(canonical)
+        }
+
+        return when (validate(value, publicBaseUrl)) {
+            is Validation.Canonical -> RenderResult.Ready(value)
+            Validation.Legacy -> RenderResult.Unavailable(
+                "This legacy passport must be reissued before it can be shown as a return QR."
+            )
+            is Validation.Invalid -> RenderResult.Unavailable(
+                "This passport is not a renderable ReEvent v1 QR. Refresh it or ask the organiser to reissue it."
+            )
+        }
+    }
+
     /** Returns a renderable v1 QR URL only when this build has a valid HTTPS verifier host. */
     fun canonicalPayload(publicBaseUrl: String, publicToken: String): String? {
         if (!tokenPattern.matches(publicToken)) return null

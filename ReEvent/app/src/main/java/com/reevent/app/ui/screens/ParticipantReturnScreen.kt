@@ -111,7 +111,9 @@ fun ParticipantReturnScreen(
     onScanResourceQr: () -> Unit,
     transactions: List<CircularTransaction> = emptyList(),
     returnResourceTitle: String? = null,
+    returnPassportAssigned: Boolean = false,
     returnQrPayload: String? = null,
+    returnQrUnavailableMessage: String? = null,
     returnStatus: TransactionStatus? = null,
     returnActionError: String? = null
 ) {
@@ -136,7 +138,11 @@ fun ParticipantReturnScreen(
                         first = {
                             if (returnQrPayload.isNullOrBlank()) {
                                 Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = ReEventMintSoft) {
-                                    Text("No return passport is assigned yet.", color = ReEventMuted, modifier = Modifier.padding(16.dp))
+                                    Text(
+                                        returnQrUnavailableMessage ?: "No return passport is assigned yet.",
+                                        color = ReEventMuted,
+                                        modifier = Modifier.padding(16.dp)
+                                    )
                                 }
                             } else {
                                 QrCodePanel(payload = returnQrPayload, modifier = Modifier.fillMaxWidth())
@@ -152,7 +158,11 @@ fun ParticipantReturnScreen(
                                 color = ReEventInk
                             )
                             Text(
-                                text = if (returnQrPayload == null) "Your assigned return passport will appear here after a handover is confirmed." else "Show this verified passport at the exit booth, then scan the organiser or resource code to confirm return.",
+                                text = if (returnQrPayload == null) {
+                                    returnQrUnavailableMessage ?: "Your assigned return passport will appear here after a handover is confirmed."
+                                } else {
+                                    "Show this verified passport at the exit booth, then scan the organiser or resource code to confirm return."
+                                },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = ReEventMuted
                             )
@@ -172,7 +182,8 @@ fun ParticipantReturnScreen(
             item {
                 ReturnJourneyGuidance(
                     status = returnStatus,
-                    hasAssignedPassport = !returnQrPayload.isNullOrBlank(),
+                    hasAssignedPassport = returnPassportAssigned,
+                    hasRenderablePassport = !returnQrPayload.isNullOrBlank(),
                     actionError = returnActionError
                 )
             }
@@ -214,6 +225,7 @@ fun ParticipantReturnScreen(
 private fun ReturnJourneyGuidance(
     status: TransactionStatus?,
     hasAssignedPassport: Boolean,
+    hasRenderablePassport: Boolean,
     actionError: String?
 ) {
     val (title, detail, tone) = when {
@@ -224,11 +236,23 @@ private fun ReturnJourneyGuidance(
         )
 
         else -> when (status) {
-        TransactionStatus.ACTIVE -> Triple(
-            "Ready for return",
-            "Show the assigned passport, then scan the organiser or resource code. Your scan starts the return; the organiser confirms the handover.",
-            ReEventGreen
-        )
+        TransactionStatus.ACTIVE -> if (hasRenderablePassport) {
+            Triple(
+                "Ready for return",
+                "Show the assigned passport, then scan the organiser or resource code. Your scan starts the return; the organiser confirms the handover.",
+                ReEventGreen
+            )
+        } else {
+            Triple(
+                "Return QR unavailable",
+                if (hasAssignedPassport) {
+                    "The assigned passport cannot be rendered in this build. Follow the configuration guidance above before attempting the return."
+                } else {
+                    "Refresh after the handover is confirmed. Do not use an unverified token in place of the assigned passport QR."
+                },
+                ReEventCoral
+            )
+        }
 
         TransactionStatus.RETURN_IN_PROGRESS -> Triple(
             "Return waiting for confirmation",

@@ -18,11 +18,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.filterNot
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-enum class AppEntry { LOADING, ONBOARDING, SIGN_IN, PASSWORD_RESET, COMPLETE_ROLE, ORGANIZER, PARTICIPANT, PARTNER }
+enum class AppEntry { LOADING, ONBOARDING, SIGN_IN, PASSWORD_RESET, DELETION_PENDING, COMPLETE_ROLE, ORGANIZER, PARTICIPANT, PARTNER }
 
 data class SessionUiState(
     val entry: AppEntry = AppEntry.LOADING,
@@ -44,16 +45,7 @@ class SessionViewModel @Inject constructor(
         preferences.passwordRecoveryPending
     ) { onboardingComplete, user, hasRestored, passwordRecoveryPending ->
         SessionUiState(
-            entry = when {
-                !hasRestored -> AppEntry.LOADING
-                passwordRecoveryPending && user != null -> AppEntry.PASSWORD_RESET
-                !onboardingComplete -> AppEntry.ONBOARDING
-                user == null -> AppEntry.SIGN_IN
-                user.role == null -> AppEntry.COMPLETE_ROLE
-                user.role == UserRole.ORGANIZER -> AppEntry.ORGANIZER
-                user.role == UserRole.PARTICIPANT -> AppEntry.PARTICIPANT
-                else -> AppEntry.PARTNER
-            },
+            entry = sessionEntryFor(onboardingComplete, user, hasRestored, passwordRecoveryPending),
             user = user
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SessionUiState())
@@ -64,6 +56,7 @@ class SessionViewModel @Inject constructor(
         viewModelScope.launch {
             authRepository.currentUser
                 .filterNotNull()
+                .filterNot { it.deletionPending }
                 .map { user -> user.id }
                 .distinctUntilChanged()
                 .collect { coreSyncRepository.refreshAuthorisedData() }
@@ -82,6 +75,23 @@ class SessionViewModel @Inject constructor(
     fun completeOnboarding() = viewModelScope.launch { preferences.setOnboardingComplete(true) }
 }
 
+internal fun sessionEntryFor(
+    onboardingComplete: Boolean,
+    user: User?,
+    hasRestored: Boolean,
+    passwordRecoveryPending: Boolean
+): AppEntry = when {
+    !hasRestored -> AppEntry.LOADING
+    user?.deletionPending == true -> AppEntry.DELETION_PENDING
+    passwordRecoveryPending && user != null -> AppEntry.PASSWORD_RESET
+    !onboardingComplete -> AppEntry.ONBOARDING
+    user == null -> AppEntry.SIGN_IN
+    user.role == null -> AppEntry.COMPLETE_ROLE
+    user.role == UserRole.ORGANIZER -> AppEntry.ORGANIZER
+    user.role == UserRole.PARTICIPANT -> AppEntry.PARTICIPANT
+    else -> AppEntry.PARTNER
+}
+
 data class AuthUiState(
     val loading: Boolean = false,
     val error: FailureReason? = null,
@@ -91,7 +101,10 @@ data class AuthUiState(
     val confirmationResent: Boolean = false,
     val passwordUpdated: Boolean = false,
     val accountDeleted: Boolean = false,
-    val accountDeletionBlocked: AccountDeletionBlock? = null
+    val accountDeletionBlocked: AccountDeletionBlock? = null,
+    val accountDeletionPending: Boolean = false,
+    val accountDeletionReauthenticationRequired: Boolean = false,
+    val passwordReauthenticationUnavailable: Boolean = false
 )
 
 @HiltViewModel
@@ -154,6 +167,11 @@ class AuthViewModel @Inject constructor(private val authRepository: AuthReposito
             mutableState.value = when (val result = authRepository.deleteAccount(currentPassword)) {
                 is AppResult.Success -> when (val outcome = result.value) {
                     AccountDeletionOutcome.Deleted -> AuthUiState(accountDeleted = true)
+                    AccountDeletionOutcome.FinalizationPending -> AuthUiState(accountDeletionPending = true)
+                    AccountDeletionOutcome.ReauthenticationRequired ->
+                        AuthUiState(accountDeletionReauthenticationRequired = true)
+                    AccountDeletionOutcome.PasswordReauthenticationUnavailable ->
+                        AuthUiState(passwordReauthenticationUnavailable = true)
                     is AccountDeletionOutcome.Blocked -> AuthUiState(accountDeletionBlocked = outcome.reason)
                 }
                 is AppResult.Failure -> AuthUiState(error = result.reason)
