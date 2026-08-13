@@ -37,16 +37,17 @@ import com.reevent.app.ui.theme.ReEventGreenDeep
 import com.reevent.app.ui.theme.ReEventInk
 import com.reevent.app.ui.theme.ReEventLine
 import com.reevent.app.ui.theme.ReEventMint
-import com.reevent.app.ui.theme.ReEventPaper
+import com.reevent.app.ui.theme.ReEventSurface
 import com.reevent.app.ui.theme.ReEventTextSecondary
 
 @Composable
 fun SyncStateChip(syncState: SyncState) {
-    val (label, color) = when (syncState) {
-        SyncState.SYNCED -> "Synced" to ReEventGreen
-        SyncState.PENDING -> "Pending sync" to ReEventBlue
-        SyncState.FAILED -> "Sync failed" to ReEventCoral
-    }
+    val (label, color) =
+        when (syncState) {
+            SyncState.SYNCED -> "Synced" to ReEventGreen
+            SyncState.PENDING -> "Pending sync" to ReEventBlue
+            SyncState.FAILED -> "Sync failed" to ReEventCoral
+        }
     StatusChip(label, color)
 }
 
@@ -56,19 +57,19 @@ fun SyncQueueCard(
     commands: List<SyncCommandStatus>,
     retrying: Boolean,
     onRetry: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val failedCommands = commands.filter { it.syncState == SyncState.FAILED }
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = if (failedCommands.isEmpty()) ReEventPaper else ReEventMint),
+        colors = CardDefaults.cardColors(containerColor = if (failedCommands.isEmpty()) ReEventSurface else ReEventMint),
         border = BorderStroke(1.dp, ReEventLine),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
             modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (commands.isEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -76,7 +77,11 @@ fun SyncQueueCard(
                     Spacer(Modifier.width(10.dp))
                     Column {
                         Text("All changes synced", style = MaterialTheme.typography.titleSmall, color = ReEventInk)
-                        Text("This account has no queued changes.", style = MaterialTheme.typography.bodySmall, color = ReEventTextSecondary)
+                        Text(
+                            "This account has no queued changes.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ReEventTextSecondary,
+                        )
                     }
                 }
             } else {
@@ -84,19 +89,19 @@ fun SyncQueueCard(
                     Icon(
                         imageVector = if (failedCommands.isEmpty()) Icons.Outlined.Sync else Icons.Outlined.ErrorOutline,
                         contentDescription = null,
-                        tint = if (failedCommands.isEmpty()) ReEventBlue else ReEventCoral
+                        tint = if (failedCommands.isEmpty()) ReEventBlue else ReEventCoral,
                     )
                     Spacer(Modifier.width(10.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = if (failedCommands.isEmpty()) "${commands.size} change${if (commands.size == 1) "" else "s"} waiting to sync" else "${failedCommands.size} change${if (failedCommands.size == 1) "" else "s"} need attention",
                             style = MaterialTheme.typography.titleSmall,
-                            color = ReEventInk
+                            color = ReEventInk,
                         )
                         Text(
                             "Queue steps run in the order shown for this account.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = ReEventTextSecondary
+                            color = ReEventTextSecondary,
                         )
                     }
                 }
@@ -109,7 +114,7 @@ fun SyncQueueCard(
                         onClick = onRetry,
                         enabled = !retrying,
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = ReEventGreenDeep, contentColor = Color.White)
+                        colors = ButtonDefaults.buttonColors(containerColor = ReEventGreenDeep, contentColor = Color.White),
                     ) { Text(if (retrying) "Requesting retry…" else "Retry failed changes") }
                 }
             }
@@ -122,15 +127,37 @@ private fun SyncCommandRow(command: SyncCommandStatus) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("${command.queuePosition}.", style = MaterialTheme.typography.labelLarge, color = ReEventTextSecondary)
-            Text(command.title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = ReEventInk, fontWeight = FontWeight.Medium)
+            Text(
+                command.title,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium,
+                color = ReEventInk,
+                fontWeight = FontWeight.Medium,
+            )
             SyncStateChip(command.syncState)
         }
-        Text(command.detail, style = MaterialTheme.typography.bodySmall, color = ReEventTextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            command.detail,
+            style = MaterialTheme.typography.bodySmall,
+            color = ReEventTextSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         if (command.attempts > 0) {
-            Text("Attempted ${command.attempts} time${if (command.attempts == 1) "" else "s"}", style = MaterialTheme.typography.bodySmall, color = ReEventTextSecondary)
+            Text(
+                "Attempted ${command.attempts} time${if (command.attempts == 1) "" else "s"}",
+                style = MaterialTheme.typography.bodySmall,
+                color = ReEventTextSecondary,
+            )
         }
         command.lastError?.takeIf(String::isNotBlank)?.let { error ->
-            Text("Last error: $error", style = MaterialTheme.typography.bodySmall, color = ReEventCoral, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(
+                "Last error: $error",
+                style = MaterialTheme.typography.bodySmall,
+                color = ReEventCoral,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

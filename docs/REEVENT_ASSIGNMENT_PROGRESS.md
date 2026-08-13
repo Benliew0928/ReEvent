@@ -20,8 +20,8 @@ Do not use a checked box to mean "code exists." A module is complete only when i
 | Check | Result | Meaning |
 |---|---|---|
 | Android debug and Android-test Kotlin compilation | **Passed** | Application and instrumented-test source compile. |
-| Android JVM unit tests | **65/65 passed** | Includes deletion routing/status, QR renderability, and photo snapshot mapping. |
-| Android lint | **Passed with 29 warnings** | There are no lint errors, but warnings remain as polish work. |
+| Android JVM unit tests | **Passed locally** | Includes deletion routing/status, QR renderability, photo snapshot mapping, read-only resource status, Marketplace privacy, role destinations, and width breakpoints. |
+| Android lint | **Passed with 15 deferred warnings** | Zero errors; only SDK/dependency-version warnings remain (10 `GradleDependency`, 4 `NewerVersionAvailable`, 1 `OldTargetApi`). |
 | Android instrumented tests | **15/15 passed on Medium Phone API 35** | Includes the real Room 5-to-6 migration with retained resource and lifecycle-command rows. |
 | Supabase contract tests | **20/20 passed** | Fresh PGlite applies `0001`-`0015`; protected DML is denied and anonymous public-passport resolution returns only the approved safe projection. |
 | Edge Function type check | **Passed** | `deno check` passes for `delete-my-account`. |
@@ -39,9 +39,9 @@ The earlier Stage 3 staging lifecycle proof remains useful historical evidence. 
 | B-03 | **P0** | Resource photos | **RESOLVED / STAGING BACKEND VERIFIED** | Migration `0013`, deterministic private Storage, protected metadata RPCs, replacement, reads, cleanup, snapshot mapping, and Room updates are implemented. Live owner/non-owner backend probes pass; gallery/camera/offline UI acceptance remains. |
 | B-04 | **P0** | Participant return QR | **STAGING DEPLOYED / DEVICE ACCEPTANCE PENDING** | Password-reset redirect, verifier, token resolver, and debug App Link are live. Scan from a physical device and complete one authorised action before acceptance. |
 | B-05 | **P1** | Room database | **RESOLVED LOCALLY** | The 5-to-6 test retained representative resource/photo-path and lifecycle-command data on API 35. |
-| B-06 | **P1** | Event detail | **OPEN - NEXT CODE FIX** | Remove/replace the misleading status control with read-only state, or implement only explicitly permitted server actions. |
-| B-07 | **P1** | Marketplace detail | **OPEN - DECISION REQUIRED** | Choose a privacy-safe event projection, or stop promising unavailable event data. |
-| B-08 | **P2** | Presentation | **OPEN - POLISH** | Replace corrupted literals and scan user-facing source/docs for similar encoding errors. |
+| B-06 | **P1** | Event detail | **RESOLVED LOCALLY** | Resource status is read-only and explains that confirmed lifecycle actions update it automatically; the no-op mutation method is removed. |
+| B-07 | **P1** | Marketplace detail | **RESOLVED LOCALLY** | Marketplace exposes only authorised listing/resource fields and no longer looks up or promises event context. |
+| B-08 | **P2** | Presentation | **RESOLVED LOCALLY** | Active source/docs were repaired and a zero-dependency UTF-8/mojibake scanner now protects both repositories. |
 
 ## 2. Status and priority rules
 
@@ -88,7 +88,7 @@ This table is the authoritative summary. Update it only after updating the detai
 | 1 | Onboarding and navigation | Core flow exists | Not required | Not run on teammate update | **READY TO VERIFY** | 9 |
 | 2 | Sign-in and role setup | Core flow and reset UI exist | Reset redirect saved in staging | Real email/device flow not run | **READY TO VERIFY** | 8 |
 | 3 | Organiser home | Live-data and empty states exist | Staging data required | Not run | **READY TO VERIFY** | 9 |
-| 4 | Event management | Create/edit/archive exist; status control is misleading | Staging data required | Not run | **FIX REQUIRED** | 6, 9 |
+| 4 | Event management | Create/edit/archive exist; lifecycle-derived resource status is read-only | Staging data required | Not run | **READY TO VERIFY** | 6, 9 |
 | 5 | Resource inventory | Persistent one-photo contract, metadata RPCs, snapshot/Room mapping, and cleanup exist | `0013` and owner/non-owner private-bucket rules verified on staging | Backend passed; gallery/camera/offline UI not run | **READY TO VERIFY** | 4, 9 |
 | 6 | Marketplace | Discovery/request/publication source exists; SQL gate is green | `0009`/`0010` applied and staging smoke passed | Android flow not run | **READY TO VERIFY** | 5 |
 | 7 | Transaction lifecycle | Server-authoritative commands and presentation exist | Earlier staging proof only | New flow not run | **READY TO VERIFY** | 6 |
@@ -277,7 +277,7 @@ Run these in order and add one evidence-log row per numbered scenario. Use dispo
 
 #### Steps
 
-1. [ ] Resolve review item B-07: provide a privacy-safe event title/date projection to Marketplace viewers, or remove unavailable event details from the promised UI and acceptance criteria.
+1. [x] Resolve review item B-07 locally: Marketplace shows authorised resource/listing fields only and makes no event-context promise.
 2. [ ] As organiser, publish a Donate-only listing from one owned, active, unlisted resource.
 3. [ ] Publish a Borrow or Rent listing with valid duration and price rules.
 4. [ ] Prove local and server rejection for: no action, zero/excess quantity, fractional ITEM/BOX quantity, missing price/duration, excessive terms, non-owner, archived resource, and duplicate open listing.
@@ -300,7 +300,7 @@ Run these in order and add one evidence-log row per numbered scenario. Use dispo
 
 #### Steps
 
-1. [ ] Remove the Event Detail "Update status" selector and show read-only server state unless a specific authorised server transition is implemented and tested.
+1. [x] Remove the Event Detail "Update status" selector and show read-only server state; a local semantic test protects the lifecycle-derived explanation.
 2. [ ] With fresh organiser/participant accounts, run Request -> Approve -> Handover -> Receipt -> Return started -> Return confirmed -> Completed.
 3. [ ] At every step, verify both accounts see the server-returned state, exactly one responsible role, and only the permitted action.
 4. [ ] Verify rejected and cancelled requests expose no later completion action.
@@ -388,10 +388,10 @@ Run these in order and add one evidence-log row per numbered scenario. Use dispo
 
 #### Steps
 
-1. [ ] Replace the corrupted bullet and em-dash literals in `RestoredVisualLiveScreens.kt`, then scan user-visible Kotlin/Markdown for U+00E2/U+00C3 mojibake sequences and replacement characters.
-2. [ ] Review the 29 lint warnings. Fix warnings that affect accessibility, adaptive layout, localization, or correctness first; record intentionally deferred warnings.
+1. [x] Repair corrupted active Kotlin/Markdown/TSX/XML/CSS text and add `scripts/check-encoding.mjs` for both repositories.
+2. [x] Reduce lint to 15 policy-deferred SDK/dependency-version warnings; source, adaptive, modifier, QR, icon, and resource findings are resolved.
 3. [ ] Verify loading, empty, offline, error, and success states at compact and expanded widths for the demo-critical screens.
-4. [ ] Remove unused runtime mock assets only after confirming no tests/previews still reference them.
+4. [x] Remove unused runtime mock assets after the zero-caller/resource audit; retained previews use debug-only fixtures and all automated gates pass.
 5. [ ] Capture final screenshots and a short demo script only after all relevant module rows are ACCEPTED.
 
 #### Success looks like
@@ -409,8 +409,8 @@ Record each decision before implementing around it; otherwise different contribu
 | D-01: account deletion after preparation failure | Treat `deletion_started_at` as terminal; allow finalisation retry/sign-out only. | Restoring role/home can recreate privileges and rewards on a partially deleted account. |
 | D-02: OAuth-only account deletion | Implement provider re-auth if feasible; otherwise show a truthful support/unavailable path and do not ask for a password. | Google-only users may have no current password. |
 | D-03: resource photo cardinality | Use one primary photo for assignment scope unless the UI truly supports a gallery. | Metadata, replacement, ordering, and cleanup differ significantly for one versus many photos. |
-| D-04: Marketplace event context | Expose only a deliberate privacy-safe projection, or remove the unavailable fields from the participant promise. | Current participant RLS does not supply the event object used by owner views. |
-| D-05: Event Detail status | Prefer read-only derived status until a specific server-authorised transition is required. | A visible no-op/manual status selector undermines the server-authoritative lifecycle. |
+| D-04: Marketplace event context | **Chosen:** remove event context and expose only authorised resource/listing fields. | Current participant RLS does not supply the event object used by owner views. |
+| D-05: Event Detail status | **Chosen:** read-only derived status until a specific server-authorised transition is required. | A visible no-op/manual status selector undermines the server-authoritative lifecycle. |
 | D-06: public Passport behavior | The URL may identify only an opaque token and must reveal nothing until authorization is established. | Public QR convenience must not leak resource/account identifiers. |
 
 ## 7. Module completion checklist
@@ -444,6 +444,8 @@ Add rows; do not replace failed evidence with an unsupported claim. Link an issu
 | 2026-08-11 | Function hashes recorded in Phase 4 | `ReEvent-staging` | Private resource-photo upload/read/replace/delete | Pass | Real PNG bytes and metadata matched; public read/direct DML failed; replacement stayed singular; deletion removed the row and object. |
 | 2026-08-11 | Function hashes recorded in Phase 4 | `ReEvent-staging` | Disposable password-account deletion and retry | Pass | Wrong password and active work caused no mutation; pre-fix finalisation stayed terminal; `0014` retry returned `DELETED`; Auth/profile/media cleanup and retained de-identification all verified. |
 | 2026-08-12 | public verifier version 2 | `ReEvent-staging` + public site | Reset redirect, public Passport resolver/verifier, Android App Link configuration | Pass | Supabase allow-list has both `reevent://auth/callback` and `reevent://auth/password-reset`; `0015` succeeded; anonymous unknown-token RPC returned `200 []`; a staged valid passport rendered its public title without internal IDs; hosted `assetlinks.json` returned JSON and matched the debug APK's certificate. |
+| 2026-08-13 | local working tree | Local JVM/lint/web | B-06/B-07/B-08 cleanup and regression coverage | Pass | Android unit/Compose tests passed 73/73, debug Android-test sources compiled, debug/release APKs assembled, lint passed with 0 errors and only 15 policy-deferred version warnings, all 20 Supabase contracts passed, and website clean install/lint/typecheck/build plus 3/3 rendered-route tests passed. Manual/device acceptance remains unchanged. |
+| 2026-08-13 | local working tree | Local build artifacts | Cleanup performance/size comparison | Improved | Debug APK: 75,043,775 -> 75,043,131 bytes; drawable source: 19,017,415 bytes/12 files -> 4,249,413 bytes/5 files; website server bundle: 1,325,129 -> 1,317,937 bytes; website direct dependencies: 20 -> 18. |
 | TBD | TBD | Staging + target Android device | First P0/P1 acceptance | Not run | Record account roles, seed IDs (non-secret), exact steps, and screenshot/test report link. |
 
 ## 9. Final assignment acceptance sequence

@@ -26,19 +26,30 @@ fun ResourcePhotoImage(
     photoPath: String?,
     @DrawableRes fallbackImageRes: Int,
     contentDescription: String,
-    modifier: Modifier
+    modifier: Modifier,
 ) {
     val photoLoader = LocalResourcePhotoLoader.current
     val bitmap by produceState<Bitmap?>(initialValue = null, photoPath) {
-        value = photoPath?.let { path ->
-            photoLoader(path)?.let { bytes ->
-                withContext(Dispatchers.Default) { BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }
+        value =
+            photoPath?.let { path ->
+                photoLoader(path)?.let { bytes ->
+                    withContext(Dispatchers.Default) { BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }
+                }
             }
-        }
     }
     if (bitmap == null) {
-        Image(painter = painterResource(fallbackImageRes), contentDescription = contentDescription, modifier = modifier, contentScale = ContentScale.Crop)
+        Image(
+            painter = painterResource(fallbackImageRes),
+            contentDescription = contentDescription,
+            modifier = modifier,
+            contentScale = ContentScale.Crop,
+        )
     } else {
-        Image(bitmap = bitmap!!.asImageBitmap(), contentDescription = contentDescription, modifier = modifier, contentScale = ContentScale.Crop)
+        Image(
+            bitmap = bitmap!!.asImageBitmap(),
+            contentDescription = contentDescription,
+            modifier = modifier,
+            contentScale = ContentScale.Crop,
+        )
     }
 }

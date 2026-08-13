@@ -15,9 +15,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.navigation.NavHostController
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -27,47 +27,75 @@ import com.reevent.app.core.auth.SessionViewModel
 import com.reevent.app.core.model.User
 import com.reevent.app.core.model.UserRole
 import com.reevent.app.feature.passports.PassportAppLink
-import com.reevent.app.ui.screens.CompleteRoleFlowScreen
+import com.reevent.app.ui.components.LocalResourcePhotoLoader
+import com.reevent.app.ui.components.LocalUserRole
 import com.reevent.app.ui.screens.AccountDeletionPendingFlowScreen
+import com.reevent.app.ui.screens.AddResourceLiveScreen
+import com.reevent.app.ui.screens.CompleteRoleFlowScreen
+import com.reevent.app.ui.screens.EventDetailLiveScreen
+import com.reevent.app.ui.screens.EventEditorLiveScreen
+import com.reevent.app.ui.screens.EventListLiveScreen
+import com.reevent.app.ui.screens.FeatureViewModel
+import com.reevent.app.ui.screens.MarketplaceVisualScreen
 import com.reevent.app.ui.screens.MatchingLiveScreen
 import com.reevent.app.ui.screens.OnboardingFlowScreen
-import com.reevent.app.ui.screens.MarketplaceVisualScreen
 import com.reevent.app.ui.screens.OrganizerHomeVisualScreen
-import com.reevent.app.ui.screens.OrganizerAddResourceVisualScreen
 import com.reevent.app.ui.screens.OrganizerImpactVisualScreen
-import com.reevent.app.ui.screens.EventListLiveScreen
-import com.reevent.app.ui.screens.EventEditorLiveScreen
-import com.reevent.app.ui.screens.EventDetailLiveScreen
-import com.reevent.app.ui.screens.ResourceEditorLiveScreen
-import com.reevent.app.ui.screens.AddResourceLiveScreen
 import com.reevent.app.ui.screens.ParticipantReturnVisualScreen
 import com.reevent.app.ui.screens.PartnerMapVisualScreen
 import com.reevent.app.ui.screens.PartnerWorkbenchVisualScreen
 import com.reevent.app.ui.screens.PassportVisualScreen
-import com.reevent.app.ui.screens.ProfileFlowScreen
 import com.reevent.app.ui.screens.PasswordRecoveryFlowScreen
+import com.reevent.app.ui.screens.ProfileFlowScreen
 import com.reevent.app.ui.screens.QrScannerLiveScreen
+import com.reevent.app.ui.screens.ResourceEditorLiveScreen
 import com.reevent.app.ui.screens.SignInFlowScreen
-import com.reevent.app.ui.screens.FeatureViewModel
 import com.reevent.app.ui.theme.ReEventBackground
-import com.reevent.app.ui.components.LocalReEventRole
-import com.reevent.app.ui.components.LocalResourcePhotoLoader
 import kotlinx.serialization.Serializable
 
 @Serializable private data object OrganizerHomeRoute
+
 @Serializable private data object ParticipantReturnRoute
+
 @Serializable private data object PartnerWorkbenchRoute
+
 @Serializable private data object MarketplaceRoute
-@Serializable private data class OrganizerAddRoute(val eventId: String)
+
+@Serializable private data class OrganizerAddRoute(
+    val eventId: String,
+)
+
 @Serializable private data object EventListRoute
-@Serializable private data class EventEditorRoute(val eventId: String? = null)
-@Serializable private data class EventDetailRoute(val eventId: String)
-@Serializable private data class ResourceEditorRoute(val eventId: String, val resourceId: String)
-@Serializable private data class PassportRoute(val resourceId: String)
-@Serializable private data class QrScannerRoute(val initialPayload: String? = null)
-@Serializable private data class MatchingRoute(val resourceId: String)
+
+@Serializable private data class EventEditorRoute(
+    val eventId: String? = null,
+)
+
+@Serializable private data class EventDetailRoute(
+    val eventId: String,
+)
+
+@Serializable private data class ResourceEditorRoute(
+    val eventId: String,
+    val resourceId: String,
+)
+
+@Serializable private data class PassportRoute(
+    val resourceId: String,
+)
+
+@Serializable private data class QrScannerRoute(
+    val initialPayload: String? = null,
+)
+
+@Serializable private data class MatchingRoute(
+    val resourceId: String,
+)
+
 @Serializable private data object PartnerMapRoute
+
 @Serializable private data object OrganizerImpactRoute
+
 @Serializable private data object ProfileRoute
 
 @Composable
@@ -75,12 +103,30 @@ fun ReEventApp() {
     val sessionViewModel: SessionViewModel = hiltViewModel()
     val session by sessionViewModel.state.collectAsState()
     when (session.entry) {
-        AppEntry.LOADING -> LoadingScreen()
-        AppEntry.ONBOARDING -> OnboardingFlowScreen(sessionViewModel::completeOnboarding)
-        AppEntry.SIGN_IN -> SignInFlowScreen()
-        AppEntry.PASSWORD_RESET -> PasswordRecoveryFlowScreen()
-        AppEntry.DELETION_PENDING -> AccountDeletionPendingFlowScreen(requireNotNull(session.user))
-        AppEntry.COMPLETE_ROLE -> CompleteRoleFlowScreen()
+        AppEntry.LOADING -> {
+            LoadingScreen()
+        }
+
+        AppEntry.ONBOARDING -> {
+            OnboardingFlowScreen(sessionViewModel::completeOnboarding)
+        }
+
+        AppEntry.SIGN_IN -> {
+            SignInFlowScreen()
+        }
+
+        AppEntry.PASSWORD_RESET -> {
+            PasswordRecoveryFlowScreen()
+        }
+
+        AppEntry.DELETION_PENDING -> {
+            AccountDeletionPendingFlowScreen(requireNotNull(session.user))
+        }
+
+        AppEntry.COMPLETE_ROLE -> {
+            CompleteRoleFlowScreen()
+        }
+
         AppEntry.ORGANIZER, AppEntry.PARTICIPANT, AppEntry.PARTNER -> {
             val user = requireNotNull(session.user)
             // A new user must always receive a fresh graph and back stack. Without this key,
@@ -93,24 +139,29 @@ fun ReEventApp() {
 }
 
 @Composable
-private fun LoadingScreen() = Surface(color = ReEventBackground, modifier = Modifier.fillMaxSize()) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-}
+private fun LoadingScreen() =
+    Surface(color = ReEventBackground, modifier = Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+    }
 
 @Composable
-private fun RoleNavigationRoot(user: User, role: UserRole) {
+private fun RoleNavigationRoot(
+    user: User,
+    role: UserRole,
+) {
     val nav = rememberNavController()
     val navigationTapGuard = remember { NavigationTapGuard() }
     val featureViewModel: FeatureViewModel = hiltViewModel()
     val pendingPassportPayload by PassportAppLink.pendingPayload.collectAsState()
-    val start = when (role) {
-        UserRole.ORGANIZER -> OrganizerHomeRoute
-        UserRole.PARTICIPANT -> ParticipantReturnRoute
-        UserRole.PARTNER -> PartnerWorkbenchRoute
-    }
+    val start =
+        when (role) {
+            UserRole.ORGANIZER -> OrganizerHomeRoute
+            UserRole.PARTICIPANT -> ParticipantReturnRoute
+            UserRole.PARTNER -> PartnerWorkbenchRoute
+        }
     CompositionLocalProvider(
-        LocalReEventRole provides role.toVisualRole(),
-        LocalResourcePhotoLoader provides featureViewModel::resourcePhoto
+        LocalUserRole provides role,
+        LocalResourcePhotoLoader provides featureViewModel::resourcePhoto,
     ) {
         NavHost(navController = nav, startDestination = start) {
             when (role) {
@@ -122,11 +173,12 @@ private fun RoleNavigationRoot(user: User, role: UserRole) {
                 ProfileFlowScreen(
                     user = user,
                     onBack = { nav.popBackStack() },
-                    onNavigate = when (role) {
-                        UserRole.ORGANIZER -> nav::openOrganiserVisualDestination
-                        UserRole.PARTICIPANT -> nav::openParticipantVisualDestination
-                        UserRole.PARTNER -> nav::openPartnerVisualDestination
-                    }
+                    onNavigate =
+                        when (role) {
+                            UserRole.ORGANIZER -> nav::openOrganiserTopLevelDestination
+                            UserRole.PARTICIPANT -> nav::openParticipantTopLevelDestination
+                            UserRole.PARTNER -> nav::openPartnerTopLevelDestination
+                        },
                 )
             }
         }
@@ -141,7 +193,7 @@ private fun RoleNavigationRoot(user: User, role: UserRole) {
 private fun androidx.navigation.NavGraphBuilder.organiserGraph(
     nav: NavHostController,
     user: User,
-    navigationTapGuard: NavigationTapGuard
+    navigationTapGuard: NavigationTapGuard,
 ) {
     composable<OrganizerHomeRoute> {
         OrganizerHomeVisualScreen(
@@ -152,7 +204,7 @@ private fun androidx.navigation.NavGraphBuilder.organiserGraph(
             onMarketplace = { nav.openTopLevel(MarketplaceRoute) },
             onPartnerMap = { nav.openTopLevel(PartnerMapRoute) },
             onManageEvents = { nav.openDetail(EventListRoute) },
-            onProfile = { navigationTapGuard.runIfAllowed(nav::openProfile) }
+            onProfile = { navigationTapGuard.runIfAllowed(nav::openProfile) },
         )
     }
     composable<OrganizerAddRoute> { entry ->
@@ -165,7 +217,7 @@ private fun androidx.navigation.NavGraphBuilder.organiserGraph(
                 navigationTapGuard.blockBriefly()
                 nav.popBackStack()
             },
-            onNavigate = nav::openOrganiserVisualDestination
+            onNavigate = nav::openOrganiserTopLevelDestination,
         )
     }
     composable<EventListRoute> {
@@ -185,12 +237,19 @@ private fun androidx.navigation.NavGraphBuilder.organiserGraph(
             onEditResource = { nav.openDetail(ResourceEditorRoute(eventId, it)) },
             onOpenPassport = { nav.openDetail(PassportRoute(it)) },
             onArchiveEvent = { nav.openTopLevel(EventListRoute) },
-            onBack = nav::popBackStack
+            onBack = nav::popBackStack,
         )
     }
     composable<ResourceEditorRoute> { entry ->
         val route = entry.toRoute<ResourceEditorRoute>()
-        ResourceEditorLiveScreen(user, route.eventId, route.resourceId, nav::popBackStack, nav::popBackStack, nav::openOrganiserVisualDestination)
+        ResourceEditorLiveScreen(
+            user,
+            route.eventId,
+            route.resourceId,
+            nav::popBackStack,
+            nav::popBackStack,
+            nav::openOrganiserTopLevelDestination,
+        )
     }
     composable<PassportRoute> { entry ->
         PassportVisualScreen(
@@ -198,7 +257,7 @@ private fun androidx.navigation.NavGraphBuilder.organiserGraph(
             resourceId = entry.toRoute<PassportRoute>().resourceId,
             onMatch = { nav.openDetail(MatchingRoute(it)) },
             onBack = nav::popBackStack,
-            onNavigate = nav::openOrganiserVisualDestination
+            onNavigate = nav::openOrganiserTopLevelDestination,
         )
     }
     composable<QrScannerRoute> { entry ->
@@ -206,54 +265,76 @@ private fun androidx.navigation.NavGraphBuilder.organiserGraph(
             user,
             { nav.openDetail(PassportRoute(it)) },
             nav::popBackStack,
-            entry.toRoute<QrScannerRoute>().initialPayload
+            entry.toRoute<QrScannerRoute>().initialPayload,
         )
     }
     composable<MatchingRoute> { entry -> MatchingLiveScreen(user, entry.toRoute<MatchingRoute>().resourceId, { nav.popBackStack() }) }
-    composable<OrganizerImpactRoute> { OrganizerImpactVisualScreen(user, nav::openOrganiserVisualDestination) }
-    composable<MarketplaceRoute> { MarketplaceVisualScreen(user, { nav.openDetail(PassportRoute(it)) }, nav::openOrganiserVisualDestination) }
+    composable<OrganizerImpactRoute> { OrganizerImpactVisualScreen(user, nav::openOrganiserTopLevelDestination) }
+    composable<MarketplaceRoute> {
+        MarketplaceVisualScreen(
+            user,
+            { nav.openDetail(PassportRoute(it)) },
+            nav::openOrganiserTopLevelDestination,
+        )
+    }
     composable<PartnerMapRoute> {
         PartnerMapVisualScreen(
-            onNavigate = nav::openOrganiserVisualDestination,
-            onOpenPassport = { nav.openDetail(PassportRoute(it)) }
+            onNavigate = nav::openOrganiserTopLevelDestination,
+            onOpenPassport = { nav.openDetail(PassportRoute(it)) },
         )
     }
 }
 
-private fun androidx.navigation.NavGraphBuilder.participantGraph(nav: NavHostController, user: User) {
+private fun androidx.navigation.NavGraphBuilder.participantGraph(
+    nav: NavHostController,
+    user: User,
+) {
     composable<ParticipantReturnRoute> {
-        ParticipantReturnVisualScreen(user, { nav.openDetail(QrScannerRoute()) }, nav::openParticipantVisualDestination)
+        ParticipantReturnVisualScreen(user, { nav.openDetail(QrScannerRoute()) }, nav::openParticipantTopLevelDestination)
     }
-    composable<MarketplaceRoute> { MarketplaceVisualScreen(user, { nav.openDetail(PassportRoute(it)) }, nav::openParticipantVisualDestination) }
+    composable<MarketplaceRoute> {
+        MarketplaceVisualScreen(user, { nav.openDetail(PassportRoute(it)) }, nav::openParticipantTopLevelDestination)
+    }
     composable<PassportRoute> { entry ->
-        PassportVisualScreen(user, entry.toRoute<PassportRoute>().resourceId, onMatch = { }, onBack = nav::popBackStack, onNavigate = nav::openParticipantVisualDestination)
+        PassportVisualScreen(user, entry.toRoute<PassportRoute>().resourceId, onMatch = {
+        }, onBack = nav::popBackStack, onNavigate = nav::openParticipantTopLevelDestination)
     }
     composable<QrScannerRoute> { entry ->
         QrScannerLiveScreen(
             user,
             { nav.openDetail(PassportRoute(it)) },
             nav::popBackStack,
-            entry.toRoute<QrScannerRoute>().initialPayload
+            entry.toRoute<QrScannerRoute>().initialPayload,
         )
     }
 }
 
-private fun androidx.navigation.NavGraphBuilder.partnerGraph(nav: NavHostController, user: User) {
+private fun androidx.navigation.NavGraphBuilder.partnerGraph(
+    nav: NavHostController,
+    user: User,
+) {
     composable<PartnerWorkbenchRoute> {
         PartnerWorkbenchVisualScreen(
             user = user,
-            onNavigate = nav::openPartnerVisualDestination,
-            onOpenPassport = { nav.openDetail(PassportRoute(it)) }
+            onNavigate = nav::openPartnerTopLevelDestination,
+            onOpenPassport = { nav.openDetail(PassportRoute(it)) },
         )
     }
-    composable<MarketplaceRoute> { MarketplaceVisualScreen(user, { nav.openDetail(PassportRoute(it)) }, nav::openPartnerVisualDestination) }
+    composable<MarketplaceRoute> {
+        MarketplaceVisualScreen(
+            user,
+            { nav.openDetail(PassportRoute(it)) },
+            nav::openPartnerTopLevelDestination,
+        )
+    }
     composable<PassportRoute> { entry ->
-        PassportVisualScreen(user, entry.toRoute<PassportRoute>().resourceId, onMatch = { }, onBack = nav::popBackStack, onNavigate = nav::openPartnerVisualDestination)
+        PassportVisualScreen(user, entry.toRoute<PassportRoute>().resourceId, onMatch = {
+        }, onBack = nav::popBackStack, onNavigate = nav::openPartnerTopLevelDestination)
     }
     composable<PartnerMapRoute> {
         PartnerMapVisualScreen(
-            onNavigate = nav::openPartnerVisualDestination,
-            onOpenPassport = { nav.openDetail(PassportRoute(it)) }
+            onNavigate = nav::openPartnerTopLevelDestination,
+            onOpenPassport = { nav.openDetail(PassportRoute(it)) },
         )
     }
     composable<QrScannerRoute> { entry ->
@@ -261,7 +342,7 @@ private fun androidx.navigation.NavGraphBuilder.partnerGraph(nav: NavHostControl
             user,
             { nav.openDetail(PassportRoute(it)) },
             nav::popBackStack,
-            entry.toRoute<QrScannerRoute>().initialPayload
+            entry.toRoute<QrScannerRoute>().initialPayload,
         )
     }
 }
@@ -271,37 +352,33 @@ private fun NavHostController.openProfile() {
     openTopLevel(ProfileRoute)
 }
 
-/** The legacy visual bottom bars are adapted to typed routes without letting tab taps grow the stack. */
-@Suppress("DEPRECATION")
-private fun NavHostController.openOrganiserVisualDestination(screen: ReEventScreen) {
-    when (screen) {
-        ReEventScreen.Home -> openTopLevel(OrganizerHomeRoute)
-        ReEventScreen.Marketplace -> openTopLevel(MarketplaceRoute)
-        ReEventScreen.PartnerMap -> openTopLevel(PartnerMapRoute)
-        ReEventScreen.Impact -> openTopLevel(OrganizerImpactRoute)
-        ReEventScreen.AddResource -> openDetail(EventListRoute)
-        ReEventScreen.Profile -> openProfile()
+private fun NavHostController.openOrganiserTopLevelDestination(destination: TopLevelDestination) {
+    when (destination) {
+        TopLevelDestination.HOME -> openTopLevel(OrganizerHomeRoute)
+        TopLevelDestination.MARKETPLACE -> openTopLevel(MarketplaceRoute)
+        TopLevelDestination.EVENTS -> openTopLevel(EventListRoute)
+        TopLevelDestination.PARTNERS -> openTopLevel(PartnerMapRoute)
+        TopLevelDestination.IMPACT -> openTopLevel(OrganizerImpactRoute)
+        TopLevelDestination.ACCOUNT -> openProfile()
         else -> Unit
     }
 }
 
-@Suppress("DEPRECATION")
-private fun NavHostController.openParticipantVisualDestination(screen: ReEventScreen) {
-    when (screen) {
-        ReEventScreen.Home, ReEventScreen.ParticipantReturn -> openTopLevel(ParticipantReturnRoute)
-        ReEventScreen.Marketplace -> openTopLevel(MarketplaceRoute)
-        ReEventScreen.Profile -> openProfile()
+private fun NavHostController.openParticipantTopLevelDestination(destination: TopLevelDestination) {
+    when (destination) {
+        TopLevelDestination.RETURNS -> openTopLevel(ParticipantReturnRoute)
+        TopLevelDestination.MARKETPLACE -> openTopLevel(MarketplaceRoute)
+        TopLevelDestination.ACCOUNT -> openProfile()
         else -> Unit
     }
 }
 
-@Suppress("DEPRECATION")
-private fun NavHostController.openPartnerVisualDestination(screen: ReEventScreen) {
-    when (screen) {
-        ReEventScreen.Home, ReEventScreen.PartnerWorkbench -> openTopLevel(PartnerWorkbenchRoute)
-        ReEventScreen.Marketplace -> openTopLevel(MarketplaceRoute)
-        ReEventScreen.PartnerMap -> openTopLevel(PartnerMapRoute)
-        ReEventScreen.Profile -> openProfile()
+private fun NavHostController.openPartnerTopLevelDestination(destination: TopLevelDestination) {
+    when (destination) {
+        TopLevelDestination.WORKBENCH -> openTopLevel(PartnerWorkbenchRoute)
+        TopLevelDestination.MARKETPLACE -> openTopLevel(MarketplaceRoute)
+        TopLevelDestination.PARTNERS -> openTopLevel(PartnerMapRoute)
+        TopLevelDestination.ACCOUNT -> openProfile()
         else -> Unit
     }
 }
@@ -316,15 +393,9 @@ private inline fun <reified T : Any> NavHostController.openTopLevel(route: T) {
     }
 }
 
-private fun UserRole.toVisualRole() = when (this) {
-    UserRole.ORGANIZER -> ReEventRole.Organizer
-    UserRole.PARTICIPANT -> ReEventRole.Participant
-    UserRole.PARTNER -> ReEventRole.Partner
-}
-
 private inline fun <reified T : Any> NavHostController.openDetail(
     route: T,
-    crossinline builder: androidx.navigation.NavOptionsBuilder.() -> Unit = {}
+    crossinline builder: androidx.navigation.NavOptionsBuilder.() -> Unit = {},
 ) {
     navigate(route) {
         launchSingleTop = true

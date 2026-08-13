@@ -1,113 +1,63 @@
 package com.reevent.app.ui.screens
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.DateRange
-import androidx.compose.material.icons.outlined.Email
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.LocationOn
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.ShoppingBag
-import androidx.compose.material.icons.outlined.Star
-import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.reevent.app.R
 import com.reevent.app.core.model.CircularTransaction
 import com.reevent.app.core.model.TransactionStatus
-import com.reevent.app.ui.PartnerMatch
-import com.reevent.app.ui.ReEventRole
-import com.reevent.app.ui.ReEventScreen
 import com.reevent.app.ui.ResourceTone
-import com.reevent.app.ui.components.BrandLockup
-import com.reevent.app.ui.components.QrCodePanel
-import com.reevent.app.ui.components.FormFieldPreview
-import com.reevent.app.ui.components.HeroImageCard
-import com.reevent.app.ui.components.InfoRow
-import com.reevent.app.ui.components.LocationLine
-import com.reevent.app.ui.components.MetricCard
-import com.reevent.app.ui.components.MiniBarChart
-import com.reevent.app.ui.components.PartnerLogoTile
+import com.reevent.app.ui.TopLevelDestination
 import com.reevent.app.ui.components.PrimaryActionButton
-import com.reevent.app.ui.components.ProgressRing
-import com.reevent.app.ui.components.QuickActionTile
+import com.reevent.app.ui.components.QrCodePanel
 import com.reevent.app.ui.components.ReEventLazyColumn
 import com.reevent.app.ui.components.ReEventScaffold
-import com.reevent.app.ui.components.RecoveryTimeline
-import com.reevent.app.ui.components.ResourceCard
 import com.reevent.app.ui.components.ScreenHeader
-import com.reevent.app.ui.components.ScreenPadding
-import com.reevent.app.ui.components.SecondaryActionButton
 import com.reevent.app.ui.components.SectionTitle
-import com.reevent.app.ui.components.SettingsRow
 import com.reevent.app.ui.components.StatusChip
-import com.reevent.app.ui.components.UploadPreviewCard
-import com.reevent.app.ui.components.WarmChartColors
-import com.reevent.app.ui.theme.ReEventBlue
-import com.reevent.app.ui.theme.ReEventCanvas
+import com.reevent.app.ui.theme.ReEventAmber
 import com.reevent.app.ui.theme.ReEventCoral
 import com.reevent.app.ui.theme.ReEventGreen
-import com.reevent.app.ui.theme.ReEventGreenDeep
 import com.reevent.app.ui.theme.ReEventInk
 import com.reevent.app.ui.theme.ReEventLine
 import com.reevent.app.ui.theme.ReEventMintSoft
-import com.reevent.app.ui.theme.ReEventMuted
-import com.reevent.app.ui.theme.ReEventPaper
-import com.reevent.app.ui.theme.ReEventWarm
-import com.reevent.app.ui.theme.*
+import com.reevent.app.ui.theme.ReEventSurface
+import com.reevent.app.ui.theme.ReEventTextSecondary
 
 @Composable
 fun ParticipantReturnScreen(
-    onNavigate: (ReEventScreen) -> Unit,
+    onNavigate: (TopLevelDestination) -> Unit,
+    onProfile: () -> Unit,
     onScanResourceQr: () -> Unit,
     transactions: List<CircularTransaction> = emptyList(),
     returnResourceTitle: String? = null,
@@ -115,23 +65,23 @@ fun ParticipantReturnScreen(
     returnQrPayload: String? = null,
     returnQrUnavailableMessage: String? = null,
     returnStatus: TransactionStatus? = null,
-    returnActionError: String? = null
+    returnActionError: String? = null,
 ) {
-    ReEventScaffold(selected = ReEventScreen.ParticipantReturn, onNavigate = onNavigate) { padding ->
+    ReEventScaffold(selected = TopLevelDestination.RETURNS, onNavigate = onNavigate) { padding ->
         ReEventLazyColumn(paddingValues = padding) {
             item {
                 ScreenHeader(
                     title = "Participant return",
                     subtitle = "Swap, return and reward flow",
                     // This is the participant's root page, not a child of Account.
-                    onProfile = { onNavigate(ReEventScreen.Profile) }
+                    onProfile = onProfile,
                 )
             }
             item {
                 Surface(
                     shape = RoundedCornerShape(22.dp),
-                    color = ReEventPaper,
-                    border = BorderStroke(1.dp, ReEventLine)
+                    color = ReEventSurface,
+                    border = BorderStroke(1.dp, ReEventLine),
                 ) {
                     AdaptiveTwoPane(
                         modifier = Modifier.padding(16.dp),
@@ -140,8 +90,8 @@ fun ParticipantReturnScreen(
                                 Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = ReEventMintSoft) {
                                     Text(
                                         returnQrUnavailableMessage ?: "No return passport is assigned yet.",
-                                        color = ReEventMuted,
-                                        modifier = Modifier.padding(16.dp)
+                                        color = ReEventTextSecondary,
+                                        modifier = Modifier.padding(16.dp),
                                     )
                                 }
                             } else {
@@ -149,25 +99,27 @@ fun ParticipantReturnScreen(
                             }
                         },
                         second = {
-                        Column {
-                            StatusChip(text = "Return pass", color = ReEventGreen)
-                            Spacer(Modifier.height(10.dp))
-                            Text(
-                                text = if (returnResourceTitle == null) "Scan at exit booth" else "Return $returnResourceTitle",
-                                style = MaterialTheme.typography.titleLarge,
-                                color = ReEventInk
-                            )
-                            Text(
-                                text = if (returnQrPayload == null) {
-                                    returnQrUnavailableMessage ?: "Your assigned return passport will appear here after a handover is confirmed."
-                                } else {
-                                    "Show this verified passport at the exit booth, then scan the organiser or resource code to confirm return."
-                                },
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = ReEventMuted
-                            )
-                        }
-                        }
+                            Column {
+                                StatusChip(text = "Return pass", color = ReEventGreen)
+                                Spacer(Modifier.height(10.dp))
+                                Text(
+                                    text = if (returnResourceTitle == null) "Scan at exit booth" else "Return $returnResourceTitle",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = ReEventInk,
+                                )
+                                Text(
+                                    text =
+                                        if (returnQrPayload == null) {
+                                            returnQrUnavailableMessage
+                                                ?: "Your assigned return passport will appear here after a handover is confirmed."
+                                        } else {
+                                            "Show this verified passport at the exit booth, then scan the organiser or resource code to confirm return."
+                                        },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = ReEventTextSecondary,
+                                )
+                            }
+                        },
                     )
                 }
             }
@@ -176,7 +128,7 @@ fun ParticipantReturnScreen(
                     text = "Scan resource QR",
                     icon = Icons.Outlined.PhotoCamera,
                     onClick = onScanResourceQr,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
             item {
@@ -184,15 +136,15 @@ fun ParticipantReturnScreen(
                     status = returnStatus,
                     hasAssignedPassport = returnPassportAssigned,
                     hasRenderablePassport = !returnQrPayload.isNullOrBlank(),
-                    actionError = returnActionError
+                    actionError = returnActionError,
                 )
             }
             item {
                 PrimaryActionButton(
                     text = "Browse circular marketplace",
                     icon = Icons.Outlined.ShoppingBag,
-                    onClick = { onNavigate(ReEventScreen.Marketplace) },
-                    modifier = Modifier.fillMaxWidth()
+                    onClick = { onNavigate(TopLevelDestination.MARKETPLACE) },
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
             item { SectionTitle(title = "Your return activity") }
@@ -201,13 +153,13 @@ fun ParticipantReturnScreen(
                     Surface(
                         shape = RoundedCornerShape(18.dp),
                         color = ReEventMintSoft,
-                        border = BorderStroke(1.dp, ReEventLine)
+                        border = BorderStroke(1.dp, ReEventLine),
                     ) {
                         Text(
                             text = "You have no return requests yet. Browse the marketplace to start a circular handover.",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = ReEventMuted,
-                            modifier = Modifier.padding(16.dp)
+                            color = ReEventTextSecondary,
+                            modifier = Modifier.padding(16.dp),
                         )
                     }
                 }
@@ -226,78 +178,100 @@ private fun ReturnJourneyGuidance(
     status: TransactionStatus?,
     hasAssignedPassport: Boolean,
     hasRenderablePassport: Boolean,
-    actionError: String?
+    actionError: String?,
 ) {
-    val (title, detail, tone) = when {
-        actionError != null -> Triple(
-            "Return needs attention",
-            "The return was not changed. Check your connection, confirm you scanned the assigned code, then try again.",
-            ReEventCoral
-        )
+    val (title, detail, tone) =
+        when {
+            actionError != null -> {
+                Triple(
+                    "Return needs attention",
+                    "The return was not changed. Check your connection, confirm you scanned the assigned code, then try again.",
+                    ReEventCoral,
+                )
+            }
 
-        else -> when (status) {
-        TransactionStatus.ACTIVE -> if (hasRenderablePassport) {
-            Triple(
-                "Ready for return",
-                "Show the assigned passport, then scan the organiser or resource code. Your scan starts the return; the organiser confirms the handover.",
-                ReEventGreen
-            )
-        } else {
-            Triple(
-                "Return QR unavailable",
-                if (hasAssignedPassport) {
-                    "The assigned passport cannot be rendered in this build. Follow the configuration guidance above before attempting the return."
-                } else {
-                    "Refresh after the handover is confirmed. Do not use an unverified token in place of the assigned passport QR."
-                },
-                ReEventCoral
-            )
+            else -> {
+                when (status) {
+                    TransactionStatus.ACTIVE -> {
+                        if (hasRenderablePassport) {
+                            Triple(
+                                "Ready for return",
+                                "Show the assigned passport, then scan the organiser or resource code. Your scan starts the return; the organiser confirms the handover.",
+                                ReEventGreen,
+                            )
+                        } else {
+                            Triple(
+                                "Return QR unavailable",
+                                if (hasAssignedPassport) {
+                                    "The assigned passport cannot be rendered in this build. Follow the configuration guidance above before attempting the return."
+                                } else {
+                                    "Refresh after the handover is confirmed. Do not use an unverified token in place of the assigned passport QR."
+                                },
+                                ReEventCoral,
+                            )
+                        }
+                    }
+
+                    TransactionStatus.RETURN_IN_PROGRESS -> {
+                        Triple(
+                            "Return waiting for confirmation",
+                            "Your return request is recorded. The organiser must now confirm the returned item before the lifecycle is complete.",
+                            ReEventAmber,
+                        )
+                    }
+
+                    TransactionStatus.COMPLETED -> {
+                        Triple(
+                            "Return confirmed",
+                            "This item's return is complete. You do not need to take another action for this handover.",
+                            ReEventGreen,
+                        )
+                    }
+
+                    else -> {
+                        Triple(
+                            "Waiting for a handover",
+                            if (hasAssignedPassport) {
+                                "Your assigned passport is ready. Follow the organiser's handover instructions before starting a return."
+                            } else {
+                                "A return passport appears after a Borrow, Rent, or Repair handover has been confirmed."
+                            },
+                            ReEventTextSecondary,
+                        )
+                    }
+                }
+            }
         }
-
-        TransactionStatus.RETURN_IN_PROGRESS -> Triple(
-            "Return waiting for confirmation",
-            "Your return request is recorded. The organiser must now confirm the returned item before the lifecycle is complete.",
-            ReEventWarm
-        )
-
-        TransactionStatus.COMPLETED -> Triple(
-            "Return confirmed",
-            "This item's return is complete. You do not need to take another action for this handover.",
-            ReEventGreen
-        )
-
-        else -> Triple(
-            "Waiting for a handover",
-            if (hasAssignedPassport) {
-                "Your assigned passport is ready. Follow the organiser's handover instructions before starting a return."
-            } else {
-                "A return passport appears after a Borrow, Rent, or Repair handover has been confirmed."
-            },
-            ReEventMuted
-        )
-        }
-    }
     Surface(
         shape = RoundedCornerShape(18.dp),
         color = tone.copy(alpha = 0.11f),
-        border = BorderStroke(1.dp, ReEventLine)
+        border = BorderStroke(1.dp, ReEventLine),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall, color = ReEventInk)
-            Text(detail, style = MaterialTheme.typography.bodyMedium, color = ReEventMuted)
+            Text(detail, style = MaterialTheme.typography.bodyMedium, color = ReEventTextSecondary)
         }
     }
 }
 
 @Composable
 private fun ReturnActivityCard(transaction: CircularTransaction) {
-    val tone = when (transaction.status) {
-        TransactionStatus.COMPLETED -> ResourceTone.Recycle
-        TransactionStatus.CANCELLED -> ResourceTone.Hot
-        else -> ResourceTone.Ready
-    }
-    val status = transaction.status.name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)
-    val type = transaction.type.name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)
+    val tone =
+        when (transaction.status) {
+            TransactionStatus.COMPLETED -> ResourceTone.Recycle
+            TransactionStatus.CANCELLED -> ResourceTone.Hot
+            else -> ResourceTone.Ready
+        }
+    val status =
+        transaction.status.name
+            .lowercase()
+            .replace('_', ' ')
+            .replaceFirstChar(Char::titlecase)
+    val type =
+        transaction.type.name
+            .lowercase()
+            .replace('_', ' ')
+            .replaceFirstChar(Char::titlecase)
     RewardStep("$type request", status, tone)
 }
 
@@ -305,28 +279,29 @@ private fun ReturnActivityCard(transaction: CircularTransaction) {
 private fun RewardStep(
     title: String,
     status: String,
-    tone: ResourceTone
+    tone: ResourceTone,
 ) {
     Surface(
         shape = RoundedCornerShape(18.dp),
-        color = ReEventPaper,
-        border = BorderStroke(1.dp, ReEventLine)
+        color = ReEventSurface,
+        border = BorderStroke(1.dp, ReEventLine),
     ) {
         Row(
             modifier = Modifier.padding(15.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(tone.color.copy(alpha = 0.14f)),
-                contentAlignment = Alignment.Center
+                modifier =
+                    Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(tone.color.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.Outlined.CheckCircle,
                     contentDescription = null,
-                    tint = tone.color
+                    tint = tone.color,
                 )
             }
             Spacer(Modifier.width(12.dp))
@@ -334,10 +309,9 @@ private fun RewardStep(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
                 color = ReEventInk,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
             StatusChip(text = status, color = tone.color)
         }
     }
 }
-

@@ -1,0 +1,45 @@
+package com.reevent.app.ui
+
+import com.reevent.app.core.model.UserRole
+
+/** Destinations that can be selected directly from an authenticated navigation bar. */
+enum class TopLevelDestination {
+    HOME,
+    RETURNS,
+    WORKBENCH,
+    MARKETPLACE,
+    EVENTS,
+    PARTNERS,
+    IMPACT,
+    ACCOUNT,
+}
+
+internal fun topLevelDestinations(role: UserRole): List<TopLevelDestination> =
+    when (role) {
+        UserRole.ORGANIZER -> {
+            listOf(
+                TopLevelDestination.HOME,
+                TopLevelDestination.MARKETPLACE,
+                TopLevelDestination.EVENTS,
+                TopLevelDestination.PARTNERS,
+                TopLevelDestination.IMPACT,
+            )
+        }
+
+        UserRole.PARTICIPANT -> {
+            listOf(
+                TopLevelDestination.RETURNS,
+                TopLevelDestination.MARKETPLACE,
+                TopLevelDestination.ACCOUNT,
+            )
+        }
+
+        UserRole.PARTNER -> {
+            listOf(
+                TopLevelDestination.WORKBENCH,
+                TopLevelDestination.MARKETPLACE,
+                TopLevelDestination.PARTNERS,
+                TopLevelDestination.ACCOUNT,
+            )
+        }
+    }
