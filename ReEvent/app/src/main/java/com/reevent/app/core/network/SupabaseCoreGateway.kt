@@ -4,7 +4,9 @@ import android.util.Log
 import com.reevent.app.BuildConfig
 import com.reevent.app.core.model.CircularProgramme
 import com.reevent.app.core.model.CircularTransaction
+import com.reevent.app.core.model.CoinDirection
 import com.reevent.app.core.model.Event
+import com.reevent.app.core.model.GeoLocation
 import com.reevent.app.core.model.ImpactRecord
 import com.reevent.app.core.model.MarketplaceListing
 import com.reevent.app.core.model.PassportHistoryEntry
@@ -87,13 +89,15 @@ class SupabaseCoreGateway @Inject constructor(private val authGateway: SupabaseA
     @Serializable private data class EventRow(
         val id: String, @SerialName("owner_id") val ownerId: String? = null, val name: String, val description: String,
         @SerialName("address_text") val addressText: String, @SerialName("starts_at") val startsAt: String, @SerialName("ends_at") val endsAt: String,
+        val latitude: Double? = null, val longitude: Double? = null,
         val status: String, @SerialName("archived_at") val archivedAt: String? = null,
         @SerialName("created_at") val createdAt: String, @SerialName("updated_at") val updatedAt: String
-    ) { fun toDomainOrNull() = runCatching { Event(id, requireNotNull(ownerId), name, description, addressText, millis(startsAt), millis(endsAt), status, millis(createdAt), millis(updatedAt), SyncState.SYNCED, archivedAt != null) }.getOrNull() }
+    ) { fun toDomainOrNull() = runCatching { Event(id, requireNotNull(ownerId), name, description, addressText, millis(startsAt), millis(endsAt), status, millis(createdAt), millis(updatedAt), SyncState.SYNCED, archivedAt != null, geoLocation(addressText, latitude, longitude)) }.getOrNull() }
 
     @Serializable private data class ResourceRow(
         val id: String, @SerialName("origin_event_id") val eventId: String, @SerialName("current_owner_id") val ownerId: String? = null,
         val title: String, val category: String, val material: String, val condition: String, val quantity: Double, val unit: String,
+        @SerialName("address_text") val addressText: String? = null, val latitude: Double? = null, val longitude: Double? = null,
         val status: String, @SerialName("archived_at") val archivedAt: String? = null,
         @SerialName("created_at") val createdAt: String, @SerialName("updated_at") val updatedAt: String
     ) {
@@ -102,7 +106,8 @@ class SupabaseCoreGateway @Inject constructor(private val authGateway: SupabaseA
                 id, eventId, requireNotNull(ownerId), title, category, material,
                 enumValue(condition, ResourceCondition.entries), quantity, unit,
                 enumValue(status, ResourceStatus.entries), listing?.buyUnitPrice ?: listing?.rentUnitPrice ?: 0,
-                imagePaths, millis(createdAt), millis(updatedAt), SyncState.SYNCED, archivedAt != null, listing
+                imagePaths, millis(createdAt), millis(updatedAt), SyncState.SYNCED, archivedAt != null, listing,
+                geoLocation(addressText.orEmpty(), latitude, longitude),
             )
         }.onFailure { Log.w(TAG, "Ignoring malformed resource row $id", it) }.getOrNull()
     }
@@ -196,9 +201,28 @@ class SupabaseCoreGateway @Inject constructor(private val authGateway: SupabaseA
 
     @Serializable private data class ProgrammeRow(
         val id: String, @SerialName("partner_id") val partnerId: String, val name: String, @SerialName("programme_type") val type: String,
-        @SerialName("accepted_materials") val acceptedMaterials: List<String> = emptyList(), @SerialName("address_text") val location: String, val active: Boolean,
+        @SerialName("accepted_categories") val acceptedCategories: List<String> = emptyList(),
+        @SerialName("accepted_materials") val acceptedMaterials: List<String> = emptyList(),
+        @SerialName("accepted_conditions") val acceptedConditions: List<String> = emptyList(),
+        @SerialName("minimum_quantity") val minimumQuantity: Double? = null,
+        @SerialName("maximum_quantity") val maximumQuantity: Double? = null,
+        val unit: String? = null,
+        @SerialName("remaining_capacity") val remainingCapacity: Double? = null,
+        @SerialName("coin_direction") val coinDirection: String = CoinDirection.FREE.name,
+        @SerialName("unit_coin_amount") val unitCoinAmount: Long? = null,
+        @SerialName("pickup_available") val pickupAvailable: Boolean = false,
+        @SerialName("address_text") val location: String, val latitude: Double? = null, val longitude: Double? = null,
+        @SerialName("processing_method") val processingMethod: String = "", val terms: String = "", val active: Boolean,
         @SerialName("created_at") val createdAt: String, @SerialName("updated_at") val updatedAt: String
-    ) { fun toDomainOrNull() = runCatching { CircularProgramme(id, partnerId, name, ProgrammeType.valueOf(type), acceptedMaterials, location, active, millis(createdAt), millis(updatedAt), SyncState.SYNCED) }.getOrNull() }
+    ) { fun toDomainOrNull() = runCatching {
+        CircularProgramme(
+            id, partnerId, name, ProgrammeType.valueOf(type), acceptedMaterials, location, active,
+            millis(createdAt), millis(updatedAt), SyncState.SYNCED, acceptedCategories,
+            acceptedConditions.map(ResourceCondition::valueOf).toSet(), minimumQuantity, maximumQuantity,
+            unit, remainingCapacity, CoinDirection.valueOf(coinDirection), unitCoinAmount, pickupAvailable,
+            geoLocation(location, latitude, longitude), processingMethod, terms,
+        )
+    }.getOrNull() }
 
     @Serializable private data class TransactionRow(
         val id: String, @SerialName("origin_event_id") val eventId: String, @SerialName("resource_id") val resourceId: String,
@@ -239,6 +263,9 @@ class SupabaseCoreGateway @Inject constructor(private val authGateway: SupabaseA
             return entries.firstOrNull { it.name == normalized }
                 ?: error("Unsupported enum value: $value")
         }
+
+        fun geoLocation(address: String, latitude: Double?, longitude: Double?): GeoLocation? =
+            if (latitude != null && longitude != null) GeoLocation(address, latitude, longitude) else null
     }
 }
 

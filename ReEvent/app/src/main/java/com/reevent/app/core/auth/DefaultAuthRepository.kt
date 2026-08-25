@@ -29,6 +29,25 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.Locale
 
+/**
+ * The role RPC is deliberately idempotent for the originally requested role, but a different
+ * role must never be accepted after the first choice has been frozen on the server.
+ */
+internal enum class RoleAssignmentState {
+    UNASSIGNED,
+    MATCHES_REQUEST,
+    CONFLICTS_WITH_REQUEST
+}
+
+internal fun roleAssignmentStateFor(
+    requestedRole: UserRole,
+    assignedRole: UserRole?
+): RoleAssignmentState = when (assignedRole) {
+    null -> RoleAssignmentState.UNASSIGNED
+    requestedRole -> RoleAssignmentState.MATCHES_REQUEST
+    else -> RoleAssignmentState.CONFLICTS_WITH_REQUEST
+}
+
 @Singleton
 class DefaultAuthRepository @Inject constructor(
     private val gateway: SupabaseAuthGateway,
@@ -116,15 +135,25 @@ class DefaultAuthRepository @Inject constructor(
                 if (serverUser.deletionPending) {
                     persistAuthenticatedUser(serverUser)
                     AppResult.Failure(FailureReason.CONFLICT)
-                } else if (serverUser.role != null) {
-                    persistAuthenticatedUser(serverUser)
-                    AppResult.Success(serverUser)
-                } else when (val saved = remoteCall { gateway.saveRole(serverUser, role) }) {
-                    is AppResult.Success -> {
-                        persistAuthenticatedUser(saved.value)
-                        AppResult.Success(saved.value)
+                } else when (roleAssignmentStateFor(role, serverUser.role)) {
+                    RoleAssignmentState.MATCHES_REQUEST -> {
+                        // A previous response may have been lost after the RPC committed. The
+                        // same role is safe to recover, and avoids presenting a false failure.
+                        persistAuthenticatedUser(serverUser)
+                        AppResult.Success(serverUser)
                     }
-                    is AppResult.Failure -> saved
+                    RoleAssignmentState.CONFLICTS_WITH_REQUEST -> {
+                        // Do not silently enter a workspace for a role the caller did not
+                        // request. The selection screen keeps the original request retry-only.
+                        AppResult.Failure(FailureReason.CONFLICT)
+                    }
+                    RoleAssignmentState.UNASSIGNED -> when (val saved = remoteCall { gateway.saveRole(serverUser, role) }) {
+                        is AppResult.Success -> {
+                            persistAuthenticatedUser(saved.value)
+                            AppResult.Success(saved.value)
+                        }
+                        is AppResult.Failure -> recoverCommittedRoleAssignment(role, saved)
+                    }
                 }
             }
         }
@@ -227,6 +256,34 @@ class DefaultAuthRepository @Inject constructor(
             AppResult.Success(result.value)
         }
         is AppResult.Failure -> result
+    }
+
+    /**
+     * A timeout or response-decoding failure does not prove that Postgres rolled back the RPC.
+     * Read the authoritative profile once before reporting failure; the RPC is atomic and the
+     * same requested role is idempotent, so this safely recovers a committed first selection.
+     */
+    private suspend fun recoverCommittedRoleAssignment(
+        requestedRole: UserRole,
+        originalFailure: AppResult.Failure
+    ): AppResult<User> = when (val remote = remoteCall { gateway.currentUserOrNull() }) {
+        is AppResult.Failure -> originalFailure
+        is AppResult.Success -> when (val serverUser = remote.value) {
+            null -> originalFailure
+            else -> when {
+                serverUser.deletionPending -> {
+                    persistAuthenticatedUser(serverUser)
+                    AppResult.Failure(FailureReason.CONFLICT)
+                }
+                roleAssignmentStateFor(requestedRole, serverUser.role) == RoleAssignmentState.MATCHES_REQUEST -> {
+                    persistAuthenticatedUser(serverUser)
+                    AppResult.Success(serverUser)
+                }
+                roleAssignmentStateFor(requestedRole, serverUser.role) == RoleAssignmentState.CONFLICTS_WITH_REQUEST ->
+                    AppResult.Failure(FailureReason.CONFLICT)
+                else -> originalFailure
+            }
+        }
     }
 
     private suspend fun <T> remoteCall(action: suspend () -> T): AppResult<T> = try {

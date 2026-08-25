@@ -170,6 +170,38 @@ test('all migrations apply and expose the frozen release schema', async () => {
   `)
   const actual = new Set(result.rows.map((row) => row.table_name))
   for (const table of expectedTables) assert(actual.has(table), `missing table ${table}`)
+  const units = await database.query(`select unnest(enum_range(null::public.quantity_unit))::text as unit`)
+  assert.deepEqual(units.rows.map((row) => row.unit), ['ITEM', 'BOX', 'KG', 'SET', 'METRE'])
+  await database.close()
+})
+
+test('role assignment is idempotent only for the originally selected role', async () => {
+  const database = await createDatabase()
+  const roles = ['ORGANIZER', 'PARTICIPANT', 'PARTNER']
+
+  for (const [index, role] of roles.entries()) {
+    const actorId = `10000000-0000-4000-8000-0000000001${index + 1}0`
+    const email = `${role.toLowerCase()}-onboarding@example.test`
+    await database.query(
+      `insert into auth.users(id, email, raw_user_meta_data) values ($1, $2, jsonb_build_object('display_name', $3::text))`,
+      [actorId, email, `${role} onboarding user`]
+    )
+    await database.query(`select set_config('request.jwt.claim.sub', $1::text, false)`, [actorId])
+    await database.query(
+      `select set_config('request.jwt.claims', jsonb_build_object('email', $1::text)::text, false)`,
+      [email]
+    )
+    await database.exec('set role authenticated')
+    await database.query(`select public.complete_profile_role($1::public.user_role)`, [role])
+    await database.query(`select public.complete_profile_role($1::public.user_role)`, [role])
+    const differentRole = roles.find((candidate) => candidate !== role)
+    await assert.rejects(
+      database.query(`select public.complete_profile_role($1::public.user_role)`, [differentRole]),
+      /ROLE_ALREADY_FROZEN/
+    )
+    await database.exec('reset role')
+  }
+
   await database.close()
 })
 
@@ -346,6 +378,57 @@ test('role onboarding grants one wallet and root resources receive one passport'
   assert.equal(passport.rows.length, 1)
   assert.match(passport.rows[0].public_token, /^[A-Za-z0-9_-]{22}$/)
   assert.equal(passport.rows[0].event_count, 1)
+  await database.close()
+})
+
+test('an organizer can replay a root-resource upsert without bypassing lifecycle controls', async () => {
+  const database = await createDatabase()
+  const organizerId = '10000000-0000-4000-8000-000000000031'
+  await createActor(database, organizerId, 'ORGANIZER')
+  assert.equal(
+    (await database.query(`select has_table_privilege('authenticated', 'public.resource_items', 'UPDATE') as allowed`)).rows[0].allowed,
+    true
+  )
+
+  const event = await runAs(database, organizerId, () => database.query(`
+    insert into public.events(
+      owner_id, name, event_type, starts_at, ends_at, timezone_id, address_text,
+      latitude, longitude, expected_attendance, status
+    ) values (
+      $1, 'Upsert replay event', 'COMMUNITY', now() + interval '1 day', now() + interval '2 days',
+      'Asia/Kuala_Lumpur', 'Kuala Lumpur', 3.139000, 101.686900, 50, 'ACTIVE'
+    ) returning id
+  `, [organizerId]))
+  const resourceId = '20000000-0000-4000-8000-000000000031'
+
+  const replay = await runAs(database, organizerId, () => database.query(`
+    insert into public.resource_items(
+      id, origin_event_id, created_by, current_owner_id, title, description, category, material,
+      condition, quantity, unit, status
+    ) values ($1, $2, $3, $3, 'Reusable banner', '', 'SIGNAGE', 'plastic', 'GOOD', 2, 'ITEM', 'ACTIVE')
+    on conflict (id) do update set
+      origin_event_id = excluded.origin_event_id,
+      created_by = excluded.created_by,
+      current_owner_id = excluded.current_owner_id,
+      title = excluded.title,
+      description = excluded.description,
+      category = excluded.category,
+      material = excluded.material,
+      condition = excluded.condition,
+      quantity = excluded.quantity,
+      unit = excluded.unit,
+      status = excluded.status,
+      updated_at = now()
+    returning id
+  `, [resourceId, event.rows[0].id, organizerId]))
+  assert.deepEqual(replay.rows, [{ id: resourceId }])
+
+  await assert.rejects(
+    runAs(database, organizerId, () => database.query(`
+      update public.resource_items set unit = 'BOX' where id = $1
+    `, [resourceId])),
+    /RESOURCE_LIFECYCLE_SERVER_ONLY/
+  )
   await database.close()
 })
 
@@ -1095,5 +1178,127 @@ test('a completion failure rolls back resource, passport, allocation, transactio
     status: 'RETURN_IN_PROGRESS', state: 'IN_CUSTODY', reuse_count: 0,
     hold_status: 'ACTIVE', impacts: 0, returned_events: 0, owner_confirmations: 0
   }])
+  await database.close()
+})
+
+test('partner discovery is owner-authorised, distance-ranked, and filterable', async () => {
+  const database = await createDatabase()
+  const fixture = await createMarketplaceFixture(database)
+
+  const discovered = await runAs(database, fixture.organizerId, () => database.query(`
+    select public.find_partner_programmes(
+      $1::uuid, null, null, 'plastic', array['RECYCLE']::public.programme_type[], 50, false, 20, 0
+    ) as result
+  `, [fixture.resourceId]))
+  const result = discovered.rows[0].result
+  assert.equal(result.origin_source, 'EVENT')
+  assert.equal(result.candidates.length, 1)
+  assert.equal(result.candidates[0].id, fixture.programmeId)
+  assert.equal(result.candidates[0].score > 0, true)
+  assert.equal(result.candidates[0].distance_km < 1, true)
+
+  const pickupOnly = await runAs(database, fixture.organizerId, () => database.query(`
+    select public.find_partner_programmes(
+      $1::uuid, null, null, null, null, null, true, 20, 0
+    ) as result
+  `, [fixture.resourceId]))
+  assert.deepEqual(pickupOnly.rows[0].result.candidates, [])
+
+  await assert.rejects(
+    runAs(database, fixture.participantId, () => database.query(`
+      select public.find_partner_programmes($1::uuid)
+    `, [fixture.resourceId])),
+    /RESOURCE_OWNER_REQUIRED/
+  )
+  await assert.rejects(
+    runAsAnon(database, () => database.query(`select public.find_partner_programmes()`)),
+    /permission denied/
+  )
+  await database.close()
+})
+
+test('partner discovery has deterministic pagination, origin precedence, exclusions, and self-dealing protection', async () => {
+  const database = await createDatabase()
+  const fixture = await createMarketplaceFixture(database)
+  await runAs(database, fixture.partnerId, async () => {
+    for (const name of ['Alpha recovery', 'Beta recovery']) {
+      await database.query(`
+        insert into public.circular_programmes(
+          partner_id, name, programme_type, accepted_categories, accepted_materials,
+          accepted_conditions, minimum_quantity, maximum_quantity, unit, remaining_capacity,
+          coin_direction, unit_coin_amount, pickup_available, address_text, latitude, longitude,
+          processing_method, terms, active
+        ) values (
+          $1, $2, 'RECYCLE', array['serviceware'], array['plastic'],
+          array['GOOD', 'FAIR', 'END_OF_LIFE']::public.resource_condition[], 1, 5, 'ITEM', 10,
+          'PARTNER_PAYS_OWNER', 3, false, 'Kuala Lumpur', 3.140000, 101.690000,
+          'Mechanical recycling', 'Clean plastics only.', true
+        )
+      `, [fixture.partnerId, name])
+    }
+  })
+
+  const firstPage = await runAs(database, fixture.organizerId, () => database.query(`
+    select public.find_partner_programmes($1::uuid, null, null, null, null, null, false, 1, 0) as result
+  `, [fixture.resourceId]))
+  const secondPage = await runAs(database, fixture.organizerId, () => database.query(`
+    select public.find_partner_programmes($1::uuid, null, null, null, null, null, false, 1, 1) as result
+  `, [fixture.resourceId]))
+  assert.equal(firstPage.rows[0].result.candidates[0].name, 'Alpha recovery')
+  assert.equal(firstPage.rows[0].result.next_offset, 1)
+  assert.equal(secondPage.rows[0].result.candidates[0].name, 'Beta recovery')
+
+  const noOrigin = await runAs(database, fixture.participantId, () => database.query(`
+    select public.find_partner_programmes(null, null, null, 'plastic', null, 5, false, 20, 0) as result
+  `))
+  assert.equal(noOrigin.rows[0].result.origin_source, 'NONE')
+  assert.deepEqual(noOrigin.rows[0].result.candidates, [])
+  assert.equal(noOrigin.rows[0].result.exclusion_counts.OUTSIDE_DISTANCE, 3)
+
+  const deviceOrigin = await runAs(database, fixture.participantId, () => database.query(`
+    select public.find_partner_programmes(null, 3.139, 101.6869, 'plastic', null, 5, false, 20, 0) as result
+  `))
+  assert.equal(deviceOrigin.rows[0].result.origin_source, 'DEVICE')
+  assert.equal(deviceOrigin.rows[0].result.candidates.length, 3)
+
+  const filtered = await runAs(database, fixture.organizerId, () => database.query(`
+    select public.find_partner_programmes(
+      $1::uuid, null, null, null, array['REPAIR']::public.programme_type[], null, true, 20, 0
+    ) as result
+  `, [fixture.resourceId]))
+  assert.equal(filtered.rows[0].result.exclusion_counts.TYPE_FILTERED, 3)
+
+  await database.query(`update public.resource_items set current_owner_id = $1 where id = $2`, [fixture.partnerId, fixture.resourceId])
+  const selfDealing = await runAs(database, fixture.partnerId, () => database.query(`
+    select public.find_partner_programmes($1::uuid) as result
+  `, [fixture.resourceId]))
+  assert.deepEqual(selfDealing.rows[0].result.candidates, [])
+  assert.equal(selfDealing.rows[0].result.exclusion_counts.SELF_DEALING_FORBIDDEN, 3)
+
+  await database.close()
+})
+
+test('partner coordinates are bounded and geocoding quota is atomic per user window', async () => {
+  const database = await createDatabase()
+  const fixture = await createMarketplaceFixture(database)
+  await assert.rejects(
+    runAs(database, fixture.partnerId, () => database.query(`
+      update public.circular_programmes set latitude = 91 where id = $1
+    `, [fixture.programmeId])),
+    /programmes_latitude_check/
+  )
+
+  for (let request = 1; request <= 30; request += 1) {
+    const allowed = await runAsServiceRole(database, () => database.query(
+      `select public.consume_geocoding_quota($1::uuid, 30) as allowed`,
+      [fixture.organizerId]
+    ))
+    assert.equal(allowed.rows[0].allowed, true)
+  }
+  const denied = await runAsServiceRole(database, () => database.query(
+    `select public.consume_geocoding_quota($1::uuid, 30) as allowed`,
+    [fixture.organizerId]
+  ))
+  assert.equal(denied.rows[0].allowed, false)
   await database.close()
 })

@@ -25,6 +25,7 @@ class TopLevelDestinationTest {
             listOf(
                 TopLevelDestination.RETURNS,
                 TopLevelDestination.MARKETPLACE,
+                TopLevelDestination.PARTNERS,
                 TopLevelDestination.ACCOUNT,
             ),
             topLevelDestinations(UserRole.PARTICIPANT),
@@ -33,7 +34,6 @@ class TopLevelDestinationTest {
             listOf(
                 TopLevelDestination.WORKBENCH,
                 TopLevelDestination.MARKETPLACE,
-                TopLevelDestination.PARTNERS,
                 TopLevelDestination.ACCOUNT,
             ),
             topLevelDestinations(UserRole.PARTNER),

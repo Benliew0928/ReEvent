@@ -34,6 +34,7 @@ object ResourcePresentationRules {
             "box", "boxes" -> if (singular) "box" else "boxes"
             "set", "sets" -> if (singular) "set" else "sets"
             "kg" -> "kg"
+            "metre", "metres", "meter", "meters" -> if (singular) "metre" else "metres"
             else -> unit
         }
     }

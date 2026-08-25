@@ -219,15 +219,33 @@ private fun JsonElement.safeJson() = this
 
 private fun EventEntity.toJson() = buildJsonObject {
     put("id", id); put("owner_id", ownerId); put("name", name); put("description", description); put("address_text", venue)
+    put("latitude", latitude); put("longitude", longitude)
     put("starts_at", time(startsAt)); put("ends_at", time(endsAt)); put("updated_at", time(updatedAt))
 }
 private fun ResourceEntity.toJson() = buildJsonObject {
     put("id", id); put("origin_event_id", eventId); put("created_by", ownerId); put("current_owner_id", ownerId)
     put("title", title); put("description", ""); put("category", category); put("material", material)
-    put("condition", condition); put("quantity", quantity); put("unit", unit.uppercase()); put("status", status)
+    put("condition", condition); put("quantity", quantity); put("unit", resourceQuantityUnitWireValue(unit)); put("status", status)
+    put("address_text", location); put("latitude", latitude); put("longitude", longitude)
     put("updated_at", time(updatedAt))
 }
+
+/** Maps the form's human-readable unit labels to the server's canonical enum values. */
+internal fun resourceQuantityUnitWireValue(unit: String): String = when (unit.trim().uppercase()) {
+    "ITEM", "ITEMS" -> "ITEM"
+    "SET", "SETS" -> "SET"
+    "BOX", "BOXES" -> "BOX"
+    "KG", "KILOGRAM", "KILOGRAMS" -> "KG"
+    "METRE", "METRES", "METER", "METERS" -> "METRE"
+    else -> unit.trim().uppercase()
+}
 private fun ProgrammeEntity.toJson() = buildJsonObject {
-    put("id", id); put("partner_id", partnerId); put("name", name); put("programme_type", type); put("accepted_materials", syncJson.parseToJsonElement(acceptedMaterialsJson).safeJson())
-    put("address_text", location); put("active", active); put("updated_at", time(updatedAt))
+    put("id", id); put("partner_id", partnerId); put("name", name); put("programme_type", type)
+    put("accepted_categories", syncJson.parseToJsonElement(acceptedCategoriesJson).safeJson())
+    put("accepted_materials", syncJson.parseToJsonElement(acceptedMaterialsJson).safeJson())
+    put("accepted_conditions", syncJson.parseToJsonElement(acceptedConditionsJson).safeJson())
+    put("minimum_quantity", minimumQuantity); put("maximum_quantity", maximumQuantity); put("unit", unit)
+    put("remaining_capacity", remainingCapacity); put("coin_direction", coinDirection); put("unit_coin_amount", unitCoinAmount)
+    put("pickup_available", pickupAvailable); put("address_text", location); put("latitude", latitude); put("longitude", longitude)
+    put("processing_method", processingMethod); put("terms", terms); put("active", active); put("updated_at", time(updatedAt))
 }

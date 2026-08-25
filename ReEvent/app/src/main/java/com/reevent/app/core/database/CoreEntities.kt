@@ -33,7 +33,9 @@ data class EventEntity(
     val createdAt: Long,
     val updatedAt: Long,
     val syncState: String,
-    val archived: Boolean
+    val archived: Boolean,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
 ) {
     init { require(accountId.isNotBlank()) { "Event cache rows require an accountId" } }
 }
@@ -71,7 +73,10 @@ data class ResourceEntity(
     val marketplaceBuyUnitPrice: Long? = null,
     val marketplaceRentUnitPrice: Long? = null,
     val marketplaceDefaultDurationDays: Int? = null,
-    val marketplaceTerms: String = ""
+    val marketplaceTerms: String = "",
+    val location: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
 ) {
     init { require(accountId.isNotBlank()) { "Resource cache rows require an accountId" } }
 }
@@ -110,9 +115,41 @@ data class ProgrammeEntity(
     val active: Boolean,
     val createdAt: Long,
     val updatedAt: Long,
-    val syncState: String
+    val syncState: String,
+    val acceptedCategoriesJson: String = "[]",
+    val acceptedConditionsJson: String = "[]",
+    val minimumQuantity: Double? = null,
+    val maximumQuantity: Double? = null,
+    val unit: String? = null,
+    val remainingCapacity: Double? = null,
+    val coinDirection: String = "FREE",
+    val unitCoinAmount: Long? = null,
+    val pickupAvailable: Boolean = false,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val processingMethod: String = "",
+    val terms: String = "",
 ) {
     init { require(accountId.isNotBlank()) { "Programme cache rows require an accountId" } }
+}
+
+@Entity(
+    tableName = "legacy_programme_drafts",
+    primaryKeys = ["accountId", "id"],
+    indices = [Index(value = ["accountId", "partnerId"])],
+)
+data class LegacyProgrammeDraftEntity(
+    val id: String,
+    val accountId: String,
+    val partnerId: String,
+    val name: String,
+    val type: String,
+    val acceptedMaterialsJson: String,
+    val location: String,
+    val createdAt: Long,
+    val updatedAt: Long,
+) {
+    init { require(accountId.isNotBlank()) { "Legacy programme drafts require an accountId" } }
 }
 
 @Entity(

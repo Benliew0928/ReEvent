@@ -461,5 +461,6 @@ internal fun errorText(reason: FailureReason): String =
         FailureReason.EMAIL_CONFIRMATION_REQUIRED -> "Confirm your email before signing in."
         FailureReason.RATE_LIMITED -> "Too many requests were made. Wait a moment before trying again."
         FailureReason.OFFLINE -> "The connection timed out. Check your internet connection and try again."
+        FailureReason.CONFLICT -> "This account already has a different permanent role. Sign in again to continue with that workspace."
         else -> "We could not complete that action. Please try again."
     }

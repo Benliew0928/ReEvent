@@ -55,6 +55,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.reevent.app.core.data.ResourcePresentationRules
 import com.reevent.app.core.data.blocksResourceArchive
 import com.reevent.app.core.model.Event
+import com.reevent.app.core.model.GeoLocation
 import com.reevent.app.core.model.ResourceCondition
 import com.reevent.app.core.model.ResourceItem
 import com.reevent.app.core.model.ResourceStatus
@@ -86,6 +87,7 @@ import java.util.UUID
 
 @Serializable
 private data class ResourceDraft(
+    val resourceId: String? = null,
     val title: String = "",
     val category: String = "",
     val material: String = "",
@@ -94,6 +96,10 @@ private data class ResourceDraft(
     val condition: String = ResourceCondition.GOOD.name,
     val value: String = "",
     val photoUri: String? = null,
+    val useEventLocation: Boolean = true,
+    val locationLabel: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
 )
 
 private const val DRAFT_LOADING = "__draft_loading__"
@@ -116,6 +122,7 @@ fun AddResourceLiveScreen(
     initialResource: ResourceItem? = null,
     viewModel: FeatureViewModel = hiltViewModel(),
 ) {
+    val event by viewModel.event(eventId).collectAsState(null)
     var title by rememberSaveable(initialResource?.id) { mutableStateOf(initialResource?.title.orEmpty()) }
     var category by rememberSaveable(initialResource?.id) { mutableStateOf(initialResource?.category ?: resourceCategories.first()) }
     var material by rememberSaveable(initialResource?.id) { mutableStateOf(initialResource?.material.orEmpty()) }
@@ -135,6 +142,10 @@ fun AddResourceLiveScreen(
         )
     }
     var photoUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var useEventLocation by rememberSaveable(initialResource?.id) { mutableStateOf(initialResource?.geoLocation == null) }
+    var resourceLocation by remember(initialResource?.id) { mutableStateOf(initialResource?.geoLocation) }
+    var choosingResourceLocation by remember { mutableStateOf(false) }
+    var draftResourceId by rememberSaveable(initialResource?.id, eventId) { mutableStateOf<String?>(initialResource?.id) }
     var submitted by rememberSaveable { mutableStateOf(false) }
     var photoNotice by rememberSaveable { mutableStateOf<String?>(null) }
     val storedDraft by viewModel.resourceDraft(user.id, eventId).collectAsState(DRAFT_LOADING)
@@ -144,6 +155,7 @@ fun AddResourceLiveScreen(
             draftRestored = true
             storedDraft?.let { saved ->
                 runCatching { resourceDraftJson.decodeFromString(ResourceDraft.serializer(), saved) }.getOrNull()?.let { draft ->
+                    draftResourceId = draft.resourceId
                     title = draft.title
                     category = draft.category.ifBlank { resourceCategories.first() }
                     material = draft.material
@@ -152,19 +164,29 @@ fun AddResourceLiveScreen(
                     condition = runCatching { ResourceCondition.valueOf(draft.condition) }.getOrDefault(ResourceCondition.GOOD)
                     value = draft.value
                     photoUri = draft.photoUri?.let(Uri::parse)
+                    useEventLocation = draft.useEventLocation
+                    resourceLocation = if (draft.latitude != null && draft.longitude != null) {
+                        runCatching { GeoLocation(draft.locationLabel.orEmpty(), draft.latitude, draft.longitude) }.getOrNull()
+                    } else null
                     photoNotice = "Restored your unfinished draft."
                 }
             }
         }
     }
-    LaunchedEffect(title, category, material, quantity, unit, condition, value, photoUri, draftRestored, initialResource?.id) {
+    LaunchedEffect(
+        title, category, material, quantity, unit, condition, value, photoUri, useEventLocation,
+        resourceLocation, draftResourceId, draftRestored, initialResource?.id,
+    ) {
         if (initialResource == null && draftRestored) {
             viewModel.saveResourceDraft(
                 user.id,
                 eventId,
                 resourceDraftJson.encodeToString(
                     ResourceDraft.serializer(),
-                    ResourceDraft(title, category, material, quantity, unit, condition.name, value, photoUri?.toString()),
+                    ResourceDraft(
+                        draftResourceId, title, category, material, quantity, unit, condition.name, value, photoUri?.toString(),
+                        useEventLocation, resourceLocation?.displayAddress, resourceLocation?.latitude, resourceLocation?.longitude,
+                    ),
                 ),
             )
         }
@@ -262,6 +284,32 @@ fun AddResourceLiveScreen(
                 ) { selected ->
                     condition = ResourceCondition.entries.first { it.toDisplayLabel() == selected }
                 }
+                ResourceChoiceField(
+                    "Location",
+                    if (useEventLocation) "Use event location" else "Use resource override",
+                    listOf("Use event location", "Use resource override"),
+                ) { selected -> useEventLocation = selected == "Use event location" }
+                if (useEventLocation) {
+                    Text(
+                        event?.geoLocation?.displayAddress ?: event?.venue?.ifBlank { "Event location is not configured yet." }
+                            ?: "Event location is not configured yet.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ReEventTextSecondary,
+                    )
+                } else {
+                    SecondaryActionButton(
+                        if (resourceLocation == null) "Choose resource location" else "Adjust resource pin",
+                        { choosingResourceLocation = true },
+                        Modifier.fillMaxWidth(),
+                    )
+                    resourceLocation?.let {
+                        Text(
+                            "${it.displayAddress}\n${"%.6f".format(it.latitude)}, ${"%.6f".format(it.longitude)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ReEventTextSecondary,
+                        )
+                    }
+                }
                 OutlinedTextField(
                     value,
                     { typed -> if (typed.matches(Regex("^\\d{0,7}(\\.\\d{0,2})?$"))) value = typed },
@@ -343,7 +391,8 @@ fun AddResourceLiveScreen(
                         submitted = true
                         if (!formValid) return@saveResource
                         val now = System.currentTimeMillis()
-                        val resourceId = initialResource?.id ?: UUID.randomUUID().toString()
+                        val resourceId = initialResource?.id ?: draftResourceId ?: UUID.randomUUID().toString()
+                        if (initialResource == null) draftResourceId = resourceId
                         val resource =
                             ResourceItem(
                                 resourceId,
@@ -360,6 +409,7 @@ fun AddResourceLiveScreen(
                                 initialResource?.imageUrls.orEmpty(),
                                 initialResource?.createdAt ?: now,
                                 now,
+                                geoLocation = if (useEventLocation) null else resourceLocation,
                             )
                         if (initialResource == null) {
                             viewModel.saveResource(resource, photoUri) {
@@ -377,6 +427,19 @@ fun AddResourceLiveScreen(
             }
         }
     }
+    if (choosingResourceLocation) {
+        LocationPickerDialog(
+            initialLocation = resourceLocation ?: event?.geoLocation,
+            onDismiss = { choosingResourceLocation = false },
+            onSelected = {
+                resourceLocation = it
+                useEventLocation = false
+                choosingResourceLocation = false
+            },
+            search = viewModel::searchPlaces,
+            reverse = viewModel::reversePlace,
+        )
+    }
 }
 
 @Composable
@@ -391,7 +454,14 @@ fun ResourceEditorLiveScreen(
 ) {
     val resource by viewModel.resource(resourceId).collectAsState(null)
     if (resource == null) {
-        FeatureScaffold("Edit resource", "Back", onBack, viewModel) {
+        FeatureScaffold(
+            title = "Edit resource",
+            actionLabel = "Back",
+            onAction = onBack,
+            viewModel = viewModel,
+            selected = TopLevelDestination.EVENTS,
+            onNavigate = onNavigate,
+        ) {
             item { EmptyPanel("Resource unavailable", "This item is not available in the current workspace.") {} }
         }
     } else {
@@ -405,11 +475,19 @@ fun EventListLiveScreen(
     onCreate: () -> Unit,
     onOpen: (String) -> Unit,
     onBack: () -> Unit,
+    onNavigate: (TopLevelDestination) -> Unit,
     viewModel: FeatureViewModel = hiltViewModel(),
 ) {
     LaunchedEffect(user.id) { viewModel.refresh() }
     val events by viewModel.events(user.id).collectAsState(emptyList())
-    FeatureScaffold("Your events", "Back", onBack, viewModel) {
+    FeatureScaffold(
+        title = "Your events",
+        actionLabel = "Back",
+        onAction = onBack,
+        viewModel = viewModel,
+        selected = TopLevelDestination.EVENTS,
+        onNavigate = onNavigate,
+    ) {
         item {
             Surface(
                 color = ReEventMintSoft,
@@ -465,12 +543,15 @@ fun EventEditorLiveScreen(
     eventId: String?,
     onSaved: (String) -> Unit,
     onBack: () -> Unit,
+    onNavigate: (TopLevelDestination) -> Unit,
     viewModel: FeatureViewModel = hiltViewModel(),
 ) {
     val existing by (eventId?.let(viewModel::event) ?: kotlinx.coroutines.flow.flowOf(null)).collectAsState(null)
     var name by rememberSaveable(eventId) { mutableStateOf("") }
     var description by rememberSaveable(eventId) { mutableStateOf("") }
     var venue by rememberSaveable(eventId) { mutableStateOf("") }
+    var geoLocation by remember(eventId) { mutableStateOf<GeoLocation?>(null) }
+    var choosingEventLocation by remember { mutableStateOf(false) }
     var startDate by rememberSaveable(eventId) { mutableStateOf("") }
     var endDate by rememberSaveable(eventId) { mutableStateOf("") }
     var submitted by rememberSaveable(eventId) { mutableStateOf(false) }
@@ -479,12 +560,20 @@ fun EventEditorLiveScreen(
             name = it.name
             description = it.description
             venue = it.venue
+            geoLocation = it.geoLocation
             startDate = EventFormValidation.dateText(it.startsAt)
             endDate = EventFormValidation.dateText(it.endsAt)
         }
     }
     val validation = EventFormValidation.validate(name, venue, startDate, endDate)
-    FeatureScaffold(if (eventId == null) "Create event" else "Edit event", "Back", onBack, viewModel) {
+    FeatureScaffold(
+        title = if (eventId == null) "Create event" else "Edit event",
+        actionLabel = "Back",
+        onAction = onBack,
+        viewModel = viewModel,
+        selected = TopLevelDestination.EVENTS,
+        onNavigate = onNavigate,
+    ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
@@ -501,15 +590,21 @@ fun EventEditorLiveScreen(
                     supportingText = { if (submitted) validation.nameError?.let { message -> Text(message) } },
                 )
                 OutlinedTextField(description, { description = it }, Modifier.fillMaxWidth(), label = { Text("Description") })
-                OutlinedTextField(
-                    venue,
-                    { venue = it },
-                    Modifier.fillMaxWidth(),
-                    label = { Text("Location *") },
-                    isError = submitted && validation.venueError != null,
-                    supportingText = { if (submitted) validation.venueError?.let { message -> Text(message) } },
-                    singleLine = true,
+                SecondaryActionButton(
+                    text = if (geoLocation == null) "Choose event location *" else "Adjust event pin",
+                    onClick = { choosingEventLocation = true },
+                    modifier = Modifier.fillMaxWidth(),
                 )
+                geoLocation?.let {
+                    Text(
+                        "${it.displayAddress}\n${"%.6f".format(it.latitude)}, ${"%.6f".format(it.longitude)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ReEventTextSecondary,
+                    )
+                }
+                if (submitted && geoLocation == null) {
+                    Text("Select an exact event location.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
                 OutlinedTextField(
                     startDate,
                     { startDate = it },
@@ -534,7 +629,7 @@ fun EventEditorLiveScreen(
                     if (eventId == null) "Create event" else "Save changes",
                     saveEvent@{
                         submitted = true
-                        if (!validation.isValid) return@saveEvent
+                        if (!validation.isValid || geoLocation == null) return@saveEvent
                         val now = System.currentTimeMillis()
                         val start = checkNotNull(EventFormValidation.parseDate(startDate))
                         val end = checkNotNull(EventFormValidation.parseDate(endDate))
@@ -543,6 +638,7 @@ fun EventEditorLiveScreen(
                                 name = name.trim(),
                                 description = description.trim(),
                                 venue = venue.trim(),
+                                geoLocation = geoLocation,
                                 startsAt = EventFormValidation.startOfDayMillis(start),
                                 endsAt = EventFormValidation.endOfDayMillis(end),
                                 updatedAt = now,
@@ -557,6 +653,7 @@ fun EventEditorLiveScreen(
                                 "DRAFT",
                                 now,
                                 now,
+                                geoLocation = geoLocation,
                             )
                         viewModel.saveEvent(event, if (existing == null) "Event created" else "Event updated") { onSaved(it.id) }
                     },
@@ -572,6 +669,19 @@ fun EventEditorLiveScreen(
             }
         }
     }
+    if (choosingEventLocation) {
+        LocationPickerDialog(
+            initialLocation = geoLocation,
+            onDismiss = { choosingEventLocation = false },
+            onSelected = {
+                geoLocation = it
+                venue = it.displayAddress
+                choosingEventLocation = false
+            },
+            search = viewModel::searchPlaces,
+            reverse = viewModel::reversePlace,
+        )
+    }
 }
 
 @Composable
@@ -584,6 +694,7 @@ fun EventDetailLiveScreen(
     onOpenPassport: (String) -> Unit,
     onArchiveEvent: () -> Unit,
     onBack: () -> Unit,
+    onNavigate: (TopLevelDestination) -> Unit,
     viewModel: FeatureViewModel = hiltViewModel(),
 ) {
     val event by viewModel.event(eventId).collectAsState(null)
@@ -603,7 +714,14 @@ fun EventDetailLiveScreen(
             val matchesStatus = statusFilter == "All statuses" || resource.status.toDisplayLabel() == statusFilter
             matchesSearch && matchesStatus
         }
-    FeatureScaffold(event?.name ?: "Event details", "Back", onBack, viewModel) {
+    FeatureScaffold(
+        title = event?.name ?: "Event details",
+        actionLabel = "Back",
+        onAction = onBack,
+        viewModel = viewModel,
+        selected = TopLevelDestination.EVENTS,
+        onNavigate = onNavigate,
+    ) {
         item {
             Surface(
                 Modifier.fillMaxWidth(),

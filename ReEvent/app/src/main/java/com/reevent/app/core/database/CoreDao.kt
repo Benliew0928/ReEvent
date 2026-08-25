@@ -41,9 +41,12 @@ interface CoreDao {
 
     @Upsert suspend fun upsertProgramme(programme: ProgrammeEntity)
     @Query("SELECT * FROM circular_programmes WHERE accountId = :accountId AND active = 1 ORDER BY name") fun observeProgrammes(accountId: String): Flow<List<ProgrammeEntity>>
-    @Query("SELECT * FROM circular_programmes WHERE accountId = :accountId AND partnerId = :partnerId AND active = 1 ORDER BY name") fun observePartnerProgrammes(accountId: String, partnerId: String): Flow<List<ProgrammeEntity>>
+    @Query("SELECT * FROM circular_programmes WHERE accountId = :accountId AND partnerId = :partnerId ORDER BY active DESC, name") fun observePartnerProgrammes(accountId: String, partnerId: String): Flow<List<ProgrammeEntity>>
     @Query("SELECT * FROM circular_programmes WHERE accountId = :accountId AND id = :id") suspend fun programme(accountId: String, id: String): ProgrammeEntity?
     @Query("UPDATE circular_programmes SET syncState = :state WHERE accountId = :accountId AND id = :id") suspend fun setProgrammeSyncState(accountId: String, id: String, state: String)
+    @Query("SELECT * FROM legacy_programme_drafts WHERE accountId = :accountId AND partnerId = :partnerId ORDER BY updatedAt DESC") fun observeLegacyProgrammeDrafts(accountId: String, partnerId: String): Flow<List<LegacyProgrammeDraftEntity>>
+    @Upsert suspend fun upsertLegacyProgrammeDraft(draft: LegacyProgrammeDraftEntity)
+    @Query("DELETE FROM legacy_programme_drafts WHERE accountId = :accountId AND id = :id") suspend fun deleteLegacyProgrammeDraft(accountId: String, id: String)
 
     @Upsert suspend fun upsertTransaction(transaction: TransactionEntity)
     @Query("SELECT * FROM circular_transactions WHERE accountId = :accountId AND (requesterId = :userId OR senderId = :userId OR receiverId = :userId OR partnerId = :userId) AND archived = 0 ORDER BY updatedAt DESC") fun observeTransactions(accountId: String, userId: String): Flow<List<TransactionEntity>>
@@ -80,6 +83,7 @@ interface CoreDao {
     @Query("DELETE FROM resource_items WHERE accountId = :accountId") suspend fun clearAccountResources(accountId: String)
     @Query("DELETE FROM resource_passports WHERE accountId = :accountId") suspend fun clearAccountPassports(accountId: String)
     @Query("DELETE FROM circular_programmes WHERE accountId = :accountId") suspend fun clearAccountProgrammes(accountId: String)
+    @Query("DELETE FROM legacy_programme_drafts WHERE accountId = :accountId") suspend fun clearAccountLegacyProgrammeDrafts(accountId: String)
     @Query("DELETE FROM circular_transactions WHERE accountId = :accountId") suspend fun clearAccountTransactions(accountId: String)
     @Query("DELETE FROM impact_records WHERE accountId = :accountId") suspend fun clearAccountImpact(accountId: String)
     @Query("DELETE FROM sync_outbox WHERE environment = :environment AND accountId = :accountId") suspend fun clearAccountOutbox(environment: String, accountId: String)
@@ -88,6 +92,7 @@ interface CoreDao {
     @Query("DELETE FROM resource_items") suspend fun clearResources()
     @Query("DELETE FROM resource_passports") suspend fun clearPassports()
     @Query("DELETE FROM circular_programmes") suspend fun clearProgrammes()
+    @Query("DELETE FROM legacy_programme_drafts") suspend fun clearLegacyProgrammeDrafts()
     @Query("DELETE FROM circular_transactions") suspend fun clearTransactions()
     @Query("DELETE FROM impact_records") suspend fun clearImpact()
     @Query("DELETE FROM sync_outbox") suspend fun clearOutbox()

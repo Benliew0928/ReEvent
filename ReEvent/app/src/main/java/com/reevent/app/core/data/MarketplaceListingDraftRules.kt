@@ -45,7 +45,7 @@ object MarketplaceListingDraftRules {
         val borrowsOrRents = draft.allowedActions.any { it in setOf(TransactionType.BORROW, TransactionType.RENT) }
         val allowsBuy = TransactionType.BUY in draft.allowedActions
         val allowsRent = TransactionType.RENT in draft.allowedActions
-        val needsWholeQuantity = resource.unit.uppercase() in setOf("ITEM", "BOX")
+        val needsWholeQuantity = !resource.unit.equals("KG", ignoreCase = true)
         return MarketplaceListingDraftValidation(
             resourceError = when {
                 resource.archived || resource.status != ResourceStatus.ACTIVE -> "Only an active resource can be published."

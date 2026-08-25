@@ -3,3 +3,5 @@
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_ANON_KEY=your-publishable-or-anon-key
 PUBLIC_BASE_URL=https://your-public-reevent-host.example
+# One MapTiler project credential is used by Android map tiles and the authenticated geocoding Edge Function.
+MAPTILER_API_KEY=your-maptiler-project-key

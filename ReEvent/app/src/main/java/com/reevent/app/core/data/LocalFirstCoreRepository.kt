@@ -6,6 +6,7 @@ import com.reevent.app.core.config.AppEnvironment
 import com.reevent.app.core.database.EventEntity
 import com.reevent.app.core.database.ImpactEntity
 import com.reevent.app.core.database.LifecycleCommandEntity
+import com.reevent.app.core.database.LegacyProgrammeDraftEntity
 import com.reevent.app.core.database.PassportEntity
 import com.reevent.app.core.database.ProgrammeEntity
 import com.reevent.app.core.database.ResourceEntity
@@ -18,6 +19,9 @@ import com.reevent.app.core.model.CircularTransaction
 import com.reevent.app.core.model.Event
 import com.reevent.app.core.model.ImpactRecord
 import com.reevent.app.core.model.MarketplaceListingDraft
+import com.reevent.app.core.model.LegacyProgrammeDraft
+import com.reevent.app.core.model.PartnerDiscoveryRequest
+import com.reevent.app.core.model.PartnerDiscoveryResult
 import com.reevent.app.core.model.ResourceItem
 import com.reevent.app.core.model.ResourcePassport
 import com.reevent.app.core.model.AllocationSide
@@ -32,6 +36,8 @@ import com.reevent.app.core.network.LifecycleCommandPayload
 import com.reevent.app.core.network.LifecycleCommandType
 import com.reevent.app.core.network.SupabaseCoreGateway
 import com.reevent.app.core.network.SupabaseMarketplaceListingGateway
+import com.reevent.app.core.network.SupabasePartnerGateway
+import com.reevent.app.feature.matching.PartnerDiscoveryEngine
 import com.reevent.app.core.network.isTerminalLifecycleFailure
 import com.reevent.app.core.network.lifecycleFailureReason
 import java.security.MessageDigest
@@ -40,6 +46,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -59,6 +66,7 @@ class LocalFirstCoreRepository @Inject constructor(
     private val remote: SupabaseCoreGateway,
     private val lifecycle: LifecycleCommandGateway,
     private val marketplaceListings: SupabaseMarketplaceListingGateway,
+    private val partnerGateway: SupabasePartnerGateway,
     private val syncCoordinator: SyncCoordinator
 ) : EventRepository, ResourceRepository, MarketplaceListingRepository, PassportRepository, PartnerRepository, TransactionRepository, ImpactRepository, CoreSyncRepository {
     private val refreshMutex = Mutex()
@@ -114,6 +122,35 @@ class LocalFirstCoreRepository @Inject constructor(
 
     override fun observeProgrammes(partnerId: String?): Flow<List<CircularProgramme>> =
         (partnerId?.let { dao.observePartnerProgrammes(accountScope.requireId(), it) } ?: dao.observeProgrammes(accountScope.requireId())).map(List<ProgrammeEntity>::toProgrammes)
+
+    override fun observeLegacyProgrammeDrafts(partnerId: String): Flow<List<LegacyProgrammeDraft>> =
+        dao.observeLegacyProgrammeDrafts(accountScope.requireId(), partnerId).map(List<LegacyProgrammeDraftEntity>::toLegacyProgrammeDrafts)
+
+    override suspend fun discardLegacyProgrammeDraft(id: String): AppResult<Unit> = try {
+        dao.deleteLegacyProgrammeDraft(accountScope.requireId(), id)
+        AppResult.Success(Unit)
+    } catch (error: Throwable) {
+        AppResult.Failure(FailureReason.SERVER, error)
+    }
+
+    override suspend fun discoverProgrammes(request: PartnerDiscoveryRequest): AppResult<PartnerDiscoveryResult> {
+        if (partnerGateway.isConfigured()) {
+            runCatching { partnerGateway.discover(request) }.getOrNull()?.let { return AppResult.Success(it) }
+        }
+        val accountId = accountScope.requireId()
+        val resource = request.resourceId?.let { dao.resource(accountId, it)?.toDomain() }
+        val eventLocation = resource?.eventId?.let { dao.event(accountId, it)?.toDomain()?.geoLocation }
+        val cachedProgrammes = dao.observeProgrammes(accountId).first().map(ProgrammeEntity::toDomain)
+        return AppResult.Success(
+            PartnerDiscoveryEngine.discover(
+                programmes = cachedProgrammes,
+                resource = resource,
+                eventLocation = eventLocation,
+                requesterId = accountId,
+                request = request,
+            ),
+        )
+    }
 
     override suspend fun saveProgramme(programme: CircularProgramme): AppResult<CircularProgramme> = persist(programme, "circular_programmes", programme.id) { accountId ->
         dao.upsertProgramme(programme.copy(syncState = com.reevent.app.core.model.SyncState.PENDING).toEntity(accountId))
@@ -424,5 +461,6 @@ class LocalFirstCoreRepository @Inject constructor(
 private fun List<EventEntity>.toEvents() = map(EventEntity::toDomain)
 private fun List<ResourceEntity>.toResources() = map(ResourceEntity::toDomain)
 private fun List<ProgrammeEntity>.toProgrammes() = map(ProgrammeEntity::toDomain)
+private fun List<LegacyProgrammeDraftEntity>.toLegacyProgrammeDrafts() = map(LegacyProgrammeDraftEntity::toDomain)
 private fun List<TransactionEntity>.toTransactions() = map(TransactionEntity::toDomain)
 private fun List<ImpactEntity>.toImpact() = map(ImpactEntity::toDomain)

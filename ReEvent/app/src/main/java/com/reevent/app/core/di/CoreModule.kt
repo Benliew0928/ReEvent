@@ -3,6 +3,7 @@ package com.reevent.app.core.di
 import android.content.Context
 import androidx.room.Room
 import com.reevent.app.core.data.EventRepository
+import com.reevent.app.core.data.GeocodingRepository
 import com.reevent.app.core.data.AuthRepository
 import com.reevent.app.core.data.ImpactRepository
 import com.reevent.app.core.data.LocalFirstCoreRepository
@@ -21,6 +22,7 @@ import com.reevent.app.core.config.AppEnvironment
 import com.reevent.app.core.network.SupabaseAuthGateway
 import com.reevent.app.core.network.LifecycleCommandGateway
 import com.reevent.app.core.network.SupabaseLifecycleCommandGateway
+import com.reevent.app.core.network.SupabaseGeocodingRepository
 import com.reevent.app.core.sync.SyncGateway
 import com.reevent.app.core.sync.AccountSyncScheduler
 import com.reevent.app.core.sync.SyncScheduler
@@ -43,7 +45,8 @@ object CoreModule {
                 ReEventDatabase.MIGRATION_2_3,
                 ReEventDatabase.MIGRATION_3_4,
                 ReEventDatabase.MIGRATION_4_5,
-                ReEventDatabase.MIGRATION_5_6
+                ReEventDatabase.MIGRATION_5_6,
+                ReEventDatabase.MIGRATION_6_7,
             )
             .build()
 
@@ -73,4 +76,5 @@ object CoreModule {
     @Provides fun provideImpactRepository(repository: LocalFirstCoreRepository): ImpactRepository = repository
     @Provides fun provideCoreSyncRepository(repository: LocalFirstCoreRepository): CoreSyncRepository = repository
     @Provides fun provideMediaRepository(repository: SupabaseMediaRepository): MediaRepository = repository
+    @Provides fun provideGeocodingRepository(repository: SupabaseGeocodingRepository): GeocodingRepository = repository
 }

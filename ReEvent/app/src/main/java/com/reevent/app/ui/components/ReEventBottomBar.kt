@@ -60,6 +60,7 @@ fun ReEventBottomBar(
                 listOf(
                     BottomDestination(TopLevelDestination.RETURNS, "Returns", Icons.Outlined.Refresh),
                     BottomDestination(TopLevelDestination.MARKETPLACE, "Resources", Icons.Outlined.Search),
+                    BottomDestination(TopLevelDestination.PARTNERS, "Partners", Icons.Outlined.Map),
                     BottomDestination(TopLevelDestination.ACCOUNT, "Account", Icons.Outlined.Person),
                 )
             }
@@ -68,7 +69,6 @@ fun ReEventBottomBar(
                 listOf(
                     BottomDestination(TopLevelDestination.WORKBENCH, "Workbench", Icons.Outlined.Settings),
                     BottomDestination(TopLevelDestination.MARKETPLACE, "Resources", Icons.Outlined.ShoppingBag),
-                    BottomDestination(TopLevelDestination.PARTNERS, "Network", Icons.Outlined.Map),
                     BottomDestination(TopLevelDestination.ACCOUNT, "Account", Icons.Outlined.Person),
                 )
             }

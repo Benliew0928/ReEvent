@@ -8,6 +8,7 @@ import com.reevent.app.core.data.AppResult
 import com.reevent.app.core.data.CoreSyncRepository
 import com.reevent.app.core.data.EventRepository
 import com.reevent.app.core.data.FailureReason
+import com.reevent.app.core.data.GeocodingRepository
 import com.reevent.app.core.data.ImpactRepository
 import com.reevent.app.core.data.MarketplaceListingRepository
 import com.reevent.app.core.data.MediaRepository
@@ -19,6 +20,8 @@ import com.reevent.app.core.data.TransactionRepository
 import com.reevent.app.core.data.TransactionWorkflow
 import com.reevent.app.core.data.blocksResourceArchive
 import com.reevent.app.core.data.preferences.AppPreferences
+import com.reevent.app.core.model.GeoLocation
+import com.reevent.app.core.model.PlaceSuggestion
 import com.reevent.app.core.model.CircularProgramme
 import com.reevent.app.core.model.CircularTransaction
 import com.reevent.app.core.model.Event
@@ -86,6 +89,7 @@ class FeatureViewModel
         private val sync: CoreSyncRepository,
         private val media: MediaRepository,
         private val preferences: AppPreferences,
+        private val geocoding: GeocodingRepository,
     ) : ViewModel() {
         private val mutableAction = MutableStateFlow(FeatureActionState())
         val action: StateFlow<FeatureActionState> = mutableAction
@@ -111,6 +115,11 @@ class FeatureViewModel
 
         fun resource(id: String): Flow<ResourceItem?> = resources.observeResource(id)
 
+        suspend fun searchPlaces(query: String, proximity: GeoLocation? = null): AppResult<List<PlaceSuggestion>> =
+            geocoding.search(query, proximity)
+
+        suspend fun reversePlace(location: GeoLocation): AppResult<PlaceSuggestion> = geocoding.reverse(location)
+
         fun passport(resourceId: String): Flow<ResourcePassport?> = passports.observePassport(resourceId)
 
         suspend fun resourcePhoto(path: String): ByteArray? =
@@ -120,6 +129,9 @@ class FeatureViewModel
             }
 
         fun programmes(partnerId: String? = null): Flow<List<CircularProgramme>> = partners.observeProgrammes(partnerId)
+
+        fun legacyProgrammes(partnerId: String): Flow<List<com.reevent.app.core.model.LegacyProgrammeDraft>> =
+            partners.observeLegacyProgrammeDrafts(partnerId)
 
         fun transactions(userId: String): Flow<List<CircularTransaction>> = transactions.observeTransactions(userId)
 
@@ -478,7 +490,7 @@ class FeatureViewModel
                         ProgrammeType.REPAIR,
                         emptyList(),
                         "",
-                        true,
+                        false,
                         now,
                         now,
                     ),
@@ -491,34 +503,76 @@ class FeatureViewModel
             name: String,
             type: ProgrammeType,
             acceptedMaterials: List<String>,
-            location: String,
+            acceptedCategories: List<String>,
+            acceptedConditions: Set<com.reevent.app.core.model.ResourceCondition>,
+            minimumQuantity: Double?,
+            maximumQuantity: Double?,
+            unit: String?,
+            remainingCapacity: Double?,
+            pickupAvailable: Boolean,
+            coinDirection: com.reevent.app.core.model.CoinDirection,
+            unitCoinAmount: Long?,
+            geoLocation: GeoLocation?,
+            processingMethod: String,
+            terms: String,
             active: Boolean,
+            legacyDraftId: String? = null,
         ) = launchAction(if (existing == null) "Programme added" else "Programme updated") {
-            if (user.role != UserRole.PARTNER || name.trim().length < 2) {
+            if (user.role != UserRole.PARTNER) {
                 return@launchAction AppResult.Failure(FailureReason.VALIDATION)
             }
             val now = System.currentTimeMillis()
+            val normalizedMaterials = acceptedMaterials.map(String::trim).filter(String::isNotBlank).distinctBy(String::lowercase)
+            val normalizedCategories = acceptedCategories.map(String::trim).filter(String::isNotBlank).distinctBy(String::lowercase)
             val programme =
                 existing?.copy(
                     name = name.trim(),
                     type = type,
-                    acceptedMaterials = acceptedMaterials.map(String::trim).filter(String::isNotBlank).distinctBy(String::lowercase),
-                    location = location.trim(),
+                    acceptedMaterials = normalizedMaterials,
+                    location = geoLocation?.displayAddress.orEmpty(),
                     active = active,
                     updatedAt = now,
+                    acceptedCategories = normalizedCategories,
+                    acceptedConditions = acceptedConditions,
+                    minimumQuantity = minimumQuantity,
+                    maximumQuantity = maximumQuantity,
+                    unit = unit?.trim()?.takeIf(String::isNotBlank),
+                    remainingCapacity = remainingCapacity,
+                    pickupAvailable = pickupAvailable,
+                    coinDirection = coinDirection,
+                    unitCoinAmount = unitCoinAmount,
+                    geoLocation = geoLocation,
+                    processingMethod = processingMethod.trim(),
+                    terms = terms.trim(),
                 ) ?: CircularProgramme(
                     id = UUID.randomUUID().toString(),
                     partnerId = user.id,
                     name = name.trim(),
                     type = type,
-                    acceptedMaterials = acceptedMaterials.map(String::trim).filter(String::isNotBlank).distinctBy(String::lowercase),
-                    location = location.trim(),
+                    acceptedMaterials = normalizedMaterials,
+                    location = geoLocation?.displayAddress.orEmpty(),
                     active = active,
                     createdAt = now,
                     updatedAt = now,
+                    acceptedCategories = normalizedCategories,
+                    acceptedConditions = acceptedConditions,
+                    minimumQuantity = minimumQuantity,
+                    maximumQuantity = maximumQuantity,
+                    unit = unit?.trim()?.takeIf(String::isNotBlank),
+                    remainingCapacity = remainingCapacity,
+                    pickupAvailable = pickupAvailable,
+                    coinDirection = coinDirection,
+                    unitCoinAmount = unitCoinAmount,
+                    geoLocation = geoLocation,
+                    processingMethod = processingMethod.trim(),
+                    terms = terms.trim(),
                 )
             if (programme.partnerId != user.id) return@launchAction AppResult.Failure(FailureReason.CONFLICT)
-            partners.saveProgramme(programme)
+            if (!programme.hasValidProgrammeRules()) return@launchAction AppResult.Failure(FailureReason.VALIDATION)
+            if (programme.active && !programme.isActivationReady()) return@launchAction AppResult.Failure(FailureReason.VALIDATION)
+            val saved = partners.saveProgramme(programme)
+            if (saved is AppResult.Success && legacyDraftId != null) partners.discardLegacyProgrammeDraft(legacyDraftId)
+            saved
         }
 
         fun deactivateProgramme(
@@ -548,10 +602,20 @@ class FeatureViewModel
 
                         is AppResult.Failure -> {
                             FeatureActionState(
-                                error = "Unable to complete this action. Check your connection and try again.",
+                                error = actionErrorText(result.reason),
                             )
                         }
                     }
             }
+        }
+
+        private fun actionErrorText(reason: FailureReason): String = when (reason) {
+            FailureReason.OFFLINE -> "The connection timed out. Check your internet connection and try again."
+            FailureReason.CONFIGURATION -> "This build is not connected to the ReEvent server."
+            FailureReason.UNAUTHENTICATED -> "Your session has expired. Sign in again and retry."
+            FailureReason.VALIDATION -> "Some of the entered details are not valid. Review them and try again."
+            FailureReason.CONFLICT -> "This change is no longer allowed because the server state has changed. Refresh and try again."
+            FailureReason.SERVER -> "The server could not process this change. Check the details and try again."
+            else -> "Unable to complete this action. Please try again."
         }
     }

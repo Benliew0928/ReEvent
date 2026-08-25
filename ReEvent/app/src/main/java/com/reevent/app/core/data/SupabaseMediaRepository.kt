@@ -67,7 +67,10 @@ class SupabaseMediaRepository @Inject constructor(
                         put("p_height", descriptor.height)
                         put("p_byte_size", descriptor.byteSize)
                     }
-                ).decodeSingle<ResourcePhotoMutationResponse>()
+                // `replace_resource_photo` returns a JSONB scalar. PostgREST therefore sends an
+                // object, unlike table and composite-returning RPCs which are represented as
+                // arrays. `decodeSingle` only accepts the latter.
+                ).decodeAs<ResourcePhotoMutationResponse>()
             }
         } catch (error: Throwable) {
             // Never delete this deterministic path here: it may already be the currently tracked

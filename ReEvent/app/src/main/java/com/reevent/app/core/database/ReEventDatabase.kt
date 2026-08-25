@@ -15,9 +15,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TransactionEntity::class,
         ImpactEntity::class,
         SyncOperationEntity::class,
-        LifecycleCommandEntity::class
+        LifecycleCommandEntity::class,
+        LegacyProgrammeDraftEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 abstract class ReEventDatabase : RoomDatabase() {
@@ -295,6 +296,61 @@ abstract class ReEventDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE resource_items ADD COLUMN marketplaceRentUnitPrice INTEGER")
                 db.execSQL("ALTER TABLE resource_items ADD COLUMN marketplaceDefaultDurationDays INTEGER")
                 db.execSQL("ALTER TABLE resource_items ADD COLUMN marketplaceTerms TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        /** Adds complete map coordinates and programme terms while retiring unsafe legacy drafts. */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE events ADD COLUMN latitude REAL")
+                db.execSQL("ALTER TABLE events ADD COLUMN longitude REAL")
+                db.execSQL("ALTER TABLE resource_items ADD COLUMN location TEXT")
+                db.execSQL("ALTER TABLE resource_items ADD COLUMN latitude REAL")
+                db.execSQL("ALTER TABLE resource_items ADD COLUMN longitude REAL")
+
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS legacy_programme_drafts (
+                        id TEXT NOT NULL, accountId TEXT NOT NULL, partnerId TEXT NOT NULL,
+                        name TEXT NOT NULL, type TEXT NOT NULL, acceptedMaterialsJson TEXT NOT NULL,
+                        location TEXT NOT NULL, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL,
+                        PRIMARY KEY(accountId, id)
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_legacy_programme_drafts_accountId_partnerId " +
+                        "ON legacy_programme_drafts(accountId, partnerId)",
+                )
+                db.execSQL(
+                    """
+                    INSERT OR REPLACE INTO legacy_programme_drafts (
+                        id, accountId, partnerId, name, type, acceptedMaterialsJson,
+                        location, createdAt, updatedAt
+                    )
+                    SELECT id, accountId, partnerId, name, type, acceptedMaterialsJson,
+                        location, createdAt, updatedAt
+                    FROM circular_programmes
+                    WHERE syncState <> 'SYNCED'
+                    """.trimIndent(),
+                )
+                db.execSQL("DELETE FROM sync_outbox WHERE tableName = 'circular_programmes'")
+                // Synced rows are a cache and will be repopulated with the complete server contract.
+                db.execSQL("DELETE FROM circular_programmes")
+
+                db.execSQL("ALTER TABLE circular_programmes ADD COLUMN acceptedCategoriesJson TEXT NOT NULL DEFAULT '[]'")
+                db.execSQL("ALTER TABLE circular_programmes ADD COLUMN acceptedConditionsJson TEXT NOT NULL DEFAULT '[]'")
+                db.execSQL("ALTER TABLE circular_programmes ADD COLUMN minimumQuantity REAL")
+                db.execSQL("ALTER TABLE circular_programmes ADD COLUMN maximumQuantity REAL")
+                db.execSQL("ALTER TABLE circular_programmes ADD COLUMN unit TEXT")
+                db.execSQL("ALTER TABLE circular_programmes ADD COLUMN remainingCapacity REAL")
+                db.execSQL("ALTER TABLE circular_programmes ADD COLUMN coinDirection TEXT NOT NULL DEFAULT 'FREE'")
+                db.execSQL("ALTER TABLE circular_programmes ADD COLUMN unitCoinAmount INTEGER")
+                db.execSQL("ALTER TABLE circular_programmes ADD COLUMN pickupAvailable INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE circular_programmes ADD COLUMN latitude REAL")
+                db.execSQL("ALTER TABLE circular_programmes ADD COLUMN longitude REAL")
+                db.execSQL("ALTER TABLE circular_programmes ADD COLUMN processingMethod TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE circular_programmes ADD COLUMN terms TEXT NOT NULL DEFAULT ''")
             }
         }
 

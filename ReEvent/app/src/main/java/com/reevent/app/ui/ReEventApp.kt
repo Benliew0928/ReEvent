@@ -92,7 +92,7 @@ import kotlinx.serialization.Serializable
     val resourceId: String,
 )
 
-@Serializable private data object PartnerMapRoute
+@Serializable private data class PartnerMapRoute(val resourceId: String? = null)
 
 @Serializable private data object OrganizerImpactRoute
 
@@ -202,7 +202,7 @@ private fun androidx.navigation.NavGraphBuilder.organiserGraph(
             onPassport = { nav.openDetail(PassportRoute(it)) },
             onImpact = { nav.openTopLevel(OrganizerImpactRoute) },
             onMarketplace = { nav.openTopLevel(MarketplaceRoute) },
-            onPartnerMap = { nav.openTopLevel(PartnerMapRoute) },
+            onPartnerMap = { nav.openTopLevel(PartnerMapRoute()) },
             onManageEvents = { nav.openDetail(EventListRoute) },
             onProfile = { navigationTapGuard.runIfAllowed(nav::openProfile) },
         )
@@ -221,11 +221,23 @@ private fun androidx.navigation.NavGraphBuilder.organiserGraph(
         )
     }
     composable<EventListRoute> {
-        EventListLiveScreen(user, { nav.openDetail(EventEditorRoute()) }, { nav.openDetail(EventDetailRoute(it)) }, nav::popBackStack)
+        EventListLiveScreen(
+            user = user,
+            onCreate = { nav.openDetail(EventEditorRoute()) },
+            onOpen = { nav.openDetail(EventDetailRoute(it)) },
+            onBack = nav::popBackStack,
+            onNavigate = nav::openOrganiserTopLevelDestination,
+        )
     }
     composable<EventEditorRoute> { entry ->
         val eventId = entry.toRoute<EventEditorRoute>().eventId
-        EventEditorLiveScreen(user, eventId, { nav.openDetail(EventDetailRoute(it)) }, nav::popBackStack)
+        EventEditorLiveScreen(
+            user = user,
+            eventId = eventId,
+            onSaved = { nav.openDetail(EventDetailRoute(it)) },
+            onBack = nav::popBackStack,
+            onNavigate = nav::openOrganiserTopLevelDestination,
+        )
     }
     composable<EventDetailRoute> { entry ->
         val eventId = entry.toRoute<EventDetailRoute>().eventId
@@ -238,6 +250,7 @@ private fun androidx.navigation.NavGraphBuilder.organiserGraph(
             onOpenPassport = { nav.openDetail(PassportRoute(it)) },
             onArchiveEvent = { nav.openTopLevel(EventListRoute) },
             onBack = nav::popBackStack,
+            onNavigate = nav::openOrganiserTopLevelDestination,
         )
     }
     composable<ResourceEditorRoute> { entry ->
@@ -268,7 +281,15 @@ private fun androidx.navigation.NavGraphBuilder.organiserGraph(
             entry.toRoute<QrScannerRoute>().initialPayload,
         )
     }
-    composable<MatchingRoute> { entry -> MatchingLiveScreen(user, entry.toRoute<MatchingRoute>().resourceId, { nav.popBackStack() }) }
+    composable<MatchingRoute> { entry ->
+        val resourceId = entry.toRoute<MatchingRoute>().resourceId
+        MatchingLiveScreen(
+            user = user,
+            resourceId = resourceId,
+            onBack = { nav.popBackStack() },
+            onOpenMap = { nav.openDetail(PartnerMapRoute(resourceId)) },
+        )
+    }
     composable<OrganizerImpactRoute> { OrganizerImpactVisualScreen(user, nav::openOrganiserTopLevelDestination) }
     composable<MarketplaceRoute> {
         MarketplaceVisualScreen(
@@ -277,10 +298,14 @@ private fun androidx.navigation.NavGraphBuilder.organiserGraph(
             nav::openOrganiserTopLevelDestination,
         )
     }
-    composable<PartnerMapRoute> {
+    composable<PartnerMapRoute> { entry ->
+        val route = entry.toRoute<PartnerMapRoute>()
         PartnerMapVisualScreen(
+            user = user,
+            resourceId = route.resourceId,
             onNavigate = nav::openOrganiserTopLevelDestination,
             onOpenPassport = { nav.openDetail(PassportRoute(it)) },
+            onBack = if (route.resourceId == null) null else {{ nav.popBackStack() }},
         )
     }
 }
@@ -298,6 +323,16 @@ private fun androidx.navigation.NavGraphBuilder.participantGraph(
     composable<PassportRoute> { entry ->
         PassportVisualScreen(user, entry.toRoute<PassportRoute>().resourceId, onMatch = {
         }, onBack = nav::popBackStack, onNavigate = nav::openParticipantTopLevelDestination)
+    }
+    composable<PartnerMapRoute> { entry ->
+        val route = entry.toRoute<PartnerMapRoute>()
+        PartnerMapVisualScreen(
+            user = user,
+            resourceId = route.resourceId,
+            onNavigate = nav::openParticipantTopLevelDestination,
+            onOpenPassport = { nav.openDetail(PassportRoute(it)) },
+            onBack = if (route.resourceId == null) null else {{ nav.popBackStack() }},
+        )
     }
     composable<QrScannerRoute> { entry ->
         QrScannerLiveScreen(
@@ -331,12 +366,6 @@ private fun androidx.navigation.NavGraphBuilder.partnerGraph(
         PassportVisualScreen(user, entry.toRoute<PassportRoute>().resourceId, onMatch = {
         }, onBack = nav::popBackStack, onNavigate = nav::openPartnerTopLevelDestination)
     }
-    composable<PartnerMapRoute> {
-        PartnerMapVisualScreen(
-            onNavigate = nav::openPartnerTopLevelDestination,
-            onOpenPassport = { nav.openDetail(PassportRoute(it)) },
-        )
-    }
     composable<QrScannerRoute> { entry ->
         QrScannerLiveScreen(
             user,
@@ -357,7 +386,7 @@ private fun NavHostController.openOrganiserTopLevelDestination(destination: TopL
         TopLevelDestination.HOME -> openTopLevel(OrganizerHomeRoute)
         TopLevelDestination.MARKETPLACE -> openTopLevel(MarketplaceRoute)
         TopLevelDestination.EVENTS -> openTopLevel(EventListRoute)
-        TopLevelDestination.PARTNERS -> openTopLevel(PartnerMapRoute)
+        TopLevelDestination.PARTNERS -> openTopLevel(PartnerMapRoute())
         TopLevelDestination.IMPACT -> openTopLevel(OrganizerImpactRoute)
         TopLevelDestination.ACCOUNT -> openProfile()
         else -> Unit
@@ -368,6 +397,7 @@ private fun NavHostController.openParticipantTopLevelDestination(destination: To
     when (destination) {
         TopLevelDestination.RETURNS -> openTopLevel(ParticipantReturnRoute)
         TopLevelDestination.MARKETPLACE -> openTopLevel(MarketplaceRoute)
+        TopLevelDestination.PARTNERS -> openTopLevel(PartnerMapRoute())
         TopLevelDestination.ACCOUNT -> openProfile()
         else -> Unit
     }
@@ -377,7 +407,6 @@ private fun NavHostController.openPartnerTopLevelDestination(destination: TopLev
     when (destination) {
         TopLevelDestination.WORKBENCH -> openTopLevel(PartnerWorkbenchRoute)
         TopLevelDestination.MARKETPLACE -> openTopLevel(MarketplaceRoute)
-        TopLevelDestination.PARTNERS -> openTopLevel(PartnerMapRoute)
         TopLevelDestination.ACCOUNT -> openProfile()
         else -> Unit
     }

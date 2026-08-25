@@ -23,8 +23,21 @@ enum class TransactionStatus {
     CANCELLED
 }
 enum class ProgrammeType { REPAIR, RECYCLE, BUY_BACK }
+enum class CoinDirection { FREE, OWNER_PAYS_PARTNER, PARTNER_PAYS_OWNER }
 enum class AllocationSide { PRIMARY, COUNTER }
 enum class SyncState { SYNCED, PENDING, FAILED }
+
+data class GeoLocation(
+    val displayAddress: String,
+    val latitude: Double,
+    val longitude: Double,
+) {
+    init {
+        require(displayAddress.isNotBlank()) { "Display address must not be blank" }
+        require(latitude in -90.0..90.0) { "Latitude must be between -90 and 90" }
+        require(longitude in -180.0..180.0) { "Longitude must be between -180 and 180" }
+    }
+}
 
 data class User(
     val id: String,
@@ -50,7 +63,8 @@ data class Event(
     val createdAt: Long,
     val updatedAt: Long,
     val syncState: SyncState = SyncState.PENDING,
-    val archived: Boolean = false
+    val archived: Boolean = false,
+    val geoLocation: GeoLocation? = null,
 )
 
 data class ResourceItem(
@@ -70,7 +84,8 @@ data class ResourceItem(
     val updatedAt: Long,
     val syncState: SyncState = SyncState.PENDING,
     val archived: Boolean = false,
-    val marketplaceListing: MarketplaceListing? = null
+    val marketplaceListing: MarketplaceListing? = null,
+    val geoLocation: GeoLocation? = null,
 )
 
 /** Published marketplace terms supplied by the server, never inferred from resource condition. */
@@ -101,7 +116,7 @@ data class ResourcePassport(
     val historyJson: String,
     val createdAt: Long,
     val updatedAt: Long,
-    val syncState: SyncState = SyncState.PENDING
+    val syncState: SyncState = SyncState.PENDING,
 )
 
 @Serializable
@@ -135,8 +150,41 @@ data class CircularProgramme(
     val active: Boolean,
     val createdAt: Long,
     val updatedAt: Long,
-    val syncState: SyncState = SyncState.PENDING
-)
+    val syncState: SyncState = SyncState.PENDING,
+    val acceptedCategories: List<String> = emptyList(),
+    val acceptedConditions: Set<ResourceCondition> = ResourceCondition.entries.toSet(),
+    val minimumQuantity: Double? = null,
+    val maximumQuantity: Double? = null,
+    val unit: String? = null,
+    val remainingCapacity: Double? = null,
+    val coinDirection: CoinDirection = CoinDirection.FREE,
+    val unitCoinAmount: Long? = null,
+    val pickupAvailable: Boolean = false,
+    val geoLocation: GeoLocation? = null,
+    val processingMethod: String = "",
+    val terms: String = "",
+  ) {
+      fun hasValidProgrammeRules(): Boolean =
+          name.trim().length in 1..120 &&
+              acceptedConditions.isNotEmpty() &&
+              (minimumQuantity == null || minimumQuantity > 0.0) &&
+            (maximumQuantity == null || maximumQuantity > 0.0) &&
+            (minimumQuantity == null || maximumQuantity == null || maximumQuantity >= minimumQuantity) &&
+              (remainingCapacity == null || remainingCapacity >= 0.0) &&
+              (unit != null || listOf(minimumQuantity, maximumQuantity, remainingCapacity, unitCoinAmount).all { it == null }) &&
+              ((coinDirection == CoinDirection.FREE && unitCoinAmount == null) ||
+                  (coinDirection != CoinDirection.FREE && unitCoinAmount != null && unitCoinAmount > 0)) &&
+              when (type) {
+                  ProgrammeType.REPAIR -> coinDirection in setOf(CoinDirection.FREE, CoinDirection.OWNER_PAYS_PARTNER)
+                  ProgrammeType.RECYCLE, ProgrammeType.BUY_BACK -> coinDirection in setOf(CoinDirection.FREE, CoinDirection.PARTNER_PAYS_OWNER)
+              }
+
+      fun isActivationReady(): Boolean =
+          hasValidProgrammeRules() &&
+              geoLocation?.displayAddress?.isNotBlank() == true &&
+              processingMethod.isNotBlank() &&
+              terms.isNotBlank()
+  }
 
 data class CircularTransaction(
     val id: String,

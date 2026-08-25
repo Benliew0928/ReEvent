@@ -399,6 +399,7 @@ fun PasswordRecoveryFlowScreen(viewModel: AuthViewModel = hiltViewModel()) {
 @Composable
 fun CompleteRoleFlowScreen(viewModel: AuthViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsState()
+    val retryRole = state.pendingRoleAssignment
     AccountScaffold(
         eyebrow = "ONE FINAL STEP",
         title = "Choose your workspace",
@@ -409,7 +410,7 @@ fun CompleteRoleFlowScreen(viewModel: AuthViewModel = hiltViewModel()) {
             icon = { Icon(Icons.Outlined.Apartment, null) },
             title = "Organiser",
             description = "Plan events, list resources, match partners and measure impact.",
-            enabled = !state.loading,
+            enabled = !state.loading && (retryRole == null || retryRole == UserRole.ORGANIZER),
             onClick = { viewModel.completeRole(UserRole.ORGANIZER) },
         )
         RoleOption(
@@ -417,7 +418,7 @@ fun CompleteRoleFlowScreen(viewModel: AuthViewModel = hiltViewModel()) {
             icon = { Icon(Icons.Outlined.Groups, null) },
             title = "Participant",
             description = "Return items, browse available resources and follow your exchanges.",
-            enabled = !state.loading,
+            enabled = !state.loading && (retryRole == null || retryRole == UserRole.PARTICIPANT),
             onClick = { viewModel.completeRole(UserRole.PARTICIPANT) },
         )
         RoleOption(
@@ -425,9 +426,16 @@ fun CompleteRoleFlowScreen(viewModel: AuthViewModel = hiltViewModel()) {
             icon = { Icon(Icons.Outlined.BusinessCenter, null) },
             title = "Circular partner",
             description = "Manage programmes and complete handovers assigned to your organisation.",
-            enabled = !state.loading,
+            enabled = !state.loading && (retryRole == null || retryRole == UserRole.PARTNER),
             onClick = { viewModel.completeRole(UserRole.PARTNER) },
         )
+        if (retryRole != null) {
+            Text(
+                "We are confirming your ${roleLabel(retryRole)} selection. Roles are permanent, so retry that same choice before selecting another.",
+                color = ReEventTextSecondary,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
         AccountMessage(state)
     }
 }

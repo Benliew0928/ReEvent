@@ -95,6 +95,8 @@ internal fun sessionEntryFor(
 data class AuthUiState(
     val loading: Boolean = false,
     val error: FailureReason? = null,
+    /** The first role request remains the only retryable choice after an uncertain response. */
+    val pendingRoleAssignment: UserRole? = null,
     val resetRequested: Boolean = false,
     val confirmationRequired: Boolean = false,
     val confirmationEmail: String? = null,
@@ -134,7 +136,16 @@ class AuthViewModel @Inject constructor(private val authRepository: AuthReposito
         }
     }
     fun signInWithGoogle() = submit { authRepository.startGoogleSignIn() }
-    fun completeRole(role: UserRole) = submit { authRepository.completeRole(role) }
+
+    fun completeRole(role: UserRole) {
+        viewModelScope.launch {
+            mutableState.value = AuthUiState(loading = true, pendingRoleAssignment = role)
+            mutableState.value = when (val result = authRepository.completeRole(role)) {
+                is AppResult.Success -> AuthUiState()
+                is AppResult.Failure -> AuthUiState(error = result.reason, pendingRoleAssignment = role)
+            }
+        }
+    }
 
     fun requestPasswordReset(email: String) {
         viewModelScope.launch {

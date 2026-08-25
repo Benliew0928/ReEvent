@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -105,6 +106,19 @@ class CoreDaoAccountIsolationTest {
         dao.deleteOutbox(LOCAL, ACCOUNT_A, accountAOperation.id)
         assertTrue(dao.pendingOperations(LOCAL, ACCOUNT_A, limit = 10).isEmpty())
         assertEquals(1, dao.pendingOperations(STAGING, ACCOUNT_A, limit = 10).size)
+    }
+
+    @Test
+    fun legacyProgrammeDrafts_areIsolatedByAccountAndNeverShareDeletion() = runBlocking {
+        dao.upsertLegacyProgrammeDraft(legacyDraft(ACCOUNT_A, "Draft A"))
+        dao.upsertLegacyProgrammeDraft(legacyDraft(ACCOUNT_B, "Draft B"))
+
+        assertEquals("Draft A", dao.observeLegacyProgrammeDrafts(ACCOUNT_A, "partner").first().single().name)
+        assertEquals("Draft B", dao.observeLegacyProgrammeDrafts(ACCOUNT_B, "partner").first().single().name)
+
+        dao.deleteLegacyProgrammeDraft(ACCOUNT_A, SHARED_ID)
+        assertTrue(dao.observeLegacyProgrammeDrafts(ACCOUNT_A, "partner").first().isEmpty())
+        assertEquals("Draft B", dao.observeLegacyProgrammeDrafts(ACCOUNT_B, "partner").first().single().name)
     }
 
     private fun event(accountId: String, name: String) = EventEntity(
@@ -212,6 +226,18 @@ class CoreDaoAccountIsolationTest {
         operation = "upsert",
         payload = "{}",
         updatedAt = 1L
+    )
+
+    private fun legacyDraft(accountId: String, name: String) = LegacyProgrammeDraftEntity(
+        id = SHARED_ID,
+        accountId = accountId,
+        partnerId = "partner",
+        name = name,
+        type = "REPAIR",
+        acceptedMaterialsJson = "[]",
+        location = "old location",
+        createdAt = 1L,
+        updatedAt = 1L,
     )
 
     private companion object {

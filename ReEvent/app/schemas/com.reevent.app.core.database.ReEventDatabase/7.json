@@ -1,0 +1,1167 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 7,
+    "identityHash": "7f963b1065d31bcdae1aeda561f4e111",
+    "entities": [
+      {
+        "tableName": "users",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `email` TEXT NOT NULL, `displayName` TEXT NOT NULL, `role` TEXT, `avatarUrl` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "email",
+            "columnName": "email",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayName",
+            "columnName": "displayName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "role",
+            "columnName": "role",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "avatarUrl",
+            "columnName": "avatarUrl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "events",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `accountId` TEXT NOT NULL, `ownerId` TEXT NOT NULL, `name` TEXT NOT NULL, `description` TEXT NOT NULL, `venue` TEXT NOT NULL, `startsAt` INTEGER NOT NULL, `endsAt` INTEGER NOT NULL, `status` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `syncState` TEXT NOT NULL, `archived` INTEGER NOT NULL, `latitude` REAL, `longitude` REAL, PRIMARY KEY(`accountId`, `id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ownerId",
+            "columnName": "ownerId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "venue",
+            "columnName": "venue",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startsAt",
+            "columnName": "startsAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endsAt",
+            "columnName": "endsAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncState",
+            "columnName": "syncState",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "archived",
+            "columnName": "archived",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latitude",
+            "columnName": "latitude",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "longitude",
+            "columnName": "longitude",
+            "affinity": "REAL"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountId",
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_events_accountId_ownerId",
+            "unique": false,
+            "columnNames": [
+              "accountId",
+              "ownerId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_events_accountId_ownerId` ON `${TABLE_NAME}` (`accountId`, `ownerId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "resource_items",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `accountId` TEXT NOT NULL, `eventId` TEXT NOT NULL, `ownerId` TEXT NOT NULL, `title` TEXT NOT NULL, `category` TEXT NOT NULL, `material` TEXT NOT NULL, `condition` TEXT NOT NULL, `quantity` REAL NOT NULL, `unit` TEXT NOT NULL, `status` TEXT NOT NULL, `valueCents` INTEGER NOT NULL, `imageUrlsJson` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `syncState` TEXT NOT NULL, `archived` INTEGER NOT NULL, `marketplaceListingId` TEXT, `marketplaceAllowedActionsJson` TEXT NOT NULL, `marketplacePublishedQuantity` REAL, `marketplaceBuyUnitPrice` INTEGER, `marketplaceRentUnitPrice` INTEGER, `marketplaceDefaultDurationDays` INTEGER, `marketplaceTerms` TEXT NOT NULL, `location` TEXT, `latitude` REAL, `longitude` REAL, PRIMARY KEY(`accountId`, `id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "eventId",
+            "columnName": "eventId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ownerId",
+            "columnName": "ownerId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "category",
+            "columnName": "category",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "material",
+            "columnName": "material",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "condition",
+            "columnName": "condition",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "quantity",
+            "columnName": "quantity",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "unit",
+            "columnName": "unit",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "valueCents",
+            "columnName": "valueCents",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "imageUrlsJson",
+            "columnName": "imageUrlsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncState",
+            "columnName": "syncState",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "archived",
+            "columnName": "archived",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "marketplaceListingId",
+            "columnName": "marketplaceListingId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "marketplaceAllowedActionsJson",
+            "columnName": "marketplaceAllowedActionsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "marketplacePublishedQuantity",
+            "columnName": "marketplacePublishedQuantity",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "marketplaceBuyUnitPrice",
+            "columnName": "marketplaceBuyUnitPrice",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "marketplaceRentUnitPrice",
+            "columnName": "marketplaceRentUnitPrice",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "marketplaceDefaultDurationDays",
+            "columnName": "marketplaceDefaultDurationDays",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "marketplaceTerms",
+            "columnName": "marketplaceTerms",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "location",
+            "columnName": "location",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "latitude",
+            "columnName": "latitude",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "longitude",
+            "columnName": "longitude",
+            "affinity": "REAL"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountId",
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_resource_items_accountId_eventId",
+            "unique": false,
+            "columnNames": [
+              "accountId",
+              "eventId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_resource_items_accountId_eventId` ON `${TABLE_NAME}` (`accountId`, `eventId`)"
+          },
+          {
+            "name": "index_resource_items_accountId_ownerId",
+            "unique": false,
+            "columnNames": [
+              "accountId",
+              "ownerId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_resource_items_accountId_ownerId` ON `${TABLE_NAME}` (`accountId`, `ownerId`)"
+          },
+          {
+            "name": "index_resource_items_accountId_status",
+            "unique": false,
+            "columnNames": [
+              "accountId",
+              "status"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_resource_items_accountId_status` ON `${TABLE_NAME}` (`accountId`, `status`)"
+          }
+        ]
+      },
+      {
+        "tableName": "resource_passports",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `accountId` TEXT NOT NULL, `resourceId` TEXT NOT NULL, `qrPayload` TEXT NOT NULL, `historyJson` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `syncState` TEXT NOT NULL, PRIMARY KEY(`accountId`, `id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "resourceId",
+            "columnName": "resourceId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "qrPayload",
+            "columnName": "qrPayload",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "historyJson",
+            "columnName": "historyJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncState",
+            "columnName": "syncState",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountId",
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_resource_passports_accountId_resourceId",
+            "unique": true,
+            "columnNames": [
+              "accountId",
+              "resourceId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_resource_passports_accountId_resourceId` ON `${TABLE_NAME}` (`accountId`, `resourceId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "circular_programmes",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `accountId` TEXT NOT NULL, `partnerId` TEXT NOT NULL, `name` TEXT NOT NULL, `type` TEXT NOT NULL, `acceptedMaterialsJson` TEXT NOT NULL, `location` TEXT NOT NULL, `active` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `syncState` TEXT NOT NULL, `acceptedCategoriesJson` TEXT NOT NULL, `acceptedConditionsJson` TEXT NOT NULL, `minimumQuantity` REAL, `maximumQuantity` REAL, `unit` TEXT, `remainingCapacity` REAL, `coinDirection` TEXT NOT NULL, `unitCoinAmount` INTEGER, `pickupAvailable` INTEGER NOT NULL, `latitude` REAL, `longitude` REAL, `processingMethod` TEXT NOT NULL, `terms` TEXT NOT NULL, PRIMARY KEY(`accountId`, `id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "partnerId",
+            "columnName": "partnerId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "acceptedMaterialsJson",
+            "columnName": "acceptedMaterialsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "location",
+            "columnName": "location",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "active",
+            "columnName": "active",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncState",
+            "columnName": "syncState",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "acceptedCategoriesJson",
+            "columnName": "acceptedCategoriesJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "acceptedConditionsJson",
+            "columnName": "acceptedConditionsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "minimumQuantity",
+            "columnName": "minimumQuantity",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "maximumQuantity",
+            "columnName": "maximumQuantity",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "unit",
+            "columnName": "unit",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "remainingCapacity",
+            "columnName": "remainingCapacity",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "coinDirection",
+            "columnName": "coinDirection",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "unitCoinAmount",
+            "columnName": "unitCoinAmount",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "pickupAvailable",
+            "columnName": "pickupAvailable",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latitude",
+            "columnName": "latitude",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "longitude",
+            "columnName": "longitude",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "processingMethod",
+            "columnName": "processingMethod",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "terms",
+            "columnName": "terms",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountId",
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_circular_programmes_accountId_partnerId",
+            "unique": false,
+            "columnNames": [
+              "accountId",
+              "partnerId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_circular_programmes_accountId_partnerId` ON `${TABLE_NAME}` (`accountId`, `partnerId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "circular_transactions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `accountId` TEXT NOT NULL, `eventId` TEXT NOT NULL, `resourceId` TEXT NOT NULL, `senderId` TEXT NOT NULL, `receiverId` TEXT NOT NULL, `partnerId` TEXT, `requesterId` TEXT NOT NULL, `counterResourceId` TEXT, `type` TEXT NOT NULL, `status` TEXT NOT NULL, `quantity` REAL NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `syncState` TEXT NOT NULL, `archived` INTEGER NOT NULL, PRIMARY KEY(`accountId`, `id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "eventId",
+            "columnName": "eventId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "resourceId",
+            "columnName": "resourceId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "senderId",
+            "columnName": "senderId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "receiverId",
+            "columnName": "receiverId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "partnerId",
+            "columnName": "partnerId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "requesterId",
+            "columnName": "requesterId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "counterResourceId",
+            "columnName": "counterResourceId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "quantity",
+            "columnName": "quantity",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncState",
+            "columnName": "syncState",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "archived",
+            "columnName": "archived",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountId",
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_circular_transactions_accountId_eventId",
+            "unique": false,
+            "columnNames": [
+              "accountId",
+              "eventId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_circular_transactions_accountId_eventId` ON `${TABLE_NAME}` (`accountId`, `eventId`)"
+          },
+          {
+            "name": "index_circular_transactions_accountId_resourceId",
+            "unique": false,
+            "columnNames": [
+              "accountId",
+              "resourceId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_circular_transactions_accountId_resourceId` ON `${TABLE_NAME}` (`accountId`, `resourceId`)"
+          },
+          {
+            "name": "index_circular_transactions_accountId_senderId",
+            "unique": false,
+            "columnNames": [
+              "accountId",
+              "senderId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_circular_transactions_accountId_senderId` ON `${TABLE_NAME}` (`accountId`, `senderId`)"
+          },
+          {
+            "name": "index_circular_transactions_accountId_receiverId",
+            "unique": false,
+            "columnNames": [
+              "accountId",
+              "receiverId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_circular_transactions_accountId_receiverId` ON `${TABLE_NAME}` (`accountId`, `receiverId`)"
+          },
+          {
+            "name": "index_circular_transactions_accountId_partnerId",
+            "unique": false,
+            "columnNames": [
+              "accountId",
+              "partnerId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_circular_transactions_accountId_partnerId` ON `${TABLE_NAME}` (`accountId`, `partnerId`)"
+          },
+          {
+            "name": "index_circular_transactions_accountId_requesterId",
+            "unique": false,
+            "columnNames": [
+              "accountId",
+              "requesterId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_circular_transactions_accountId_requesterId` ON `${TABLE_NAME}` (`accountId`, `requesterId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "impact_records",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `accountId` TEXT NOT NULL, `eventId` TEXT NOT NULL, `resourceId` TEXT NOT NULL, `transactionId` TEXT NOT NULL, `transactionType` TEXT NOT NULL, `completedQuantity` REAL NOT NULL, `unit` TEXT NOT NULL, `materialDivertedKg` REAL, `emissionsAvoidedKg` REAL, `recoinsTransferred` INTEGER NOT NULL, `recoinsRewarded` INTEGER NOT NULL, `calculatedAt` INTEGER NOT NULL, `syncState` TEXT NOT NULL, PRIMARY KEY(`accountId`, `id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "eventId",
+            "columnName": "eventId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "resourceId",
+            "columnName": "resourceId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "transactionId",
+            "columnName": "transactionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "transactionType",
+            "columnName": "transactionType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completedQuantity",
+            "columnName": "completedQuantity",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "unit",
+            "columnName": "unit",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "materialDivertedKg",
+            "columnName": "materialDivertedKg",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "emissionsAvoidedKg",
+            "columnName": "emissionsAvoidedKg",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "recoinsTransferred",
+            "columnName": "recoinsTransferred",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "recoinsRewarded",
+            "columnName": "recoinsRewarded",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "calculatedAt",
+            "columnName": "calculatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncState",
+            "columnName": "syncState",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountId",
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_impact_records_accountId_eventId",
+            "unique": false,
+            "columnNames": [
+              "accountId",
+              "eventId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_impact_records_accountId_eventId` ON `${TABLE_NAME}` (`accountId`, `eventId`)"
+          },
+          {
+            "name": "index_impact_records_accountId_resourceId",
+            "unique": false,
+            "columnNames": [
+              "accountId",
+              "resourceId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_impact_records_accountId_resourceId` ON `${TABLE_NAME}` (`accountId`, `resourceId`)"
+          },
+          {
+            "name": "index_impact_records_accountId_transactionId",
+            "unique": false,
+            "columnNames": [
+              "accountId",
+              "transactionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_impact_records_accountId_transactionId` ON `${TABLE_NAME}` (`accountId`, `transactionId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "sync_outbox",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `environment` TEXT NOT NULL, `tableName` TEXT NOT NULL, `accountId` TEXT NOT NULL, `recordId` TEXT NOT NULL, `operation` TEXT NOT NULL, `payload` TEXT NOT NULL, `attempts` INTEGER NOT NULL, `lastError` TEXT, `updatedAt` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "environment",
+            "columnName": "environment",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tableName",
+            "columnName": "tableName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "recordId",
+            "columnName": "recordId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operation",
+            "columnName": "operation",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attempts",
+            "columnName": "attempts",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastError",
+            "columnName": "lastError",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_sync_outbox_environment_accountId_tableName_recordId",
+            "unique": true,
+            "columnNames": [
+              "environment",
+              "accountId",
+              "tableName",
+              "recordId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_sync_outbox_environment_accountId_tableName_recordId` ON `${TABLE_NAME}` (`environment`, `accountId`, `tableName`, `recordId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "lifecycle_commands",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`idempotencyKey` TEXT NOT NULL, `environment` TEXT NOT NULL, `accountId` TEXT NOT NULL, `dedupeKey` TEXT NOT NULL, `commandType` TEXT NOT NULL, `payloadJson` TEXT NOT NULL, `attempts` INTEGER NOT NULL, `lastError` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`idempotencyKey`))",
+        "fields": [
+          {
+            "fieldPath": "idempotencyKey",
+            "columnName": "idempotencyKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "environment",
+            "columnName": "environment",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dedupeKey",
+            "columnName": "dedupeKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "commandType",
+            "columnName": "commandType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payloadJson",
+            "columnName": "payloadJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attempts",
+            "columnName": "attempts",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastError",
+            "columnName": "lastError",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "idempotencyKey"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_lifecycle_commands_environment_accountId_dedupeKey",
+            "unique": true,
+            "columnNames": [
+              "environment",
+              "accountId",
+              "dedupeKey"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_lifecycle_commands_environment_accountId_dedupeKey` ON `${TABLE_NAME}` (`environment`, `accountId`, `dedupeKey`)"
+          },
+          {
+            "name": "index_lifecycle_commands_environment_accountId_createdAt",
+            "unique": false,
+            "columnNames": [
+              "environment",
+              "accountId",
+              "createdAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_lifecycle_commands_environment_accountId_createdAt` ON `${TABLE_NAME}` (`environment`, `accountId`, `createdAt`)"
+          }
+        ]
+      },
+      {
+        "tableName": "legacy_programme_drafts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `accountId` TEXT NOT NULL, `partnerId` TEXT NOT NULL, `name` TEXT NOT NULL, `type` TEXT NOT NULL, `acceptedMaterialsJson` TEXT NOT NULL, `location` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`accountId`, `id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "partnerId",
+            "columnName": "partnerId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "acceptedMaterialsJson",
+            "columnName": "acceptedMaterialsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "location",
+            "columnName": "location",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountId",
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_legacy_programme_drafts_accountId_partnerId",
+            "unique": false,
+            "columnNames": [
+              "accountId",
+              "partnerId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_legacy_programme_drafts_accountId_partnerId` ON `${TABLE_NAME}` (`accountId`, `partnerId`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '7f963b1065d31bcdae1aeda561f4e111')"
+    ]
+  }
+}

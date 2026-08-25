@@ -31,6 +31,7 @@ class ReEventDatabaseMigrationTest {
         context.deleteDatabase(V3_DATABASE)
         context.deleteDatabase(V4_DATABASE)
         context.deleteDatabase(V5_DATABASE)
+        context.deleteDatabase(V6_DATABASE)
     }
 
     @Test
@@ -275,6 +276,61 @@ class ReEventDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrate6To7_refreshesSyncedProgrammesAndConvertsOnlyLocalInputsToAccountScopedLegacyDrafts() {
+        helper.createDatabase(V6_DATABASE, 6).use { database ->
+            database.execSQL(
+                "INSERT INTO circular_programmes VALUES " +
+                    "('synced', '$ACCOUNT_A', 'partner-a', 'Synced programme', 'RECYCLE', '[\"plastic\"]', 'Kuala Lumpur', 1, 1, 2, 'SYNCED')"
+            )
+            database.execSQL(
+                "INSERT INTO circular_programmes VALUES " +
+                    "('pending', '$ACCOUNT_A', 'partner-a', 'Pending programme', 'REPAIR', '[\"wood\"]', 'Petaling Jaya', 0, 3, 4, 'PENDING')"
+            )
+            database.execSQL(
+                "INSERT INTO circular_programmes VALUES " +
+                    "('failed', 'account-b', 'partner-b', 'Failed programme', 'DONATION', '[]', 'Shah Alam', 0, 5, 6, 'FAILED')"
+            )
+            database.execSQL(
+                "INSERT INTO sync_outbox (environment, tableName, accountId, recordId, operation, payload, attempts, lastError, updatedAt) " +
+                    "VALUES ('$LOCAL', 'circular_programmes', '$ACCOUNT_A', 'pending', 'upsert', '{}', 1, 'offline', 4)"
+            )
+            database.execSQL(
+                "INSERT INTO sync_outbox (environment, tableName, accountId, recordId, operation, payload, attempts, lastError, updatedAt) " +
+                    "VALUES ('$LOCAL', 'events', '$ACCOUNT_A', 'event-a', 'upsert', '{}', 0, NULL, 4)"
+            )
+        }
+
+        helper.runMigrationsAndValidate(
+            V6_DATABASE,
+            7,
+            true,
+            ReEventDatabase.MIGRATION_6_7
+        ).use { database ->
+            assertEquals(0L, database.count("circular_programmes"))
+            assertEquals(2L, database.count("legacy_programme_drafts"))
+            assertEquals(
+                listOf(ACCOUNT_A, "partner-a", "Pending programme", "REPAIR", "[\"wood\"]", "Petaling Jaya"),
+                database.row(
+                    "SELECT accountId, partnerId, name, type, acceptedMaterialsJson, location " +
+                        "FROM legacy_programme_drafts WHERE id = 'pending'"
+                )
+            )
+            assertEquals(1L, database.count("sync_outbox"))
+            assertEquals("events", database.singleString("SELECT tableName FROM sync_outbox"))
+            assertEquals(1L, database.query("SELECT COUNT(*) FROM legacy_programme_drafts WHERE accountId = '$ACCOUNT_A'").use {
+                assertTrue(it.moveToFirst())
+                it.getLong(0)
+            })
+            assertEquals(
+                listOf("latitude", "longitude", "acceptedCategoriesJson", "processingMethod", "terms"),
+                listOf("latitude", "longitude", "acceptedCategoriesJson", "processingMethod", "terms").filter { column ->
+                    database.query("SELECT 1 FROM pragma_table_info('circular_programmes') WHERE name = '$column'").use { it.moveToFirst() }
+                }
+            )
+        }
+    }
+
     private fun createVersion1Database(): SupportSQLiteDatabase {
         context.deleteDatabase(V1_DATABASE)
         val callback = object : SupportSQLiteOpenHelper.Callback(1) {
@@ -324,6 +380,7 @@ class ReEventDatabaseMigrationTest {
         const val V3_DATABASE = "reevent-migration-v3"
         const val V4_DATABASE = "reevent-migration-v4"
         const val V5_DATABASE = "reevent-migration-v5"
+        const val V6_DATABASE = "reevent-migration-v6"
 
         val ACCOUNT_SCOPED_TABLES = listOf(
             "events",

@@ -4,6 +4,11 @@ import com.reevent.app.core.model.CircularProgramme
 import com.reevent.app.core.model.CircularTransaction
 import com.reevent.app.core.model.Event
 import com.reevent.app.core.model.ImpactRecord
+import com.reevent.app.core.model.GeoLocation
+import com.reevent.app.core.model.LegacyProgrammeDraft
+import com.reevent.app.core.model.PartnerDiscoveryRequest
+import com.reevent.app.core.model.PartnerDiscoveryResult
+import com.reevent.app.core.model.PlaceSuggestion
 import com.reevent.app.core.model.MarketplaceListingDraft
 import com.reevent.app.core.model.ResourceItem
 import com.reevent.app.core.model.ResourcePassport
@@ -58,7 +63,15 @@ interface PassportRepository {
 
 interface PartnerRepository {
     fun observeProgrammes(partnerId: String? = null): Flow<List<CircularProgramme>>
+    fun observeLegacyProgrammeDrafts(partnerId: String): Flow<List<LegacyProgrammeDraft>>
+    suspend fun discardLegacyProgrammeDraft(id: String): AppResult<Unit>
+    suspend fun discoverProgrammes(request: PartnerDiscoveryRequest): AppResult<PartnerDiscoveryResult>
     suspend fun saveProgramme(programme: CircularProgramme): AppResult<CircularProgramme>
+}
+
+interface GeocodingRepository {
+    suspend fun search(query: String, proximity: GeoLocation? = null): AppResult<List<PlaceSuggestion>>
+    suspend fun reverse(location: GeoLocation): AppResult<PlaceSuggestion>
 }
 
 interface TransactionRepository {

@@ -54,6 +54,7 @@ android {
         buildConfigField("String", "SUPABASE_URL", "\"${escapedBuildConfigValue("SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${escapedBuildConfigValue("SUPABASE_ANON_KEY")}\"")
         buildConfigField("String", "PUBLIC_BASE_URL", "\"${escapedBuildConfigValue("PUBLIC_BASE_URL")}\"")
+        buildConfigField("String", "MAPTILER_API_KEY", "\"${escapedBuildConfigValue("MAPTILER_API_KEY")}\"")
         manifestPlaceholders["passportVerifierHost"] = passportVerifierHost()
     }
 
@@ -105,6 +106,8 @@ dependencies {
     implementation("com.google.zxing:core:3.5.4")
     // Bundled model keeps QR recognition available when the device has no network connection.
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    implementation("org.maplibre.compose:maplibre-compose:0.13.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     val cameraXVersion = "1.5.3"
     implementation("androidx.camera:camera-core:$cameraXVersion")
     implementation("androidx.camera:camera-camera2:$cameraXVersion")
