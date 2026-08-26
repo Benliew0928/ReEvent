@@ -109,7 +109,7 @@ fun PartnerPassportListScreen(
                         Column(Modifier.weight(1f)) {
                             Text(resource.title, style = HomeCardTitleStyle, color = HomeInk)
                             Text(
-                                if (available) "${resource.material} · ${resource.quantity} ${resource.unit}" else "Passport is not available yet",
+                                if (available) "${resource.materialLabel} · ${resource.quantity} ${resource.unit}" else "Passport is not available yet",
                                 style = HomeBodyStyle,
                                 color = HomeMuted,
                             )

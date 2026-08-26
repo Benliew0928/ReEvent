@@ -43,6 +43,8 @@ import com.reevent.app.core.model.MarketplaceListingDraft
 import com.reevent.app.core.model.TransactionType
 import com.reevent.app.core.model.User
 import com.reevent.app.ui.TopLevelDestination
+import com.reevent.app.ui.marketplace.MarketplaceDashboardViewModel
+import com.reevent.app.ui.marketplace.MaterialCompassMarketplaceScreen
 import com.reevent.app.ui.components.PrimaryActionButton
 import com.reevent.app.ui.components.ReEventLazyColumn
 import com.reevent.app.ui.components.ReEventScaffold
@@ -118,179 +120,56 @@ fun MarketplaceVisualScreen(
     onPassport: (String) -> Unit,
     onNavigate: (TopLevelDestination) -> Unit,
     viewModel: FeatureViewModel = hiltViewModel(),
+    dashboardViewModel: MarketplaceDashboardViewModel = hiltViewModel(),
 ) {
-    LaunchedEffect(user.id) { viewModel.refresh() }
-    val resources by viewModel.marketplace().collectAsState(emptyList())
-    val ownedResources by (
-        if (user.role == com.reevent.app.core.model.UserRole.ORGANIZER) {
-            viewModel.ownedResources(user.id)
-        } else {
-            flowOf(emptyList())
-        }
-    ).collectAsState(emptyList())
-    val transactions by viewModel.transactions(user.id).collectAsState(emptyList())
-    val syncCommands by viewModel.pendingSyncCommands().collectAsState(emptyList())
+    LaunchedEffect(user.id) { dashboardViewModel.load(user) }
+    val state by dashboardViewModel.state.collectAsState()
     val action by viewModel.action.collectAsState()
-    var query by rememberSaveable { mutableStateOf("") }
-    var typeFilter by rememberSaveable { mutableStateOf("All actions") }
-    var categoryFilter by rememberSaveable { mutableStateOf("All categories") }
     var selectedListing by remember { mutableStateOf<com.reevent.app.core.model.ResourceItem?>(null) }
-    var selectedRequest by remember { mutableStateOf<com.reevent.app.core.model.ResourceItem?>(null) }
+    var selectedRequest by remember { mutableStateOf<Pair<com.reevent.app.core.model.ResourceItem, TransactionType>?>(null) }
     var publicationResource by remember { mutableStateOf<com.reevent.app.core.model.ResourceItem?>(null) }
-    val publishableResources =
-        ownedResources.filter {
-            it.marketplaceListing == null && it.syncState == com.reevent.app.core.model.SyncState.SYNCED
-        }
-    val categories = listOf("All categories") + resources.map { it.category.ifBlank { "Uncategorised" } }.distinct().sorted()
-    val actions =
-        listOf("All actions") +
-            resources
-                .flatMap { it.availableMarketplaceTypes() }
-                .distinct()
-                .sortedBy(TransactionType::displayLabel)
-                .map(TransactionType::displayLabel)
-    val visibleResources =
-        resources.filter { resource ->
-            val matchesQuery =
-                query.trim().let { typed ->
-                    typed.isBlank() ||
-                        listOf(resource.title, resource.category, resource.material).any { it.contains(typed, ignoreCase = true) }
-                }
-            val matchesCategory = categoryFilter == "All categories" || resource.category.ifBlank { "Uncategorised" } == categoryFilter
-            val matchesAction = typeFilter == "All actions" || resource.availableMarketplaceTypes().any { it.displayLabel() == typeFilter }
-            matchesQuery && matchesCategory && matchesAction
-        }
-
-    ReEventScaffold(selected = TopLevelDestination.MARKETPLACE, onNavigate = onNavigate) { padding ->
-        ReEventLazyColumn(paddingValues = padding) {
-            item {
-                ScreenHeader(
-                    title = "Circular marketplace",
-                    subtitle = "Request reusable, repairable, and recoverable event resources",
-                    onProfile = { onNavigate(TopLevelDestination.ACCOUNT) },
-                )
-            }
-            if (user.role == com.reevent.app.core.model.UserRole.ORGANIZER) {
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Publish your resources", style = MaterialTheme.typography.titleLarge, color = ReEventInk)
-                        Text(
-                            "Choose one of your active resources and set the terms other accounts can request.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = ReEventTextSecondary,
-                        )
-                    }
-                }
-                if (publishableResources.isEmpty()) {
-                    item {
-                        val detail =
-                            if (ownedResources.isEmpty()) {
-                                "Add and sync an active resource before publishing it to the marketplace."
-                            } else if (ownedResources.any { it.marketplaceListing == null }) {
-                                "Your active resource is still syncing. Wait until it shows Synced before publishing it."
-                            } else {
-                                "Every active resource currently has an open listing. Close one in the server workflow before publishing it again."
-                            }
-                        EmptyMarketplacePanel("No resource ready to publish", detail)
-                    }
-                } else {
-                    items(publishableResources, key = { "publish-${it.id}" }) { resource ->
-                        MarketplacePublicationResourceCard(
-                            resource = resource,
-                            onPublish = { publicationResource = resource },
-                        )
-                    }
-                }
-                item { HorizontalDivider(color = ReEventLine) }
-            }
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
-                        value = query,
-                        onValueChange = { query = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Search") },
-                        placeholder = { Text("Item, category, or material") },
-                        singleLine = true,
-                    )
-                    ChoiceField("Action", typeFilter, actions) {
-                        typeFilter = it
-                    }
-                    ChoiceField("Category", categoryFilter, categories) { categoryFilter = it }
-                    if (query.isNotBlank() || typeFilter != "All actions" || categoryFilter != "All categories") {
-                        SecondaryActionButton(
-                            text = "Clear search and filters",
-                            onClick = {
-                                query = ""
-                                typeFilter = "All actions"
-                                categoryFilter = "All categories"
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                }
-            }
-            if (resources.isEmpty()) {
-                item { EmptyMarketplacePanel("No available resources yet", "Resources marked available by organisers will appear here.") }
-            } else if (visibleResources.isEmpty()) {
-                item { EmptyMarketplacePanel("No matching resources", "Try a different search term, action, or category.") }
-            }
-            items(visibleResources, key = { it.id }) { resource ->
-                MarketplaceResourceCard(
-                    user = user,
-                    resource = resource,
-                    onPassport = { onPassport(resource.id) },
-                    onViewListing = { selectedListing = resource },
-                    onRequest = { selectedRequest = resource },
-                )
-            }
-            if (transactions.isNotEmpty()) {
-                item { Text("Requests and handovers", style = MaterialTheme.typography.titleLarge, color = ReEventInk) }
-            }
-            items(transactions, key = { it.id }) { transaction ->
-                val resource by viewModel.resource(transaction.resourceId).collectAsState(null)
-                TransactionCard(
-                    user = user,
-                    transaction = transaction,
-                    resource = resource,
-                    syncCommand = syncCommands.firstOrNull { it.transactionId == transaction.id },
-                    onApprove = { viewModel.approveTransaction(user, transaction) },
-                    onCancel = { viewModel.cancelTransaction(user, transaction) },
-                    onComplete = { viewModel.completeTransaction(user, transaction) },
-                    onInTransit = { viewModel.moveTransactionInTransit(user, transaction) },
-                    onPassport = { onPassport(transaction.resourceId) },
-                )
-            }
-        }
-    }
-
+    MaterialCompassMarketplaceScreen(
+        user = user,
+        state = state,
+        onQuery = dashboardViewModel::setQuery,
+        onFamily = dashboardViewModel::setMaterialFamily,
+        onAction = dashboardViewModel::setAction,
+        onCompassPage = dashboardViewModel::setCompassPage,
+        onClearFilters = dashboardViewModel::clearFilters,
+        onRefresh = dashboardViewModel::refresh,
+        onNavigate = onNavigate,
+        onListing = { selectedListing = it },
+        onRequest = { resource, type -> selectedRequest = resource to type },
+        onPassport = onPassport,
+        onPublish = { publicationResource = it },
+        onApprove = { viewModel.approveTransaction(user, it) },
+        onCancel = { viewModel.cancelTransaction(user, it) },
+        onComplete = { viewModel.completeTransaction(user, it) },
+        onInTransit = { viewModel.moveTransactionInTransit(user, it) },
+    )
     selectedListing?.let { resource ->
         MarketplaceListingDetailDialog(
             resource = resource,
             isOwner = resource.ownerId == user.id,
             onDismiss = { selectedListing = null },
-            onOpenPassport = {
-                selectedListing = null
-                onPassport(resource.id)
-            },
+            onOpenPassport = { selectedListing = null; onPassport(resource.id) },
             onRequest = {
                 selectedListing = null
-                selectedRequest = resource
+                resource.availableMarketplaceTypes().firstOrNull()?.let { selectedRequest = resource to it }
             },
         )
     }
-
-    selectedRequest?.let { resource ->
+    selectedRequest?.let { (resource, type) ->
         MarketplaceRequestDialog(
             resource = resource,
+            initialType = type,
             onDismiss = { selectedRequest = null },
-            onSubmit = { type, quantity ->
-                viewModel.requestMarketplaceResource(user, resource, type, quantity)
+            onSubmit = { requestType, quantity ->
+                viewModel.requestMarketplaceResource(user, resource, requestType, quantity)
                 selectedRequest = null
             },
         )
     }
-
     publicationResource?.let { resource ->
         MarketplacePublishDialog(
             resource = resource,
@@ -298,80 +177,9 @@ fun MarketplaceVisualScreen(
             actionError = action.error,
             onDismiss = { publicationResource = null },
             onPublish = { draft ->
-                viewModel.publishMarketplaceListing(user, resource, draft) {
-                    publicationResource = null
-                }
+                viewModel.publishMarketplaceListing(user, resource, draft) { publicationResource = null }
             },
         )
-    }
-}
-
-@Composable
-private fun MarketplaceResourceCard(
-    user: User,
-    resource: com.reevent.app.core.model.ResourceItem,
-    onPassport: () -> Unit,
-    onViewListing: () -> Unit,
-    onRequest: () -> Unit,
-) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(resource.title, style = MaterialTheme.typography.titleMedium, color = ReEventInk)
-                    Text(
-                        "${ResourcePresentationRules.quantityLabel(
-                            resource.quantity,
-                            resource.unit,
-                        )} • ${resource.material.ifBlank { "Material pending" }}",
-                        color = ReEventTextSecondary,
-                    )
-                }
-                StatusChip(resource.status.visualLabel(), resource.status.toVisualTone(resource.condition).color)
-            }
-            Text(resource.category.ifBlank { "Uncategorised" }, style = MaterialTheme.typography.bodyMedium, color = ReEventTextSecondary)
-            Text(
-                "Available actions: ${resource.availableMarketplaceTypes().joinToString { it.displayLabel() }}",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            PrimaryActionButton("View listing details", onViewListing, Modifier.fillMaxWidth())
-            SecondaryActionButton("Open passport", onPassport, Modifier.fillMaxWidth())
-            if (resource.ownerId == user.id) {
-                Text("This is your own listing. Other users can request it from the marketplace.", color = ReEventTextSecondary)
-            } else {
-                SecondaryActionButton("Request resource", onRequest, Modifier.fillMaxWidth())
-            }
-        }
-    }
-}
-
-@Composable
-private fun MarketplacePublicationResourceCard(
-    resource: com.reevent.app.core.model.ResourceItem,
-    onPublish: () -> Unit,
-) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(resource.title, style = MaterialTheme.typography.titleMedium, color = ReEventInk)
-                    Text(
-                        "${ResourcePresentationRules.quantityLabel(
-                            resource.quantity,
-                            resource.unit,
-                        )} · ${resource.category.ifBlank { "Uncategorised" }}",
-                        color = ReEventTextSecondary,
-                    )
-                }
-                StatusChip("Active", ReEventGreen)
-            }
-            Text(
-                "Set request types, quantity, prices where needed, and reusable-resource terms.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = ReEventTextSecondary,
-            )
-            PrimaryActionButton("Publish to marketplace", onPublish, Modifier.fillMaxWidth())
-        }
     }
 }
 
@@ -582,7 +390,7 @@ internal fun MarketplaceListingDetails(
             color = ReEventTextSecondary,
         )
         Text(
-            "Material: ${resource.material.ifBlank { "Not specified" }} · Category: ${resource.category.ifBlank { "Uncategorised" }}",
+            "Material: ${resource.materialLabel} · Category: ${resource.category.ifBlank { "Uncategorised" }}",
             color = ReEventTextSecondary,
         )
         HorizontalDivider(color = ReEventLine)
@@ -607,12 +415,15 @@ internal fun MarketplaceListingDetails(
 @Composable
 private fun MarketplaceRequestDialog(
     resource: com.reevent.app.core.model.ResourceItem,
+    initialType: TransactionType? = null,
     onDismiss: () -> Unit,
     onSubmit: (TransactionType, Double) -> Unit,
 ) {
     val allowedActions = resource.availableMarketplaceTypes()
     val maxQuantity = minOf(resource.quantity, resource.marketplaceListing?.publishedQuantity ?: 0.0)
-    var type by rememberSaveable(resource.id) { mutableStateOf(allowedActions.firstOrNull() ?: TransactionType.BORROW) }
+    var type by rememberSaveable(resource.id, initialType) {
+        mutableStateOf(initialType?.takeIf { it in allowedActions } ?: allowedActions.firstOrNull() ?: TransactionType.BORROW)
+    }
     var quantity by rememberSaveable(resource.id) { mutableStateOf("1") }
     var submitted by rememberSaveable(resource.id) { mutableStateOf(false) }
     val quantityValue = quantity.toDoubleOrNull()

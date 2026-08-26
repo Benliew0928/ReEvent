@@ -18,7 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         LifecycleCommandEntity::class,
         LegacyProgrammeDraftEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 abstract class ReEventDatabase : RoomDatabase() {
@@ -369,6 +369,167 @@ abstract class ReEventDatabase : RoomDatabase() {
                         "ON circular_transactions(accountId, programmeId)",
                 )
             }
+        }
+
+        /** Replaces free-text material contracts with the canonical eleven-family catalogue. */
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE resource_items_material_family (
+                        id TEXT NOT NULL, accountId TEXT NOT NULL, eventId TEXT NOT NULL,
+                        ownerId TEXT NOT NULL, title TEXT NOT NULL, category TEXT NOT NULL,
+                        materialFamily TEXT NOT NULL, materialDetail TEXT,
+                        condition TEXT NOT NULL, quantity REAL NOT NULL, unit TEXT NOT NULL,
+                        status TEXT NOT NULL, valueCents INTEGER NOT NULL,
+                        imageUrlsJson TEXT NOT NULL, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL,
+                        syncState TEXT NOT NULL, archived INTEGER NOT NULL,
+                        marketplaceListingId TEXT, marketplaceAllowedActionsJson TEXT NOT NULL,
+                        marketplacePublishedQuantity REAL, marketplaceBuyUnitPrice INTEGER,
+                        marketplaceRentUnitPrice INTEGER, marketplaceDefaultDurationDays INTEGER,
+                        marketplaceTerms TEXT NOT NULL, location TEXT, latitude REAL, longitude REAL,
+                        reuseCount INTEGER NOT NULL,
+                        PRIMARY KEY(accountId, id)
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    """
+                    INSERT INTO resource_items_material_family (
+                        id, accountId, eventId, ownerId, title, category,
+                        materialFamily, materialDetail, condition, quantity, unit, status,
+                        valueCents, imageUrlsJson, createdAt, updatedAt, syncState, archived,
+                        marketplaceListingId, marketplaceAllowedActionsJson, marketplacePublishedQuantity,
+                        marketplaceBuyUnitPrice, marketplaceRentUnitPrice, marketplaceDefaultDurationDays,
+                        marketplaceTerms, location, latitude, longitude, reuseCount
+                    )
+                    SELECT
+                        id, accountId, eventId, ownerId, title, category,
+                        ${legacyMaterialFamilySql("material")},
+                        ${legacyMaterialDetailSql("material")},
+                        condition, quantity, unit, status, valueCents, imageUrlsJson,
+                        createdAt, updatedAt, syncState, archived, marketplaceListingId,
+                        marketplaceAllowedActionsJson, marketplacePublishedQuantity,
+                        marketplaceBuyUnitPrice, marketplaceRentUnitPrice,
+                        marketplaceDefaultDurationDays, marketplaceTerms, location,
+                        latitude, longitude, reuseCount
+                    FROM resource_items
+                    """.trimIndent(),
+                )
+                db.execSQL("DROP TABLE resource_items")
+                db.execSQL("ALTER TABLE resource_items_material_family RENAME TO resource_items")
+                db.execSQL("CREATE INDEX index_resource_items_accountId_eventId ON resource_items(accountId, eventId)")
+                db.execSQL("CREATE INDEX index_resource_items_accountId_ownerId ON resource_items(accountId, ownerId)")
+                db.execSQL("CREATE INDEX index_resource_items_accountId_status ON resource_items(accountId, status)")
+
+                db.execSQL(
+                    """
+                    CREATE TABLE circular_programmes_material_family (
+                        id TEXT NOT NULL, accountId TEXT NOT NULL, partnerId TEXT NOT NULL,
+                        name TEXT NOT NULL, type TEXT NOT NULL,
+                        acceptedMaterialFamiliesJson TEXT NOT NULL, location TEXT NOT NULL,
+                        active INTEGER NOT NULL, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL,
+                        syncState TEXT NOT NULL, acceptedCategoriesJson TEXT NOT NULL,
+                        acceptedConditionsJson TEXT NOT NULL, minimumQuantity REAL,
+                        maximumQuantity REAL, unit TEXT, remainingCapacity REAL,
+                        coinDirection TEXT NOT NULL, unitCoinAmount INTEGER,
+                        pickupAvailable INTEGER NOT NULL, latitude REAL, longitude REAL,
+                        processingMethod TEXT NOT NULL, terms TEXT NOT NULL,
+                        PRIMARY KEY(accountId, id)
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    """
+                    INSERT INTO circular_programmes_material_family (
+                        id, accountId, partnerId, name, type, acceptedMaterialFamiliesJson,
+                        location, active, createdAt, updatedAt, syncState,
+                        acceptedCategoriesJson, acceptedConditionsJson, minimumQuantity,
+                        maximumQuantity, unit, remainingCapacity, coinDirection,
+                        unitCoinAmount, pickupAvailable, latitude, longitude, processingMethod, terms
+                    )
+                    SELECT
+                        id, accountId, partnerId, name, type,
+                        ${legacyAcceptedFamiliesSql("acceptedMaterialsJson")},
+                        location, active, createdAt, updatedAt, syncState,
+                        acceptedCategoriesJson, acceptedConditionsJson, minimumQuantity,
+                        maximumQuantity, unit, remainingCapacity, coinDirection,
+                        unitCoinAmount, pickupAvailable, latitude, longitude, processingMethod, terms
+                    FROM circular_programmes
+                    """.trimIndent(),
+                )
+                db.execSQL("DROP TABLE circular_programmes")
+                db.execSQL("ALTER TABLE circular_programmes_material_family RENAME TO circular_programmes")
+                db.execSQL(
+                    "CREATE INDEX index_circular_programmes_accountId_partnerId " +
+                        "ON circular_programmes(accountId, partnerId)",
+                )
+            }
+        }
+
+        private fun legacyMaterialFamilySql(column: String): String {
+            val value = "LOWER(TRIM($column))"
+            return """
+                CASE
+                    WHEN $value IN ('wood','wooden','timber','plywood','bamboo','cork','mdf') THEN 'WOOD'
+                    WHEN $value IN ('textile','textiles','fabric','canvas','cotton','wool','linen','polyester') THEN 'TEXTILES'
+                    WHEN $value IN ('metal','steel','aluminium','aluminum','iron','copper','brass') THEN 'METAL'
+                    WHEN $value IN ('plastic','plastics','acrylic','pet','pvc','polypropylene','pp','polystyrene') THEN 'PLASTIC'
+                    WHEN $value IN ('paper','card','cardboard','paper and card','paper & card') THEN 'PAPER_CARD'
+                    WHEN $value = 'glass' THEN 'GLASS'
+                    WHEN $value IN ('ceramic','ceramics','porcelain','stoneware') THEN 'CERAMIC'
+                    WHEN $value IN ('electrical','electronics','electronic','e-waste','ewaste','cable','cables','lighting') THEN 'ELECTRICAL_ELECTRONICS'
+                    WHEN $value IN ('organic','food','compostable','plant','plants','foliage') THEN 'ORGANIC'
+                    WHEN $value IN ('rubber','latex','silicone') THEN 'RUBBER'
+                    ELSE 'MIXED_OTHER'
+                END
+            """.trimIndent()
+        }
+
+        private fun legacyMaterialDetailSql(column: String): String {
+            val value = "LOWER(TRIM($column))"
+            val genericAliases = listOf(
+                "wood", "textile", "textiles", "metal", "plastic", "plastics", "paper",
+                "paper and card", "paper & card", "glass", "ceramic", "ceramics", "electrical",
+                "electronics", "electronic", "organic", "rubber", "mixed", "other",
+            ).joinToString(",") { "'$it'" }
+            return """
+                CASE
+                    WHEN TRIM($column) = '' THEN 'Unspecified material'
+                    WHEN $value IN ($genericAliases) THEN NULL
+                    ELSE SUBSTR(TRIM($column), 1, 120)
+                END
+            """.trimIndent()
+        }
+
+        private fun legacyAcceptedFamiliesSql(column: String): String {
+            val value = "LOWER($column)"
+            val families = listOf(
+                "WOOD" to listOf("wood", "timber", "plywood", "bamboo", "cork", "mdf"),
+                "TEXTILES" to listOf("textile", "fabric", "canvas", "cotton", "wool", "linen", "polyester"),
+                "METAL" to listOf("metal", "steel", "aluminium", "aluminum", "iron", "copper", "brass"),
+                "PLASTIC" to listOf("plastic", "acrylic", "pet", "pvc", "polypropylene", "polystyrene"),
+                "PAPER_CARD" to listOf("paper", "cardboard", "card\""),
+                "GLASS" to listOf("glass"),
+                "CERAMIC" to listOf("ceramic", "porcelain", "stoneware"),
+                "ELECTRICAL_ELECTRONICS" to listOf("electrical", "electronic", "e-waste", "ewaste", "cable", "lighting"),
+                "ORGANIC" to listOf("organic", "food", "compostable", "plant", "foliage"),
+                "RUBBER" to listOf("rubber", "latex", "silicone"),
+            )
+            fun match(aliases: List<String>) = aliases.joinToString(" OR ") { "$value LIKE '%$it%'" }
+            val recognised = families.joinToString(" OR ") { (_, aliases) -> "(${match(aliases)})" }
+            val entries = families.joinToString(" || ") { (family, aliases) ->
+                "CASE WHEN ${match(aliases)} THEN '\"$family\",' ELSE '' END"
+            }
+            return """
+                CASE
+                    WHEN TRIM($column) IN ('', '[]') THEN '[]'
+                    ELSE '[' || RTRIM(
+                        $entries || CASE WHEN NOT ($recognised) THEN '"MIXED_OTHER",' ELSE '' END,
+                        ','
+                    ) || ']'
+                END
+            """.trimIndent()
         }
 
         private fun rebuildAccountScopedTable(

@@ -3,7 +3,7 @@ package com.reevent.app.core.model
 enum class PartnerOriginSource { DEVICE, RESOURCE, EVENT, NONE }
 
 data class PartnerMapFilters(
-    val material: String? = null,
+    val materialFamily: MaterialFamily? = null,
     val programmeTypes: Set<ProgrammeType> = emptySet(),
     val maximumDistanceKm: Double? = null,
     val pickupOnly: Boolean = false,

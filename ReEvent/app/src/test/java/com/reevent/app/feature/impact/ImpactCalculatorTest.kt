@@ -104,7 +104,7 @@ class ImpactCalculatorTest {
     }
 
     private fun resource(id: String, status: ResourceStatus = ResourceStatus.ACTIVE) = ResourceItem(
-        id, "event", "owner", id, "Signage", "Acrylic", ResourceCondition.GOOD,
+        id, "event", "owner", id, "Signage", com.reevent.app.core.model.MaterialFamily.PLASTIC, "Acrylic", ResourceCondition.GOOD,
         1.0, "ITEM", status, 0, emptyList(), NOW, NOW
     )
 

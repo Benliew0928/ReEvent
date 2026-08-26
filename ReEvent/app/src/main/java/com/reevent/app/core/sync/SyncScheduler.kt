@@ -224,7 +224,8 @@ private fun EventEntity.toJson() = buildJsonObject {
 }
 private fun ResourceEntity.toJson() = buildJsonObject {
     put("id", id); put("origin_event_id", eventId); put("created_by", ownerId); put("current_owner_id", ownerId)
-    put("title", title); put("description", ""); put("category", category); put("material", material)
+    put("title", title); put("description", ""); put("category", category)
+    put("material_family", materialFamily); put("material_detail", materialDetail)
     put("condition", condition); put("quantity", quantity); put("unit", resourceQuantityUnitWireValue(unit)); put("status", status)
     put("address_text", location); put("latitude", latitude); put("longitude", longitude)
     put("updated_at", time(updatedAt))
@@ -242,7 +243,7 @@ internal fun resourceQuantityUnitWireValue(unit: String): String = when (unit.tr
 private fun ProgrammeEntity.toJson() = buildJsonObject {
     put("id", id); put("partner_id", partnerId); put("name", name); put("programme_type", type)
     put("accepted_categories", syncJson.parseToJsonElement(acceptedCategoriesJson).safeJson())
-    put("accepted_materials", syncJson.parseToJsonElement(acceptedMaterialsJson).safeJson())
+    put("accepted_material_families", syncJson.parseToJsonElement(acceptedMaterialFamiliesJson).safeJson())
     put("accepted_conditions", syncJson.parseToJsonElement(acceptedConditionsJson).safeJson())
     put("minimum_quantity", minimumQuantity); put("maximum_quantity", maximumQuantity); put("unit", unit)
     put("remaining_capacity", remainingCapacity); put("coin_direction", coinDirection); put("unit_coin_amount", unitCoinAmount)

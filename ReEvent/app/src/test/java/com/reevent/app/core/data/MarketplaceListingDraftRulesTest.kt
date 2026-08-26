@@ -96,7 +96,7 @@ class MarketplaceListingDraftRulesTest {
         ownerId = "organiser",
         title = "Reusable display boards",
         category = "Signage",
-        material = "Wood",
+        materialFamily = com.reevent.app.core.model.MaterialFamily.WOOD,
         condition = ResourceCondition.GOOD,
         quantity = quantity,
         unit = unit,

@@ -46,6 +46,8 @@ import com.reevent.app.core.model.CircularProgramme
 import com.reevent.app.core.model.CoinDirection
 import com.reevent.app.core.model.GeoLocation
 import com.reevent.app.core.model.LegacyProgrammeDraft
+import com.reevent.app.core.model.MaterialCatalog
+import com.reevent.app.core.model.MaterialFamily
 import com.reevent.app.core.model.ProgrammeType
 import com.reevent.app.core.model.ResourceCondition
 import com.reevent.app.core.model.TransactionStatus
@@ -59,6 +61,7 @@ import com.reevent.app.ui.components.ReEventScaffold
 import com.reevent.app.ui.components.ScreenHeader
 import com.reevent.app.ui.components.SecondaryActionButton
 import com.reevent.app.ui.components.StatusChip
+import com.reevent.app.ui.materials.MaterialFamilyMultiSelectField
 import com.reevent.app.ui.theme.ReEventGreen
 import com.reevent.app.ui.theme.ReEventInk
 import com.reevent.app.ui.theme.ReEventTextSecondary
@@ -324,7 +327,7 @@ fun PartnerProgrammesVisualScreen(
             onDismiss = { creatingProgramme = false },
             onSave = { form ->
                 viewModel.saveProgramme(
-                    user, null, form.name, form.type, form.materials, form.categories, form.conditions,
+                    user, null, form.name, form.type, form.materialFamilies, form.categories, form.conditions,
                     form.minimumQuantity, form.maximumQuantity, form.unit, form.remainingCapacity,
                     form.pickupAvailable, form.coinDirection, form.unitCoinAmount, form.geoLocation,
                     form.processingMethod, form.terms, form.active,
@@ -340,7 +343,7 @@ fun PartnerProgrammesVisualScreen(
             onDismiss = { editingProgramme = null },
             onSave = { form ->
                 viewModel.saveProgramme(
-                    user, programme, form.name, form.type, form.materials, form.categories, form.conditions,
+                    user, programme, form.name, form.type, form.materialFamilies, form.categories, form.conditions,
                     form.minimumQuantity, form.maximumQuantity, form.unit, form.remainingCapacity,
                     form.pickupAvailable, form.coinDirection, form.unitCoinAmount, form.geoLocation,
                     form.processingMethod, form.terms, form.active,
@@ -357,7 +360,7 @@ fun PartnerProgrammesVisualScreen(
             onDismiss = { replacementLegacy = null },
             onSave = { form ->
                 viewModel.saveProgramme(
-                    user, null, form.name, form.type, form.materials, form.categories, form.conditions,
+                    user, null, form.name, form.type, form.materialFamilies, form.categories, form.conditions,
                     form.minimumQuantity, form.maximumQuantity, form.unit, form.remainingCapacity,
                     form.pickupAvailable, form.coinDirection, form.unitCoinAmount, form.geoLocation,
                     form.processingMethod, form.terms, false, legacy.id,
@@ -385,7 +388,7 @@ private fun ProgrammeCard(
                 StatusChip(if (programme.active) "Active" else "Inactive", if (programme.active) ReEventGreen else ReEventTextSecondary)
             }
             Text(programme.location.ifBlank { "Location pending" }, color = ReEventTextSecondary)
-            Text("Accepts: ${programme.acceptedMaterials.ifEmpty { listOf("all materials") }.joinToString()}")
+            Text("Accepts: ${programme.acceptedMaterialFamilies.map(MaterialFamily::displayLabel).ifEmpty { listOf("all materials") }.joinToString()}")
             PrimaryActionButton("Edit programme", onEdit, Modifier.fillMaxWidth())
             if (programme.active) {
                 SecondaryActionButton("Deactivate programme", onDeactivate, Modifier.fillMaxWidth())
@@ -397,7 +400,7 @@ private fun ProgrammeCard(
 private data class ProgrammeForm(
     val name: String,
     val type: ProgrammeType,
-    val materials: List<String>,
+    val materialFamilies: Set<MaterialFamily>,
     val categories: List<String>,
     val conditions: Set<ResourceCondition>,
     val minimumQuantity: Double?,
@@ -425,8 +428,12 @@ private fun ProgrammeEditorDialog(
     val editorKey = programme?.id ?: legacy?.id
     var name by rememberSaveable(editorKey) { mutableStateOf(programme?.name ?: legacy?.name.orEmpty()) }
     var type by rememberSaveable(editorKey) { mutableStateOf(programme?.type ?: legacy?.type ?: ProgrammeType.REPAIR) }
-    var materials by rememberSaveable(editorKey) {
-        mutableStateOf(programme?.acceptedMaterials?.joinToString(", ") ?: legacy?.acceptedMaterials?.joinToString(", ").orEmpty())
+    var materialFamilies by remember(editorKey) {
+        mutableStateOf(
+            programme?.acceptedMaterialFamilies
+                ?: legacy?.acceptedMaterials?.map { MaterialCatalog.resolveLegacy(it).family }?.toSet()
+                ?: emptySet(),
+        )
     }
     var categories by rememberSaveable(editorKey) { mutableStateOf(programme?.acceptedCategories?.joinToString(", ").orEmpty()) }
     var conditions by remember(programme?.id) { mutableStateOf(programme?.acceptedConditions ?: ResourceCondition.entries.toSet()) }
@@ -495,13 +502,7 @@ private fun ProgrammeEditorDialog(
                 ChoiceField("Type", type.displayLabel(), ProgrammeType.entries.map(ProgrammeType::displayLabel)) { selected ->
                     type = ProgrammeType.entries.first { it.displayLabel() == selected }
                 }
-                OutlinedTextField(
-                    materials,
-                    { materials = it },
-                    Modifier.fillMaxWidth(),
-                    label = { Text("Accepted materials") },
-                    placeholder = { Text("Acrylic, Fabric; blank means any") },
-                )
+                MaterialFamilyMultiSelectField(materialFamilies, { materialFamilies = it }, Modifier.fillMaxWidth())
                 OutlinedTextField(
                     categories,
                     { categories = it },
@@ -605,7 +606,7 @@ private fun ProgrammeEditorDialog(
                         ProgrammeForm(
                             name = name,
                             type = type,
-                            materials = materials.split(","),
+                            materialFamilies = materialFamilies,
                             categories = categories.split(","),
                             conditions = conditions,
                             minimumQuantity = parsedMinimum,

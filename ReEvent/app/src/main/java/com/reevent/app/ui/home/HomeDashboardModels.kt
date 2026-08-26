@@ -329,7 +329,7 @@ object HomeDashboardMappers {
                 id = "programme-${transaction.id}",
                 badge = partnerBadge(transaction.status),
                 title = partnerTaskTitle(transaction),
-                detail = resource?.let { "${it.material.ifBlank { it.category }} · ${formatQuantity(transaction.quantity)} ${it.unit}" }
+                detail = resource?.let { "${it.materialLabel} · ${formatQuantity(transaction.quantity)} ${it.unit}" }
                     ?: "Open the focused programme task",
                 icon = transactionIcon(transaction),
                 target = HomeTarget.FocusProgrammeTransaction(transaction.id),

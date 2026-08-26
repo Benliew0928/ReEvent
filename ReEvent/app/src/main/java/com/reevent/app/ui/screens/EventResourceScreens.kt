@@ -56,6 +56,8 @@ import com.reevent.app.core.data.ResourcePresentationRules
 import com.reevent.app.core.data.blocksResourceArchive
 import com.reevent.app.core.model.Event
 import com.reevent.app.core.model.GeoLocation
+import com.reevent.app.core.model.MaterialCatalog
+import com.reevent.app.core.model.MaterialFamily
 import com.reevent.app.core.model.ResourceCondition
 import com.reevent.app.core.model.ResourceItem
 import com.reevent.app.core.model.ResourceStatus
@@ -69,6 +71,7 @@ import com.reevent.app.ui.components.ReEventScaffold
 import com.reevent.app.ui.components.SecondaryActionButton
 import com.reevent.app.ui.components.StatusChip
 import com.reevent.app.ui.components.SyncStateChip
+import com.reevent.app.ui.materials.MaterialFamilyPickerField
 import com.reevent.app.ui.theme.ReEventAmber
 import com.reevent.app.ui.theme.ReEventBlue
 import com.reevent.app.ui.theme.ReEventCoral
@@ -90,7 +93,10 @@ private data class ResourceDraft(
     val resourceId: String? = null,
     val title: String = "",
     val category: String = "",
-    val material: String = "",
+    val materialFamily: String? = null,
+    val materialDetail: String = "",
+    /** Read once from pre-catalogue drafts, then rewritten as family/detail. */
+    val material: String? = null,
     val quantity: String = "1",
     val unit: String = "items",
     val condition: String = ResourceCondition.GOOD.name,
@@ -125,7 +131,8 @@ fun AddResourceLiveScreen(
     val event by viewModel.event(eventId).collectAsState(null)
     var title by rememberSaveable(initialResource?.id) { mutableStateOf(initialResource?.title.orEmpty()) }
     var category by rememberSaveable(initialResource?.id) { mutableStateOf(initialResource?.category ?: resourceCategories.first()) }
-    var material by rememberSaveable(initialResource?.id) { mutableStateOf(initialResource?.material.orEmpty()) }
+    var materialFamily by rememberSaveable(initialResource?.id) { mutableStateOf(initialResource?.materialFamily ?: MaterialFamily.WOOD) }
+    var materialDetail by rememberSaveable(initialResource?.id) { mutableStateOf(initialResource?.materialDetail.orEmpty()) }
     var quantity by rememberSaveable(initialResource?.id) { mutableStateOf(initialResource?.quantity?.toString() ?: "1") }
     var unit by rememberSaveable(initialResource?.id) { mutableStateOf(initialResource?.unit ?: resourceUnits.first()) }
     var condition by rememberSaveable(initialResource?.id) { mutableStateOf(initialResource?.condition ?: ResourceCondition.GOOD) }
@@ -158,7 +165,12 @@ fun AddResourceLiveScreen(
                     draftResourceId = draft.resourceId
                     title = draft.title
                     category = draft.category.ifBlank { resourceCategories.first() }
-                    material = draft.material
+                    val descriptor = draft.materialFamily
+                        ?.let { runCatching { MaterialFamily.valueOf(it) }.getOrNull() }
+                        ?.let { family -> MaterialCatalog.descriptor(family, draft.materialDetail) }
+                        ?: MaterialCatalog.resolveLegacy(draft.material.orEmpty())
+                    materialFamily = descriptor.family
+                    materialDetail = descriptor.detail.orEmpty()
                     quantity = draft.quantity
                     unit = draft.unit.ifBlank { resourceUnits.first() }
                     condition = runCatching { ResourceCondition.valueOf(draft.condition) }.getOrDefault(ResourceCondition.GOOD)
@@ -174,7 +186,7 @@ fun AddResourceLiveScreen(
         }
     }
     LaunchedEffect(
-        title, category, material, quantity, unit, condition, value, photoUri, useEventLocation,
+        title, category, materialFamily, materialDetail, quantity, unit, condition, value, photoUri, useEventLocation,
         resourceLocation, draftResourceId, draftRestored, initialResource?.id,
     ) {
         if (initialResource == null && draftRestored) {
@@ -184,8 +196,20 @@ fun AddResourceLiveScreen(
                 resourceDraftJson.encodeToString(
                     ResourceDraft.serializer(),
                     ResourceDraft(
-                        draftResourceId, title, category, material, quantity, unit, condition.name, value, photoUri?.toString(),
-                        useEventLocation, resourceLocation?.displayAddress, resourceLocation?.latitude, resourceLocation?.longitude,
+                        resourceId = draftResourceId,
+                        title = title,
+                        category = category,
+                        materialFamily = materialFamily.name,
+                        materialDetail = materialDetail,
+                        quantity = quantity,
+                        unit = unit,
+                        condition = condition.name,
+                        value = value,
+                        photoUri = photoUri?.toString(),
+                        useEventLocation = useEventLocation,
+                        locationLabel = resourceLocation?.displayAddress,
+                        latitude = resourceLocation?.latitude,
+                        longitude = resourceLocation?.longitude,
                     ),
                 ),
             )
@@ -194,11 +218,12 @@ fun AddResourceLiveScreen(
     val quantityValue = quantity.toIntOrNull()
     val valueCents = value.toCentsOrNull()
     val titleError = submitted && title.trim().length < 2
-    val materialError = submitted && material.trim().length < 2
+    val materialValidation = MaterialCatalog.validate(materialFamily, materialDetail)
+    val materialError = submitted && !materialValidation.isValid
     val quantityError = submitted && (quantityValue == null || quantityValue !in 1..10_000)
     val valueError = submitted && value.isNotBlank() && valueCents == null
     val formValid =
-        title.trim().length >= 2 && material.trim().length >= 2 && quantityValue != null && quantityValue in 1..10_000 &&
+        title.trim().length >= 2 && materialValidation.isValid && quantityValue != null && quantityValue in 1..10_000 &&
             (value.isBlank() || valueCents != null)
     val action by viewModel.action.collectAsState()
     val context = LocalContext.current
@@ -260,11 +285,19 @@ fun AddResourceLiveScreen(
                     Text("Resource name *")
                 }, singleLine = true, isError = titleError, supportingText = { if (titleError) Text("Enter at least 2 characters.") })
                 ResourceChoiceField("Category", category, resourceCategories) { category = it }
-                OutlinedTextField(material, {
-                    material = it
-                }, Modifier.fillMaxWidth(), label = {
-                    Text("Material *")
-                }, singleLine = true, isError = materialError, supportingText = { if (materialError) Text("Enter at least 2 characters.") })
+                MaterialFamilyPickerField(materialFamily, { selected -> selected?.let { materialFamily = it } }, Modifier.fillMaxWidth())
+                OutlinedTextField(
+                    materialDetail,
+                    { materialDetail = it.take(MaterialCatalog.MAX_DETAIL_LENGTH) },
+                    Modifier.fillMaxWidth(),
+                    label = { Text(if (materialFamily == MaterialFamily.MIXED_OTHER) "Specific material *" else "Specific material (optional)") },
+                    singleLine = true,
+                    isError = materialError,
+                    supportingText = {
+                        if (materialError) Text(materialValidation.detailError.orEmpty())
+                        else Text("${materialDetail.length}/${MaterialCatalog.MAX_DETAIL_LENGTH}")
+                    },
+                )
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         quantity,
@@ -400,7 +433,8 @@ fun AddResourceLiveScreen(
                                 user.id,
                                 title.trim(),
                                 category,
-                                material.trim(),
+                                materialFamily,
+                                materialDetail.trim().takeIf(String::isNotBlank),
                                 condition,
                                 checkNotNull(quantityValue).toDouble(),
                                 unit,
@@ -709,7 +743,7 @@ fun EventDetailLiveScreen(
             val matchesSearch =
                 searchQuery.trim().let { query ->
                     query.isBlank() ||
-                        listOf(resource.title, resource.category, resource.material).any { it.contains(query, ignoreCase = true) }
+                        listOf(resource.title, resource.category, resource.materialLabel).any { it.contains(query, ignoreCase = true) }
                 }
             val matchesStatus = statusFilter == "All statuses" || resource.status.toDisplayLabel() == statusFilter
             matchesSearch && matchesStatus

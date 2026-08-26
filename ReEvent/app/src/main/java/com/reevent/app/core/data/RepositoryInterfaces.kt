@@ -35,7 +35,6 @@ interface AuthRepository {
     suspend fun completeRole(role: UserRole): AppResult<User>
     suspend fun restoreSession(): AppResult<User?>
     suspend fun requestPasswordReset(email: String): AppResult<Unit>
-    suspend fun checkEmailExists(email: String): AppResult<Boolean>
     suspend fun updatePassword(newPassword: String): AppResult<Unit>
     suspend fun finishPasswordRecovery(): AppResult<Unit>
     suspend fun deleteAccount(currentPassword: String): AppResult<AccountDeletionOutcome>

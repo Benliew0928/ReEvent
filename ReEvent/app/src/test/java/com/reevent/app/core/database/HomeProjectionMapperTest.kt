@@ -19,7 +19,7 @@ class HomeProjectionMapperTest {
             ownerId = "owner",
             title = "Chair",
             category = "Furniture",
-            material = "Wood",
+            materialFamily = com.reevent.app.core.model.MaterialFamily.WOOD,
             condition = ResourceCondition.GOOD,
             quantity = 4.0,
             unit = "units",

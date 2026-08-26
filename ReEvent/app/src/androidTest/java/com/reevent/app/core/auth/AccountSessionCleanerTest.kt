@@ -132,7 +132,7 @@ class AccountSessionCleanerTest {
     )
 
     private fun resource(accountId: String) = ResourceEntity(
-        SHARED_ID, accountId, EVENT_ID, accountId, "Resource", "DECOR", "PLASTIC", "GOOD",
+        SHARED_ID, accountId, EVENT_ID, accountId, "Resource", "DECOR", "PLASTIC", null, "GOOD",
         1.0, "ITEM", "ACTIVE", 0L, "[]", 1L, 2L, "PENDING", false
     )
 

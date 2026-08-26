@@ -36,7 +36,7 @@ internal fun com.reevent.app.core.model.ResourceItem.toVisualResource(
     price = valueCents.takeIf { it > 0 }?.let { "RM %.2f".format(Locale.US, it / 100.0) } ?: "Value not set",
     quantity = ResourcePresentationRules.quantityLabel(quantity, unit),
     location = venue?.takeIf(String::isNotBlank) ?: "Location to be confirmed",
-    impact = "${material.ifBlank { "Material pending" }} • ${status.visualLabel()}",
+    impact = "$materialLabel • ${status.visualLabel()}",
     tone = status.toVisualTone(condition),
     imageRes = R.drawable.resource_display_stand,
     photoPath = imageUrls.firstOrNull(),

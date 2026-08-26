@@ -33,6 +33,7 @@ class ReEventDatabaseMigrationTest {
         context.deleteDatabase(V5_DATABASE)
         context.deleteDatabase(V6_DATABASE)
         context.deleteDatabase(V7_DATABASE)
+        context.deleteDatabase(V8_DATABASE)
     }
 
     @Test
@@ -393,6 +394,51 @@ class ReEventDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrate8To9_backfillsCanonicalFamiliesAndPreservesRows() {
+        helper.createDatabase(V8_DATABASE, 8).use { database ->
+            database.execSQL(
+                """
+                INSERT INTO resource_items (
+                    id, accountId, eventId, ownerId, title, category, material, condition,
+                    quantity, unit, status, valueCents, imageUrlsJson, createdAt, updatedAt,
+                    syncState, archived
+                ) VALUES
+                    ('wood', '$ACCOUNT_A', 'event', 'owner', 'Chair', 'Furniture', 'Wood', 'GOOD', 1, 'ITEM', 'ACTIVE', 0, '[]', 1, 2, 'SYNCED', 0),
+                    ('acrylic', '$ACCOUNT_A', 'event', 'owner', 'Panel', 'Signage', 'Acrylic', 'GOOD', 2, 'KG', 'ACTIVE', 0, '[]', 1, 2, 'SYNCED', 0),
+                    ('unknown', '$ACCOUNT_A', 'event', 'owner', 'Prop', 'Decor', 'Foam composite', 'FAIR', 3, 'ITEM', 'ACTIVE', 0, '[]', 1, 2, 'PENDING', 0)
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                INSERT INTO circular_programmes (
+                    id, accountId, partnerId, name, type, acceptedMaterialsJson,
+                    location, active, createdAt, updatedAt, syncState
+                ) VALUES (
+                    'programme', '$ACCOUNT_A', 'partner', 'Recovery', 'RECYCLE',
+                    '["wood","Wood","acrylic","mystery"]', 'Kuala Lumpur', 1, 1, 2, 'SYNCED'
+                )
+                """.trimIndent(),
+            )
+        }
+
+        helper.runMigrationsAndValidate(
+            V8_DATABASE,
+            9,
+            true,
+            ReEventDatabase.MIGRATION_8_9,
+        ).use { database ->
+            assertEquals(listOf("WOOD", null), database.nullableRow("SELECT materialFamily, materialDetail FROM resource_items WHERE id = 'wood'"))
+            assertEquals(listOf("PLASTIC", "Acrylic"), database.nullableRow("SELECT materialFamily, materialDetail FROM resource_items WHERE id = 'acrylic'"))
+            assertEquals(listOf("MIXED_OTHER", "Foam composite"), database.nullableRow("SELECT materialFamily, materialDetail FROM resource_items WHERE id = 'unknown'"))
+            assertEquals(
+                "[\"WOOD\",\"PLASTIC\",\"MIXED_OTHER\"]",
+                database.singleString("SELECT acceptedMaterialFamiliesJson FROM circular_programmes WHERE id = 'programme'"),
+            )
+            assertEquals(3L, database.count("resource_items"))
+        }
+    }
+
     private fun createVersion1Database(): SupportSQLiteDatabase {
         context.deleteDatabase(V1_DATABASE)
         val callback = object : SupportSQLiteOpenHelper.Callback(1) {
@@ -444,6 +490,7 @@ class ReEventDatabaseMigrationTest {
         const val V5_DATABASE = "reevent-migration-v5"
         const val V6_DATABASE = "reevent-migration-v6"
         const val V7_DATABASE = "reevent-migration-v7"
+        const val V8_DATABASE = "reevent-migration-v8"
 
         val ACCOUNT_SCOPED_TABLES = listOf(
             "events",

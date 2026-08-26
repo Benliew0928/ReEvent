@@ -86,12 +86,12 @@ object PartnerDiscoveryEngine {
         request.filters.programmeTypes.isNotEmpty() && programme.type !in request.filters.programmeTypes -> "TYPE_FILTERED"
         request.filters.pickupOnly && !programme.pickupAvailable -> "PICKUP_UNAVAILABLE"
         request.filters.maximumDistanceKm != null && (distance == null || distance > request.filters.maximumDistanceKm) -> "OUTSIDE_DISTANCE"
-        !request.filters.material.isNullOrBlank() && programme.acceptedMaterials.isNotEmpty() &&
-            programme.acceptedMaterials.none { it.equals(request.filters.material, ignoreCase = true) } -> "MATERIAL_NOT_ACCEPTED"
+        request.filters.materialFamily != null && programme.acceptedMaterialFamilies.isNotEmpty() &&
+            request.filters.materialFamily !in programme.acceptedMaterialFamilies -> "MATERIAL_NOT_ACCEPTED"
         resource == null -> null
         resource.ownerId != requesterId || resource.status != ResourceStatus.ACTIVE -> "RESOURCE_NOT_OWNED_OR_ACTIVE"
         programme.partnerId == requesterId -> "SELF_DEALING_FORBIDDEN"
-        programme.acceptedMaterials.isNotEmpty() && programme.acceptedMaterials.none { it.equals(resource.material, ignoreCase = true) } -> "MATERIAL_NOT_ACCEPTED"
+        programme.acceptedMaterialFamilies.isNotEmpty() && resource.materialFamily !in programme.acceptedMaterialFamilies -> "MATERIAL_NOT_ACCEPTED"
         programme.acceptedCategories.isNotEmpty() && programme.acceptedCategories.none { it.equals(resource.category, ignoreCase = true) } -> "CATEGORY_NOT_ACCEPTED"
         resource.condition !in programme.acceptedConditions -> "CONDITION_NOT_ACCEPTED"
         programme.unit != null && !programme.unit.equals(resource.unit, ignoreCase = true) -> "UNIT_NOT_ACCEPTED"
@@ -102,7 +102,7 @@ object PartnerDiscoveryEngine {
     }
 
     private fun score(programme: CircularProgramme, resource: ResourceItem, distance: Double?, pickupRequested: Boolean): Int {
-        val material = if (programme.acceptedMaterials.isEmpty()) 15 else 30
+        val material = if (programme.acceptedMaterialFamilies.isEmpty()) 15 else 30
         val category = if (programme.acceptedCategories.isEmpty()) 10 else 20
         val distancePoints = when {
             distance == null || distance > 50 -> 0
@@ -118,7 +118,7 @@ object PartnerDiscoveryEngine {
     }
 
     private fun reasons(programme: CircularProgramme, resource: ResourceItem, distance: Double?): List<String> = buildList {
-        add(if (programme.acceptedMaterials.isEmpty()) "Accepts all materials" else "Accepts ${resource.material}")
+        add(if (programme.acceptedMaterialFamilies.isEmpty()) "Accepts all materials" else "Accepts ${resource.materialLabel}")
         add(if (programme.acceptedCategories.isEmpty()) "Accepts all categories" else "Accepts ${resource.category}")
         add(distance?.let { "${"%.1f".format(it)} km away" } ?: "Distance unavailable")
         add(if (programme.pickupAvailable) "Pickup available" else "Drop-off required")

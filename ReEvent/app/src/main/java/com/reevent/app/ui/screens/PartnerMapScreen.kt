@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import com.reevent.app.BuildConfig
 import com.reevent.app.core.data.ResourcePresentationRules
 import com.reevent.app.core.model.CircularProgramme
+import com.reevent.app.core.model.MaterialFamily
 import com.reevent.app.core.model.PartnerCandidate
 import com.reevent.app.core.model.PartnerOriginSource
 import com.reevent.app.core.model.ProgrammeType
@@ -63,6 +64,7 @@ import com.reevent.app.ui.TopLevelDestination
 import com.reevent.app.ui.components.ReEventScaffold
 import com.reevent.app.ui.components.ScreenHeader
 import com.reevent.app.ui.components.SecondaryActionButton
+import com.reevent.app.ui.materials.MaterialFamilyPickerField
 import com.reevent.app.ui.theme.ReEventBackground
 import com.reevent.app.ui.theme.ReEventGreen
 import com.reevent.app.ui.theme.ReEventGreenDeep
@@ -107,7 +109,7 @@ fun PartnerMapScreen(
     onNavigate: (TopLevelDestination) -> Unit,
     onProfile: () -> Unit,
     onBack: (() -> Unit)?,
-    onMaterialChange: (String?) -> Unit,
+    onMaterialChange: (MaterialFamily?) -> Unit,
     onToggleType: (ProgrammeType) -> Unit,
     onDistanceChange: (Double?) -> Unit,
     onPickupChange: (Boolean) -> Unit,
@@ -259,14 +261,13 @@ private fun PartnerMapContent(
 @Composable
 private fun PartnerMapFilters(
     state: PartnerMapUiState,
-    onMaterialChange: (String?) -> Unit,
+    onMaterialChange: (MaterialFamily?) -> Unit,
     onToggleType: (ProgrammeType) -> Unit,
     onDistanceChange: (Double?) -> Unit,
     onPickupChange: (Boolean) -> Unit,
     onNearMe: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var material by rememberSaveable(state.resourceId) { mutableStateOf(state.filters.material.orEmpty()) }
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -279,16 +280,12 @@ private fun PartnerMapFilters(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                OutlinedTextField(
-                    value = material,
-                    onValueChange = {
-                        material = it
-                        onMaterialChange(it.trim().takeIf(String::isNotBlank))
-                    },
-                    label = { Text("Material") },
-                    placeholder = { Text("All materials") },
-                    singleLine = true,
+                MaterialFamilyPickerField(
+                    selected = state.filters.materialFamily,
+                    onSelected = onMaterialChange,
                     modifier = Modifier.weight(1f),
+                    label = "Material",
+                    allowAny = true,
                 )
                 Button(onClick = onNearMe) {
                     Text(if (state.locationPermission == PartnerLocationPermission.PERMANENTLY_DENIED) "Location settings" else "Near me")
@@ -628,7 +625,7 @@ fun PartnerRecoveryConfirmationDialog(
 private fun AcceptedRules(programme: CircularProgramme, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("Accepted rules", style = MaterialTheme.typography.titleSmall)
-        Text("Materials: ${programme.acceptedMaterials.ifEmpty { listOf("Any") }.joinToString()}")
+        Text("Materials: ${programme.acceptedMaterialFamilies.map(MaterialFamily::displayLabel).ifEmpty { listOf("Any") }.joinToString()}")
         Text("Categories: ${programme.acceptedCategories.ifEmpty { listOf("Any") }.joinToString()}")
         Text("Conditions: ${programme.acceptedConditions.joinToString { it.name.humanize() }}")
         val range = listOfNotNull(
@@ -671,7 +668,7 @@ private fun List<PartnerCandidate>.toGeoJson(): String = FeatureCollection(
 
 private fun ResourceItem.isEligibleFor(programme: CircularProgramme): Boolean =
     status == ResourceStatus.ACTIVE && quantity > 0 &&
-        (programme.acceptedMaterials.isEmpty() || programme.acceptedMaterials.any { it.equals(material, true) }) &&
+        (programme.acceptedMaterialFamilies.isEmpty() || materialFamily in programme.acceptedMaterialFamilies) &&
         (programme.acceptedCategories.isEmpty() || programme.acceptedCategories.any { it.equals(category, true) }) &&
         condition in programme.acceptedConditions &&
         (programme.unit == null || programme.unit.equals(unit, true)) &&

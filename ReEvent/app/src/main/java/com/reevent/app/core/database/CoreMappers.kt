@@ -8,6 +8,7 @@ import com.reevent.app.core.model.GeoLocation
 import com.reevent.app.core.model.ImpactRecord
 import com.reevent.app.core.model.LegacyProgrammeDraft
 import com.reevent.app.core.model.MarketplaceListing
+import com.reevent.app.core.model.MaterialFamily
 import com.reevent.app.core.model.ProgrammeType
 import com.reevent.app.core.model.ResourceCondition
 import com.reevent.app.core.model.ResourceItem
@@ -35,7 +36,8 @@ fun Event.toEntity(accountId: String) = EventEntity(
 )
 
 fun ResourceEntity.toDomain() = ResourceItem(
-    id, eventId, ownerId, title, category, material, ResourceCondition.valueOf(condition), quantity, unit,
+    id, eventId, ownerId, title, category, MaterialFamily.valueOf(materialFamily), materialDetail,
+    ResourceCondition.valueOf(condition), quantity, unit,
     ResourceStatus.valueOf(status), valueCents, coreJson.decodeFromString(imageUrlsJson), createdAt, updatedAt,
     SyncState.valueOf(syncState), archived,
     marketplaceListingId?.let {
@@ -52,7 +54,8 @@ fun ResourceEntity.toDomain() = ResourceItem(
     geoLocation(location.orEmpty(), latitude, longitude), reuseCount,
 )
 fun ResourceItem.toEntity(accountId: String) = ResourceEntity(
-    id, accountId, eventId, ownerId, title, category, material, condition.name, quantity, unit, status.name, valueCents,
+    id, accountId, eventId, ownerId, title, category, materialFamily.name, materialDetail,
+    condition.name, quantity, unit, status.name, valueCents,
     coreJson.encodeToString(imageUrls), createdAt, updatedAt, syncState.name, archived,
     marketplaceListing?.id,
     coreJson.encodeToString(marketplaceListing?.allowedActions.orEmpty()),
@@ -71,7 +74,8 @@ fun PassportEntity.toDomain() = ResourcePassport(id, resourceId, qrPayload, hist
 fun ResourcePassport.toEntity(accountId: String) = PassportEntity(id, accountId, resourceId, qrPayload, historyJson, createdAt, updatedAt, syncState.name)
 
 fun ProgrammeEntity.toDomain() = CircularProgramme(
-    id, partnerId, name, ProgrammeType.valueOf(type), coreJson.decodeFromString(acceptedMaterialsJson), location,
+    id, partnerId, name, ProgrammeType.valueOf(type),
+    coreJson.decodeFromString<List<String>>(acceptedMaterialFamiliesJson).map(MaterialFamily::valueOf).toSet(), location,
     active, createdAt, updatedAt, SyncState.valueOf(syncState),
     coreJson.decodeFromString(acceptedCategoriesJson),
     coreJson.decodeFromString<List<String>>(acceptedConditionsJson).map(ResourceCondition::valueOf).toSet(),
@@ -79,7 +83,8 @@ fun ProgrammeEntity.toDomain() = CircularProgramme(
     unitCoinAmount, pickupAvailable, geoLocation(location, latitude, longitude), processingMethod, terms,
 )
 fun CircularProgramme.toEntity(accountId: String) = ProgrammeEntity(
-    id, accountId, partnerId, name, type.name, coreJson.encodeToString(acceptedMaterials), location, active, createdAt,
+    id, accountId, partnerId, name, type.name,
+    coreJson.encodeToString(acceptedMaterialFamilies.map(MaterialFamily::name).sorted()), location, active, createdAt,
     updatedAt, syncState.name,
     coreJson.encodeToString(acceptedCategories),
     coreJson.encodeToString(acceptedConditions.map(ResourceCondition::name)),

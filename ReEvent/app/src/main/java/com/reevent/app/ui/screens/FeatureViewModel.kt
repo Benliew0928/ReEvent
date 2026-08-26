@@ -488,7 +488,7 @@ class FeatureViewModel
                         user.id,
                         "New circular programme",
                         ProgrammeType.REPAIR,
-                        emptyList(),
+                        emptySet(),
                         "",
                         false,
                         now,
@@ -502,7 +502,7 @@ class FeatureViewModel
             existing: CircularProgramme?,
             name: String,
             type: ProgrammeType,
-            acceptedMaterials: List<String>,
+            acceptedMaterialFamilies: Set<com.reevent.app.core.model.MaterialFamily>,
             acceptedCategories: List<String>,
             acceptedConditions: Set<com.reevent.app.core.model.ResourceCondition>,
             minimumQuantity: Double?,
@@ -522,13 +522,12 @@ class FeatureViewModel
                 return@launchAction AppResult.Failure(FailureReason.VALIDATION)
             }
             val now = System.currentTimeMillis()
-            val normalizedMaterials = acceptedMaterials.map(String::trim).filter(String::isNotBlank).distinctBy(String::lowercase)
             val normalizedCategories = acceptedCategories.map(String::trim).filter(String::isNotBlank).distinctBy(String::lowercase)
             val programme =
                 existing?.copy(
                     name = name.trim(),
                     type = type,
-                    acceptedMaterials = normalizedMaterials,
+                    acceptedMaterialFamilies = acceptedMaterialFamilies,
                     location = geoLocation?.displayAddress.orEmpty(),
                     active = active,
                     updatedAt = now,
@@ -549,7 +548,7 @@ class FeatureViewModel
                     partnerId = user.id,
                     name = name.trim(),
                     type = type,
-                    acceptedMaterials = normalizedMaterials,
+                    acceptedMaterialFamilies = acceptedMaterialFamilies,
                     location = geoLocation?.displayAddress.orEmpty(),
                     active = active,
                     createdAt = now,

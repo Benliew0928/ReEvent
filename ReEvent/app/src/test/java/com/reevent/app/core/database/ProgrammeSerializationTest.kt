@@ -18,7 +18,10 @@ class ProgrammeSerializationTest {
             partnerId = "partner",
             name = "Repair workshop",
             type = ProgrammeType.REPAIR,
-            acceptedMaterials = listOf("Wood", "Fabric"),
+            acceptedMaterialFamilies = setOf(
+                com.reevent.app.core.model.MaterialFamily.WOOD,
+                com.reevent.app.core.model.MaterialFamily.TEXTILES,
+            ),
             location = "Petaling Jaya, Selangor",
             active = true,
             createdAt = 10,

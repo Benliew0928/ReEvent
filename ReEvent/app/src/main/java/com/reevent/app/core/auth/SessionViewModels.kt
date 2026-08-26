@@ -137,20 +137,6 @@ class AuthViewModel @Inject constructor(private val authRepository: AuthReposito
     }
     fun signInWithGoogle() = submit { authRepository.startGoogleSignIn() }
 
-    suspend fun checkEmailExists(email: String): Boolean {
-        mutableState.value = AuthUiState(loading = true)
-        return when (val result = authRepository.checkEmailExists(email)) {
-            is AppResult.Success -> {
-                mutableState.value = AuthUiState()
-                result.value
-            }
-            is AppResult.Failure -> {
-                mutableState.value = AuthUiState(error = result.reason)
-                false
-            }
-        }
-    }
-
     fun completeRole(role: UserRole) {
         viewModelScope.launch {
             mutableState.value = AuthUiState(loading = true, pendingRoleAssignment = role)

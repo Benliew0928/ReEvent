@@ -44,7 +44,7 @@ class PassportViewerAccessTest {
 
     private fun resource() = ResourceItem(
         id = "resource", eventId = "event", ownerId = "owner", title = "Display board", category = "Signage",
-        material = "Wood", condition = ResourceCondition.GOOD, quantity = 1.0, unit = "ITEM", status = ResourceStatus.ACTIVE,
+        materialFamily = com.reevent.app.core.model.MaterialFamily.WOOD, condition = ResourceCondition.GOOD, quantity = 1.0, unit = "ITEM", status = ResourceStatus.ACTIVE,
         valueCents = 0, imageUrls = emptyList(), createdAt = 1L, updatedAt = 1L
     )
 

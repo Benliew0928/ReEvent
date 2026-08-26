@@ -114,18 +114,6 @@ class SupabaseAuthGateway @Inject constructor() : SyncGateway {
         client.auth.resetPasswordForEmail(email, redirectUrl = PASSWORD_RESET_CALLBACK_URL)
     }
 
-    suspend fun checkEmailExists(email: String): Boolean = withClient {
-        try {
-            client.postgrest.rpc(
-                "check_email_exists",
-                buildJsonObject { put("email_input", email.trim()) }
-            ).decodeSingle<Boolean>()
-        } catch (e: Exception) {
-            android.util.Log.e("SupabaseAuth", "Error checking email existence: ${e.message}", e)
-            false
-        }
-    }
-
     /** A valid recovery link establishes the temporary authenticated session required by Supabase. */
     suspend fun updatePassword(newPassword: String) = withClient {
         client.auth.updateUser { password = newPassword }

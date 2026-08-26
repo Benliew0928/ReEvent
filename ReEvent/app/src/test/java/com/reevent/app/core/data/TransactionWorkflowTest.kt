@@ -78,7 +78,7 @@ class TransactionWorkflowTest {
             TransactionWorkflow.validatePartnerHandover(
                 "owner",
                 resource,
-                programme.copy(acceptedMaterials = listOf("Fabric"))
+                programme.copy(acceptedMaterialFamilies = setOf(com.reevent.app.core.model.MaterialFamily.TEXTILES))
             )
         )
     }
@@ -197,7 +197,8 @@ class TransactionWorkflowTest {
         ownerId = ownerId,
         title = "Reusable signage",
         category = "Signage",
-        material = "Acrylic",
+        materialFamily = com.reevent.app.core.model.MaterialFamily.PLASTIC,
+        materialDetail = "Acrylic",
         condition = ResourceCondition.GOOD,
         quantity = quantity,
         unit = "ITEM",
@@ -235,7 +236,7 @@ class TransactionWorkflowTest {
         partnerId = "partner",
         name = "Circular programme",
         type = type,
-        acceptedMaterials = listOf("Acrylic"),
+        acceptedMaterialFamilies = setOf(com.reevent.app.core.model.MaterialFamily.PLASTIC),
         location = "Kuala Lumpur",
         active = true,
         createdAt = 1L,

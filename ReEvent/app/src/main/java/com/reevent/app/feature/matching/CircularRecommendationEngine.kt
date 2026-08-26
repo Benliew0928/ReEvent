@@ -67,9 +67,9 @@ object CircularRecommendationEngine {
     ): List<CircularProgramme> = programmes
         .asSequence()
         .filter(CircularProgramme::active)
-        .filter { programme -> materialCompatibility(resource.material, programme) > 0 }
+        .filter { programme -> materialCompatibility(resource.materialFamily, programme) > 0 }
         .sortedWith(
-            compareByDescending<CircularProgramme> { materialCompatibility(resource.material, it) }
+            compareByDescending<CircularProgramme> { materialCompatibility(resource.materialFamily, it) }
                 .thenByDescending { locationCompatibility(eventLocation, it.location) }
                 .thenBy { it.name.lowercase() }
                 .thenBy(CircularProgramme::id)
@@ -123,10 +123,12 @@ object CircularRecommendationEngine {
         CircularAction.DISPOSAL -> emptySet()
     }
 
-    private fun materialCompatibility(material: String, programme: CircularProgramme): Int = when {
-        programme.acceptedMaterials.isEmpty() -> 1
-        material.isBlank() -> 0
-        programme.acceptedMaterials.any { it.equals(material, ignoreCase = true) } -> 2
+    private fun materialCompatibility(
+        material: com.reevent.app.core.model.MaterialFamily,
+        programme: CircularProgramme,
+    ): Int = when {
+        programme.acceptedMaterialFamilies.isEmpty() -> 1
+        material in programme.acceptedMaterialFamilies -> 2
         else -> 0
     }
 
@@ -137,7 +139,7 @@ object CircularRecommendationEngine {
         eventLocation: String
     ): Int {
         val actionPriority = actionOrder(resource.condition).indexOf(action)
-        val materialScore = materialCompatibility(resource.material, programme) * 10
+        val materialScore = materialCompatibility(resource.materialFamily, programme) * 10
         val locationScore = locationCompatibility(eventLocation, programme.location) * 4
         return 100 - (actionPriority * 5) + materialScore + locationScore
     }
@@ -149,7 +151,7 @@ object CircularRecommendationEngine {
         eventLocation: String
     ): String {
         val category = resource.category.ifBlank { "uncategorised resources" }
-        val material = resource.material.ifBlank { "unspecified material" }
+        val material = resource.materialLabel
         val locationNote = when (locationCompatibility(eventLocation, programme.location)) {
             2 -> " Its service area matches the event location."
             1 -> " Its service area is related to the event location."
@@ -160,10 +162,8 @@ object CircularRecommendationEngine {
 
     private fun noMatchReason(resource: ResourceItem, programmes: List<CircularProgramme>): String = when {
         programmes.none(CircularProgramme::active) -> "No active partner programmes are available yet."
-        resource.material.isBlank() && programmes.none { it.acceptedMaterials.isEmpty() } ->
-            "This resource needs a material before a compatible partner can be selected."
-        programmes.filter(CircularProgramme::active).none { materialCompatibility(resource.material, it) > 0 } ->
-            "No active partner programme accepts ${resource.material.ifBlank { "this resource material" }}."
+        programmes.filter(CircularProgramme::active).none { materialCompatibility(resource.materialFamily, it) > 0 } ->
+            "No active partner programme accepts ${resource.materialLabel}."
         else -> "No active partner programme supports this recovery route."
     }
 

@@ -114,9 +114,9 @@ async function createMarketplaceFixture(database) {
     `, [organizerId])
     const resource = await database.query(`
       insert into public.resource_items(
-        origin_event_id, created_by, current_owner_id, title, category, material,
+        origin_event_id, created_by, current_owner_id, title, category, material_family,
         condition, quantity, unit, status
-      ) values ($1, $2, $2, 'Reusable cups', 'SERVICEWARE', 'plastic', 'GOOD', 5, 'ITEM', 'ACTIVE')
+      ) values ($1, $2, $2, 'Reusable cups', 'SERVICEWARE', 'PLASTIC', 'GOOD', 5, 'ITEM', 'ACTIVE')
       returning id
     `, [event.rows[0].id, organizerId])
     const listing = await database.query(`
@@ -140,12 +140,12 @@ async function createMarketplaceFixture(database) {
   const programme = await runAs(database, partnerId, async () => {
     const result = await database.query(`
       insert into public.circular_programmes(
-        partner_id, name, programme_type, accepted_categories, accepted_materials,
+        partner_id, name, programme_type, accepted_categories, accepted_material_families,
         accepted_conditions, minimum_quantity, maximum_quantity, unit, remaining_capacity,
         coin_direction, unit_coin_amount, address_text, latitude, longitude,
         processing_method, terms, active
       ) values (
-        $1, 'Plastic recovery', 'RECYCLE', array['serviceware'], array['plastic'],
+        $1, 'Plastic recovery', 'RECYCLE', array['serviceware'], array['PLASTIC']::public.material_family[],
         array['GOOD', 'FAIR', 'END_OF_LIFE']::public.resource_condition[], 1, 5, 'ITEM', 10,
         'PARTNER_PAYS_OWNER', 3, 'Kuala Lumpur', 3.140000, 101.690000,
         'Mechanical recycling', 'Clean plastics only.', true
@@ -249,9 +249,9 @@ test('resource lifecycle fields are server-owned and safe archival appends exact
   const freeResourceId = await runAs(database, fixture.organizerId, async () => {
     const created = await database.query(`
       insert into public.resource_items(
-        origin_event_id, created_by, current_owner_id, title, category, material,
+        origin_event_id, created_by, current_owner_id, title, category, material_family,
         condition, quantity, unit, status
-      ) values ($1, $2, $2, 'Archive-safe sign', 'SIGNAGE', 'plastic', 'GOOD', 1, 'ITEM', 'ACTIVE')
+      ) values ($1, $2, $2, 'Archive-safe sign', 'SIGNAGE', 'PLASTIC', 'GOOD', 1, 'ITEM', 'ACTIVE')
       returning id
     `, [fixture.eventId, fixture.organizerId])
     await database.query(`
@@ -356,9 +356,9 @@ test('role onboarding grants one wallet and root resources receive one passport'
   assert.deepEqual(authority.rows, [{ actor_id: organizerId, has_role: true, owns_event: true }])
   const resource = await database.query(`
     insert into public.resource_items(
-      origin_event_id, created_by, current_owner_id, title, category, material,
+      origin_event_id, created_by, current_owner_id, title, category, material_family,
       condition, quantity, unit, status
-    ) values ($1, $2, $2, 'Reusable banner', 'SIGNAGE', 'plastic', 'GOOD', 2, 'ITEM', 'ACTIVE')
+    ) values ($1, $2, $2, 'Reusable banner', 'SIGNAGE', 'PLASTIC', 'GOOD', 2, 'ITEM', 'ACTIVE')
     returning id
   `, [event.rows[0].id, organizerId])
   await database.exec('reset role')
@@ -378,6 +378,30 @@ test('role onboarding grants one wallet and root resources receive one passport'
   assert.equal(passport.rows.length, 1)
   assert.match(passport.rows[0].public_token, /^[A-Za-z0-9_-]{22}$/)
   assert.equal(passport.rows[0].event_count, 1)
+  await database.close()
+})
+
+test('material families are canonical and Mixed Other requires a specific detail', async () => {
+  const database = await createDatabase()
+  const families = await database.query(`select unnest(enum_range(null::public.material_family))::text as family`)
+  assert.deepEqual(families.rows.map((row) => row.family), [
+    'WOOD', 'TEXTILES', 'METAL', 'PLASTIC', 'PAPER_CARD', 'GLASS', 'CERAMIC',
+    'ELECTRICAL_ELECTRONICS', 'ORGANIC', 'RUBBER', 'MIXED_OTHER'
+  ])
+  await assert.rejects(database.query(`select 'invented'::public.material_family`), /invalid input value for enum/)
+
+  const fixture = await createMarketplaceFixture(database)
+  await assert.rejects(
+    runAs(database, fixture.organizerId, () => database.query(`
+      insert into public.resource_items(
+        origin_event_id, created_by, current_owner_id, title, category, material_family,
+        condition, quantity, unit, status
+      ) values ($1, $2, $2, 'Composite prop', 'PROPS', 'MIXED_OTHER', 'GOOD', 1, 'ITEM', 'ACTIVE')
+    `, [fixture.eventId, fixture.organizerId])),
+    /resource_mixed_material_detail_required/
+  )
+  const display = await database.query(`select public.material_family_display('MIXED_OTHER', 'Foam-board composite') as material`)
+  assert.equal(display.rows[0].material, 'Foam-board composite')
   await database.close()
 })
 
@@ -403,9 +427,9 @@ test('an organizer can replay a root-resource upsert without bypassing lifecycle
 
   const replay = await runAs(database, organizerId, () => database.query(`
     insert into public.resource_items(
-      id, origin_event_id, created_by, current_owner_id, title, description, category, material,
+      id, origin_event_id, created_by, current_owner_id, title, description, category, material_family,
       condition, quantity, unit, status
-    ) values ($1, $2, $3, $3, 'Reusable banner', '', 'SIGNAGE', 'plastic', 'GOOD', 2, 'ITEM', 'ACTIVE')
+    ) values ($1, $2, $3, $3, 'Reusable banner', '', 'SIGNAGE', 'PLASTIC', 'GOOD', 2, 'ITEM', 'ACTIVE')
     on conflict (id) do update set
       origin_event_id = excluded.origin_event_id,
       created_by = excluded.created_by,
@@ -413,7 +437,7 @@ test('an organizer can replay a root-resource upsert without bypassing lifecycle
       title = excluded.title,
       description = excluded.description,
       category = excluded.category,
-      material = excluded.material,
+      material_family = excluded.material_family,
       condition = excluded.condition,
       quantity = excluded.quantity,
       unit = excluded.unit,
@@ -686,8 +710,8 @@ test('quantity and active-event constraints reject invented release data', async
   await assert.rejects(
     database.query(`
       insert into public.resource_items(
-        origin_event_id, title, category, material, condition, quantity, unit
-      ) values ('20000000-0000-4000-8000-000000000001', 'Invalid', 'TEST', 'TEST', 'GOOD', 1.5, 'ITEM')
+        origin_event_id, title, category, material_family, material_detail, condition, quantity, unit
+      ) values ('20000000-0000-4000-8000-000000000001', 'Invalid', 'TEST', 'MIXED_OTHER', 'TEST', 'GOOD', 1.5, 'ITEM')
     `)
   )
   await assert.rejects(
@@ -904,9 +928,9 @@ test('partial plastic recycling creates a recovered child and one factor-backed 
   const kgResource = await runAs(database, fixture.organizerId, async () => {
     const result = await database.query(`
       insert into public.resource_items(
-        origin_event_id, created_by, current_owner_id, title, category, material,
+        origin_event_id, created_by, current_owner_id, title, category, material_family, material_detail,
         condition, quantity, unit, status
-      ) values ($1, $2, $2, 'Acrylic panels', 'SIGNAGE', 'acrylic', 'END_OF_LIFE', 5, 'KG', 'ACTIVE')
+      ) values ($1, $2, $2, 'Acrylic panels', 'SIGNAGE', 'PLASTIC', 'Acrylic', 'END_OF_LIFE', 5, 'KG', 'ACTIVE')
       returning id
     `, [fixture.eventId, fixture.organizerId])
     return result.rows[0].id
@@ -914,12 +938,12 @@ test('partial plastic recycling creates a recovered child and one factor-backed 
   const kgProgramme = await runAs(database, fixture.partnerId, async () => {
     const result = await database.query(`
       insert into public.circular_programmes(
-        partner_id, name, programme_type, accepted_categories, accepted_materials,
+        partner_id, name, programme_type, accepted_categories, accepted_material_families,
         accepted_conditions, minimum_quantity, maximum_quantity, unit, remaining_capacity,
         coin_direction, unit_coin_amount, address_text, latitude, longitude,
         processing_method, terms, active
       ) values (
-        $1, 'Acrylic recovery', 'RECYCLE', array['signage'], array['acrylic'],
+        $1, 'Acrylic recovery', 'RECYCLE', array['signage'], array['PLASTIC']::public.material_family[],
         array['END_OF_LIFE']::public.resource_condition[], 1, 5, 'KG', 20,
         'PARTNER_PAYS_OWNER', 3, 'Kuala Lumpur', 3.140000, 101.690000,
         'Mechanical recycling', 'Clean panels only.', true
@@ -973,9 +997,9 @@ test('exchange completes only after both handovers and receipts, then swaps both
   const counterResource = await runAs(database, fixture.organizerId, async () => {
     const result = await database.query(`
       insert into public.resource_items(
-        origin_event_id, created_by, current_owner_id, title, category, material,
+        origin_event_id, created_by, current_owner_id, title, category, material_family,
         condition, quantity, unit, status
-      ) values ($1, $2, $2, 'Reusable trays', 'SERVICEWARE', 'metal', 'GOOD', 3, 'ITEM', 'ACTIVE')
+      ) values ($1, $2, $2, 'Reusable trays', 'SERVICEWARE', 'METAL', 'GOOD', 3, 'ITEM', 'ACTIVE')
       returning id
     `, [fixture.eventId, fixture.organizerId])
     return result.rows[0].id
@@ -1070,12 +1094,12 @@ test('full repair remains in recovery custody until return and then rewards the 
   const repairProgramme = await runAs(database, fixture.partnerId, async () => {
     const result = await database.query(`
       insert into public.circular_programmes(
-        partner_id, name, programme_type, accepted_categories, accepted_materials,
+        partner_id, name, programme_type, accepted_categories, accepted_material_families,
         accepted_conditions, minimum_quantity, maximum_quantity, unit, remaining_capacity,
         coin_direction, unit_coin_amount, address_text, latitude, longitude,
         processing_method, terms, active
       ) values (
-        $1, 'Cup repair', 'REPAIR', array['serviceware'], array['plastic'],
+        $1, 'Cup repair', 'REPAIR', array['serviceware'], array['PLASTIC']::public.material_family[],
         array['GOOD']::public.resource_condition[], 1, 5, 'ITEM', 10,
         'OWNER_PAYS_PARTNER', 4, 'Kuala Lumpur', 3.140000, 101.690000,
         'Inspection and repair', 'Repairable items only.', true
@@ -1187,7 +1211,7 @@ test('partner discovery is owner-authorised, distance-ranked, and filterable', a
 
   const discovered = await runAs(database, fixture.organizerId, () => database.query(`
     select public.find_partner_programmes(
-      $1::uuid, null, null, 'plastic', array['RECYCLE']::public.programme_type[], 50, false, 20, 0
+      $1::uuid, null, null, 'PLASTIC', array['RECYCLE']::public.programme_type[], 50, false, 20, 0
     ) as result
   `, [fixture.resourceId]))
   const result = discovered.rows[0].result
@@ -1224,12 +1248,12 @@ test('partner discovery has deterministic pagination, origin precedence, exclusi
     for (const name of ['Alpha recovery', 'Beta recovery']) {
       await database.query(`
         insert into public.circular_programmes(
-          partner_id, name, programme_type, accepted_categories, accepted_materials,
+          partner_id, name, programme_type, accepted_categories, accepted_material_families,
           accepted_conditions, minimum_quantity, maximum_quantity, unit, remaining_capacity,
           coin_direction, unit_coin_amount, pickup_available, address_text, latitude, longitude,
           processing_method, terms, active
         ) values (
-          $1, $2, 'RECYCLE', array['serviceware'], array['plastic'],
+          $1, $2, 'RECYCLE', array['serviceware'], array['PLASTIC']::public.material_family[],
           array['GOOD', 'FAIR', 'END_OF_LIFE']::public.resource_condition[], 1, 5, 'ITEM', 10,
           'PARTNER_PAYS_OWNER', 3, false, 'Kuala Lumpur', 3.140000, 101.690000,
           'Mechanical recycling', 'Clean plastics only.', true
@@ -1249,14 +1273,14 @@ test('partner discovery has deterministic pagination, origin precedence, exclusi
   assert.equal(secondPage.rows[0].result.candidates[0].name, 'Beta recovery')
 
   const noOrigin = await runAs(database, fixture.participantId, () => database.query(`
-    select public.find_partner_programmes(null, null, null, 'plastic', null, 5, false, 20, 0) as result
+    select public.find_partner_programmes(null, null, null, 'PLASTIC', null, 5, false, 20, 0) as result
   `))
   assert.equal(noOrigin.rows[0].result.origin_source, 'NONE')
   assert.deepEqual(noOrigin.rows[0].result.candidates, [])
   assert.equal(noOrigin.rows[0].result.exclusion_counts.OUTSIDE_DISTANCE, 3)
 
   const deviceOrigin = await runAs(database, fixture.participantId, () => database.query(`
-    select public.find_partner_programmes(null, 3.139, 101.6869, 'plastic', null, 5, false, 20, 0) as result
+    select public.find_partner_programmes(null, 3.139, 101.6869, 'PLASTIC', null, 5, false, 20, 0) as result
   `))
   assert.equal(deviceOrigin.rows[0].result.origin_source, 'DEVICE')
   assert.equal(deviceOrigin.rows[0].result.candidates.length, 3)
@@ -1300,21 +1324,5 @@ test('partner coordinates are bounded and geocoding quota is atomic per user win
     [fixture.organizerId]
   ))
   assert.equal(denied.rows[0].allowed, false)
-  await database.close()
-})
-
-test('check_email_exists returns true for registered users and false for un-registered emails', async () => {
-  const database = await createDatabase()
-  const fixture = await createMarketplaceFixture(database)
-
-  const registeredEmail = 'organizer@example.test'
-  const nonExistentEmail = 'nonexistent_user_999@test.local'
-
-  const existsRegistered = await database.query(`select public.check_email_exists($1) as exists`, [registeredEmail])
-  assert.equal(existsRegistered.rows[0].exists, true)
-
-  const existsNonExistent = await database.query(`select public.check_email_exists($1) as exists`, [nonExistentEmail])
-  assert.equal(existsNonExistent.rows[0].exists, false)
-
   await database.close()
 })

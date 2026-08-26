@@ -155,7 +155,7 @@ private fun MatchingInputsCard(
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text("Resource considered", style = MaterialTheme.typography.titleMedium)
             Text("Category: ${resource.category.ifBlank { "Not specified" }}", color = ReEventTextSecondary)
-            Text("Material: ${resource.material.ifBlank { "Not specified" }}", color = ReEventTextSecondary)
+            Text("Material: ${resource.materialLabel}", color = ReEventTextSecondary)
             Text(
                 "Condition: ${resource.condition.name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)}",
                 color = ReEventTextSecondary,

@@ -73,7 +73,8 @@ data class ResourceItem(
     val ownerId: String,
     val title: String,
     val category: String,
-    val material: String,
+    val materialFamily: MaterialFamily,
+    val materialDetail: String? = null,
     val condition: ResourceCondition,
     val quantity: Double,
     val unit: String,
@@ -88,7 +89,9 @@ data class ResourceItem(
     val geoLocation: GeoLocation? = null,
     /** Authoritative number of completed reuse cycles projected by the server. */
     val reuseCount: Int = 0,
-)
+) {
+    val materialLabel: String get() = MaterialDescriptor(materialFamily, materialDetail).displayLabel
+}
 
 /** Published marketplace terms supplied by the server, never inferred from resource condition. */
 data class MarketplaceListing(
@@ -147,7 +150,7 @@ data class CircularProgramme(
     val partnerId: String,
     val name: String,
     val type: ProgrammeType,
-    val acceptedMaterials: List<String>,
+    val acceptedMaterialFamilies: Set<MaterialFamily>,
     val location: String,
     val active: Boolean,
     val createdAt: Long,

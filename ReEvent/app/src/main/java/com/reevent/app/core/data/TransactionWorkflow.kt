@@ -45,7 +45,7 @@ object TransactionWorkflow {
         resource.status != ResourceStatus.ACTIVE -> FailureReason.CONFLICT
         resource.quantity <= 0.0 -> FailureReason.VALIDATION
         !programme.active -> FailureReason.CONFLICT
-        !programme.acceptsMaterial(resource.material) -> FailureReason.CONFLICT
+        !programme.acceptsMaterial(resource.materialFamily) -> FailureReason.CONFLICT
         else -> null
     }
 
@@ -78,8 +78,8 @@ object TransactionWorkflow {
 
     private fun decisionActor(transaction: CircularTransaction): String = transaction.partnerId ?: transaction.senderId
 
-    private fun CircularProgramme.acceptsMaterial(material: String): Boolean =
-        acceptedMaterials.isEmpty() || acceptedMaterials.any { it.equals(material, ignoreCase = true) }
+    private fun CircularProgramme.acceptsMaterial(material: com.reevent.app.core.model.MaterialFamily): Boolean =
+        acceptedMaterialFamilies.isEmpty() || material in acceptedMaterialFamilies
 }
 
 /**

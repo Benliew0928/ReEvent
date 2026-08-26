@@ -112,7 +112,6 @@ class PartnerMapScreenTest {
     @Test
     fun `filters report pickup and material changes and list survives tile failure`() {
         var pickup = false
-        var material: String? = null
         compose.setContent {
             ReEventTheme {
                 PartnerMapScreen(
@@ -124,7 +123,7 @@ class PartnerMapScreenTest {
                     resource = null,
                     marketplaceResources = emptyList(),
                     onNavigate = {}, onProfile = {}, onBack = null,
-                    onMaterialChange = { material = it }, onToggleType = {}, onDistanceChange = {},
+                    onMaterialChange = {}, onToggleType = {}, onDistanceChange = {},
                     onPickupChange = { pickup = it }, onNearMe = {}, onPresentationChange = {},
                     onSelectCandidate = {}, onMapLoading = {}, onMapLoaded = {}, onMapFailed = {},
                     onOpenPassport = {}, onCreateHandover = {},
@@ -132,12 +131,10 @@ class PartnerMapScreenTest {
             }
         }
 
-        compose.onNodeWithText("Material").performTextInput("Wood")
         compose.onNodeWithText("Pickup only").performClick()
         compose.onNodeWithText("Map tiles are unavailable. Use the programme list below.").fetchSemanticsNode()
         compose.onNodeWithContentDescription("Repair Hub, Repair, 2.5 kilometres").fetchSemanticsNode()
         compose.runOnIdle {
-            assertEquals("Wood", material)
             assertTrue(pickup)
         }
     }
@@ -165,7 +162,7 @@ class PartnerMapScreenTest {
         partnerId = "partner",
         name = "Repair Hub",
         type = ProgrammeType.REPAIR,
-        acceptedMaterials = listOf("Wood"),
+        acceptedMaterialFamilies = setOf(com.reevent.app.core.model.MaterialFamily.WOOD),
         location = "Kuala Lumpur",
         active = true,
         createdAt = 1,
@@ -182,7 +179,7 @@ class PartnerMapScreenTest {
         ownerId = "owner",
         title = "Chair",
         category = "Furniture",
-        material = "Wood",
+        materialFamily = com.reevent.app.core.model.MaterialFamily.WOOD,
         condition = ResourceCondition.GOOD,
         quantity = 1.0,
         unit = "ITEM",

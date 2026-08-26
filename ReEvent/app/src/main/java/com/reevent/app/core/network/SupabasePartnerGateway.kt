@@ -6,6 +6,7 @@ import com.reevent.app.core.data.GeocodingRepository
 import com.reevent.app.core.model.CircularProgramme
 import com.reevent.app.core.model.CoinDirection
 import com.reevent.app.core.model.GeoLocation
+import com.reevent.app.core.model.MaterialFamily
 import com.reevent.app.core.model.PartnerCandidate
 import com.reevent.app.core.model.PartnerDiscoveryRequest
 import com.reevent.app.core.model.PartnerDiscoveryResult
@@ -42,7 +43,7 @@ class SupabasePartnerGateway @Inject constructor(
                     put("p_resource_id", request.resourceId?.let(::JsonPrimitive) ?: JsonNull)
                     put("p_origin_latitude", request.deviceLocation?.latitude?.let(::JsonPrimitive) ?: JsonNull)
                     put("p_origin_longitude", request.deviceLocation?.longitude?.let(::JsonPrimitive) ?: JsonNull)
-                    put("p_material", request.filters.material?.let(::JsonPrimitive) ?: JsonNull)
+                    put("p_material_family", request.filters.materialFamily?.name?.let(::JsonPrimitive) ?: JsonNull)
                     put(
                         "p_programme_types",
                         if (request.filters.programmeTypes.isEmpty()) JsonNull else JsonArray(
@@ -93,7 +94,7 @@ class SupabasePartnerGateway @Inject constructor(
         val name: String,
         @SerialName("programme_type") val programmeType: String,
         @SerialName("accepted_categories") val acceptedCategories: List<String> = emptyList(),
-        @SerialName("accepted_materials") val acceptedMaterials: List<String> = emptyList(),
+        @SerialName("accepted_material_families") val acceptedMaterialFamilies: List<String> = emptyList(),
         @SerialName("accepted_conditions") val acceptedConditions: List<String> = emptyList(),
         @SerialName("minimum_quantity") val minimumQuantity: Double? = null,
         @SerialName("maximum_quantity") val maximumQuantity: Double? = null,
@@ -120,7 +121,7 @@ class SupabasePartnerGateway @Inject constructor(
                     partnerId = partnerId,
                     name = name,
                     type = ProgrammeType.valueOf(programmeType),
-                    acceptedMaterials = acceptedMaterials,
+                    acceptedMaterialFamilies = acceptedMaterialFamilies.map(MaterialFamily::valueOf).toSet(),
                     location = addressText,
                     active = true,
                     createdAt = createdAt,

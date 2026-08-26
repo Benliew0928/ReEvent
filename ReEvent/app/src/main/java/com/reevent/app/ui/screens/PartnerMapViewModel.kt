@@ -7,6 +7,7 @@ import com.reevent.app.core.data.AppResult
 import com.reevent.app.core.data.PartnerRepository
 import com.reevent.app.core.location.DeviceLocationProvider
 import com.reevent.app.core.model.GeoLocation
+import com.reevent.app.core.model.MaterialFamily
 import com.reevent.app.core.model.PartnerCandidate
 import com.reevent.app.core.model.PartnerDiscoveryRequest
 import com.reevent.app.core.model.PartnerDiscoveryResult
@@ -62,7 +63,7 @@ class PartnerMapViewModel @Inject constructor(
         discover()
     }
 
-    fun setMaterial(material: String?) = updateFilters { copy(material = material?.takeIf(String::isNotBlank)) }
+    fun setMaterial(materialFamily: MaterialFamily?) = updateFilters { copy(materialFamily = materialFamily) }
 
     fun toggleType(type: ProgrammeType) = updateFilters {
         copy(programmeTypes = if (type in programmeTypes) programmeTypes - type else programmeTypes + type)

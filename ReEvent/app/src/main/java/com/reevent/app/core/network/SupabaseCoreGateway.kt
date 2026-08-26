@@ -9,6 +9,7 @@ import com.reevent.app.core.model.Event
 import com.reevent.app.core.model.GeoLocation
 import com.reevent.app.core.model.ImpactRecord
 import com.reevent.app.core.model.MarketplaceListing
+import com.reevent.app.core.model.MaterialFamily
 import com.reevent.app.core.model.PassportHistoryEntry
 import com.reevent.app.core.model.ProgrammeType
 import com.reevent.app.core.model.ResourceCondition
@@ -96,7 +97,10 @@ class SupabaseCoreGateway @Inject constructor(private val authGateway: SupabaseA
 
     @Serializable private data class ResourceRow(
         val id: String, @SerialName("origin_event_id") val eventId: String, @SerialName("current_owner_id") val ownerId: String? = null,
-        val title: String, val category: String, val material: String, val condition: String, val quantity: Double, val unit: String,
+        val title: String, val category: String,
+        @SerialName("material_family") val materialFamily: String,
+        @SerialName("material_detail") val materialDetail: String? = null,
+        val condition: String, val quantity: Double, val unit: String,
         @SerialName("address_text") val addressText: String? = null, val latitude: Double? = null, val longitude: Double? = null,
         @SerialName("reuse_count") val reuseCount: Int = 0,
         val status: String, @SerialName("archived_at") val archivedAt: String? = null,
@@ -104,7 +108,7 @@ class SupabaseCoreGateway @Inject constructor(private val authGateway: SupabaseA
     ) {
         fun toDomainOrNull(listing: MarketplaceListing?, imagePaths: List<String>) = runCatching {
             ResourceItem(
-                id, eventId, requireNotNull(ownerId), title, category, material,
+                id, eventId, requireNotNull(ownerId), title, category, MaterialFamily.valueOf(materialFamily), materialDetail,
                 enumValue(condition, ResourceCondition.entries), quantity, unit,
                 enumValue(status, ResourceStatus.entries), listing?.buyUnitPrice ?: listing?.rentUnitPrice ?: 0,
                 imagePaths, millis(createdAt), millis(updatedAt), SyncState.SYNCED, archivedAt != null, listing,
@@ -204,7 +208,7 @@ class SupabaseCoreGateway @Inject constructor(private val authGateway: SupabaseA
     @Serializable private data class ProgrammeRow(
         val id: String, @SerialName("partner_id") val partnerId: String, val name: String, @SerialName("programme_type") val type: String,
         @SerialName("accepted_categories") val acceptedCategories: List<String> = emptyList(),
-        @SerialName("accepted_materials") val acceptedMaterials: List<String> = emptyList(),
+        @SerialName("accepted_material_families") val acceptedMaterialFamilies: List<String> = emptyList(),
         @SerialName("accepted_conditions") val acceptedConditions: List<String> = emptyList(),
         @SerialName("minimum_quantity") val minimumQuantity: Double? = null,
         @SerialName("maximum_quantity") val maximumQuantity: Double? = null,
@@ -218,7 +222,7 @@ class SupabaseCoreGateway @Inject constructor(private val authGateway: SupabaseA
         @SerialName("created_at") val createdAt: String, @SerialName("updated_at") val updatedAt: String
     ) { fun toDomainOrNull() = runCatching {
         CircularProgramme(
-            id, partnerId, name, ProgrammeType.valueOf(type), acceptedMaterials, location, active,
+            id, partnerId, name, ProgrammeType.valueOf(type), acceptedMaterialFamilies.map(MaterialFamily::valueOf).toSet(), location, active,
             millis(createdAt), millis(updatedAt), SyncState.SYNCED, acceptedCategories,
             acceptedConditions.map(ResourceCondition::valueOf).toSet(), minimumQuantity, maximumQuantity,
             unit, remainingCapacity, CoinDirection.valueOf(coinDirection), unitCoinAmount, pickupAvailable,
