@@ -53,12 +53,14 @@ interface ResourceRepository {
     fun observeOwnedResources(ownerId: String): Flow<List<ResourceItem>>
     fun observeMarketplace(): Flow<List<ResourceItem>>
     fun observeResource(resourceId: String): Flow<ResourceItem?>
+    fun observeResources(resourceIds: Set<String>): Flow<List<ResourceItem>>
     suspend fun saveResource(resource: ResourceItem): AppResult<ResourceItem>
     suspend fun archiveResource(resourceId: String): AppResult<Unit>
 }
 
 interface PassportRepository {
     fun observePassport(resourceId: String): Flow<ResourcePassport?>
+    fun observePassports(resourceIds: Set<String>): Flow<List<ResourcePassport>>
 }
 
 interface PartnerRepository {

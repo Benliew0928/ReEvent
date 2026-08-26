@@ -32,6 +32,7 @@ class ReEventDatabaseMigrationTest {
         context.deleteDatabase(V4_DATABASE)
         context.deleteDatabase(V5_DATABASE)
         context.deleteDatabase(V6_DATABASE)
+        context.deleteDatabase(V7_DATABASE)
     }
 
     @Test
@@ -331,6 +332,67 @@ class ReEventDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrate7To8_preservesRowsAndAddsServerProjectionDefaultsAndProgrammeIndex() {
+        helper.createDatabase(V7_DATABASE, 7).use { database ->
+            database.execSQL(
+                """
+                INSERT INTO resource_items (
+                    id, accountId, eventId, ownerId, title, category, material, condition,
+                    quantity, unit, status, valueCents, imageUrlsJson, createdAt, updatedAt,
+                    syncState, archived
+                ) VALUES (
+                    'resource-v7', '$ACCOUNT_A', 'event-v7', 'owner-v7', 'Preserved chair',
+                    'Furniture', 'Wood', 'GOOD', 12.0, 'units', 'ACTIVE', 0, '[]',
+                    10, 11, 'SYNCED', 0
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                INSERT INTO circular_transactions (
+                    id, accountId, eventId, resourceId, senderId, receiverId, partnerId,
+                    requesterId, counterResourceId, type, status, quantity, createdAt,
+                    updatedAt, syncState, archived
+                ) VALUES (
+                    'transaction-v7', '$ACCOUNT_A', 'event-v7', 'resource-v7', 'sender-v7',
+                    'receiver-v7', 'partner-v7', 'sender-v7', NULL, 'REPAIR', 'APPROVED',
+                    12.0, 12, 13, 'SYNCED', 0
+                )
+                """.trimIndent(),
+            )
+        }
+
+        helper.runMigrationsAndValidate(
+            V7_DATABASE,
+            8,
+            true,
+            ReEventDatabase.MIGRATION_7_8,
+        ).use { database ->
+            assertEquals(
+                listOf("Preserved chair", "12", "0"),
+                database.row("SELECT title, quantity, reuseCount FROM resource_items WHERE id = 'resource-v7'"),
+            )
+            assertEquals(
+                listOf("APPROVED", null, null, null, null, null, null),
+                database.nullableRow(
+                    "SELECT status, programmeId, approvedAt, inTransitAt, activeAt, returnStartedAt, completedAt " +
+                        "FROM circular_transactions WHERE id = 'transaction-v7'",
+                ),
+            )
+            assertEquals(
+                1L,
+                database.query(
+                    "SELECT COUNT(*) FROM pragma_index_list('circular_transactions') " +
+                        "WHERE name = 'index_circular_transactions_accountId_programmeId'",
+                ).use { cursor ->
+                    assertTrue(cursor.moveToFirst())
+                    cursor.getLong(0)
+                },
+            )
+        }
+    }
+
     private fun createVersion1Database(): SupportSQLiteDatabase {
         context.deleteDatabase(V1_DATABASE)
         val callback = object : SupportSQLiteOpenHelper.Callback(1) {
@@ -381,6 +443,7 @@ class ReEventDatabaseMigrationTest {
         const val V4_DATABASE = "reevent-migration-v4"
         const val V5_DATABASE = "reevent-migration-v5"
         const val V6_DATABASE = "reevent-migration-v6"
+        const val V7_DATABASE = "reevent-migration-v7"
 
         val ACCOUNT_SCOPED_TABLES = listOf(
             "events",

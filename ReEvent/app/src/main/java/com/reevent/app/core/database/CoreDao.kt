@@ -26,6 +26,7 @@ interface CoreDao {
     @Query("SELECT * FROM resource_items WHERE accountId = :accountId AND ownerId = :ownerId AND status = 'ACTIVE' AND archived = 0 ORDER BY updatedAt DESC") fun observeOwnedResources(accountId: String, ownerId: String): Flow<List<ResourceEntity>>
     @Query("SELECT * FROM resource_items WHERE accountId = :accountId AND status = 'ACTIVE' AND archived = 0 AND marketplaceListingId IS NOT NULL ORDER BY updatedAt DESC") fun observeMarketplace(accountId: String): Flow<List<ResourceEntity>>
     @Query("SELECT * FROM resource_items WHERE accountId = :accountId AND id = :id") fun observeResource(accountId: String, id: String): Flow<ResourceEntity?>
+    @Query("SELECT * FROM resource_items WHERE accountId = :accountId AND id IN (:ids) ORDER BY updatedAt DESC") fun observeResourcesById(accountId: String, ids: Set<String>): Flow<List<ResourceEntity>>
     @Query("SELECT * FROM resource_items WHERE accountId = :accountId AND id = :id") suspend fun resource(accountId: String, id: String): ResourceEntity?
     @Query("UPDATE resource_items SET archived = 1, syncState = 'PENDING', updatedAt = :updatedAt WHERE accountId = :accountId AND id = :id") suspend fun archiveResource(accountId: String, id: String, updatedAt: Long)
     @Query("UPDATE resource_items SET syncState = :state WHERE accountId = :accountId AND id = :id") suspend fun setResourceSyncState(accountId: String, id: String, state: String)
@@ -36,6 +37,7 @@ interface CoreDao {
 
     @Upsert suspend fun upsertPassport(passport: PassportEntity)
     @Query("SELECT * FROM resource_passports WHERE accountId = :accountId AND resourceId = :resourceId LIMIT 1") fun observePassport(accountId: String, resourceId: String): Flow<PassportEntity?>
+    @Query("SELECT * FROM resource_passports WHERE accountId = :accountId AND resourceId IN (:resourceIds) ORDER BY updatedAt DESC") fun observePassportsByResourceId(accountId: String, resourceIds: Set<String>): Flow<List<PassportEntity>>
     @Query("SELECT * FROM resource_passports WHERE accountId = :accountId AND id = :id") suspend fun passport(accountId: String, id: String): PassportEntity?
     @Query("UPDATE resource_passports SET syncState = :state WHERE accountId = :accountId AND id = :id") suspend fun setPassportSyncState(accountId: String, id: String, state: String)
 

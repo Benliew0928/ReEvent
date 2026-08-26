@@ -43,25 +43,6 @@ internal fun com.reevent.app.core.model.ResourceItem.toVisualResource(
     id = id,
 )
 
-internal fun List<com.reevent.app.core.model.ResourceItem>.toDashboardMetrics(records: List<ImpactRecord>): List<ImpactMetric> {
-    if (isEmpty() && records.isEmpty()) return emptyList()
-    val recovered = count { it.status == ResourceStatus.RECOVERED || it.status == ResourceStatus.RECOVERY_IN_PROGRESS }
-    val recoveryRate = if (isEmpty()) 0 else recovered * 100 / size
-    return listOf(
-        ImpactMetric("$recoveryRate%", "Recovery rate", "$recovered of $size tracked lots"),
-        ImpactMetric(
-            "${records.mapNotNull { it.materialDivertedKg }.sum().formatQuantity()} kg",
-            "Materials diverted",
-            "Verified impact records",
-        ),
-        ImpactMetric(
-            "${records.sumOf { it.recoinsTransferred + it.recoinsRewarded }}",
-            "ReCoins moved",
-            "Transferred plus earned recognition",
-        ),
-    )
-}
-
 internal fun List<ImpactRecord>.toImpactMetrics(): List<ImpactMetric> {
     if (isEmpty()) return emptyList()
     return listOf(
@@ -101,17 +82,6 @@ internal fun ImpactDashboardState.toImpactMetrics(): List<ImpactMetric> {
             add(ImpactMetric(it.toString(), "ReCoins rewarded", "Versioned circular recognition"))
         }
     }
-}
-
-internal fun List<com.reevent.app.core.model.ResourceItem>.toRecoverySteps(records: List<ImpactRecord>): List<RecoveryStep> {
-    if (isEmpty() && records.isEmpty()) return emptyList()
-    val available = count { it.status == ResourceStatus.ACTIVE }
-    val completed = count { it.status == ResourceStatus.RECOVERED || it.status == ResourceStatus.RECOVERY_IN_PROGRESS }
-    return listOf(
-        RecoveryStep("Inventory tagged", "$size tracked resource lots", "$size", ResourceTone.Ready),
-        RecoveryStep("Available for matching", "$available resource lots are available", "$available", ResourceTone.Hot),
-        RecoveryStep("Recovered or handed over", "$completed completed routes", "$completed", ResourceTone.Recycle),
-    )
 }
 
 internal fun com.reevent.app.core.model.ResourceItem.toPassportRecoveryStep() =

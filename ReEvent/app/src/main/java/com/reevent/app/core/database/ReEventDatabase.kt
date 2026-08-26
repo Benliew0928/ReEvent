@@ -18,7 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         LifecycleCommandEntity::class,
         LegacyProgrammeDraftEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 abstract class ReEventDatabase : RoomDatabase() {
@@ -351,6 +351,23 @@ abstract class ReEventDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE circular_programmes ADD COLUMN longitude REAL")
                 db.execSQL("ALTER TABLE circular_programmes ADD COLUMN processingMethod TEXT NOT NULL DEFAULT ''")
                 db.execSQL("ALTER TABLE circular_programmes ADD COLUMN terms TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        /** Projects existing server reuse and lifecycle fields into the offline cache. */
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE resource_items ADD COLUMN reuseCount INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE circular_transactions ADD COLUMN programmeId TEXT")
+                db.execSQL("ALTER TABLE circular_transactions ADD COLUMN approvedAt INTEGER")
+                db.execSQL("ALTER TABLE circular_transactions ADD COLUMN inTransitAt INTEGER")
+                db.execSQL("ALTER TABLE circular_transactions ADD COLUMN activeAt INTEGER")
+                db.execSQL("ALTER TABLE circular_transactions ADD COLUMN returnStartedAt INTEGER")
+                db.execSQL("ALTER TABLE circular_transactions ADD COLUMN completedAt INTEGER")
+                db.execSQL(
+                    "CREATE INDEX index_circular_transactions_accountId_programmeId " +
+                        "ON circular_transactions(accountId, programmeId)",
+                )
             }
         }
 

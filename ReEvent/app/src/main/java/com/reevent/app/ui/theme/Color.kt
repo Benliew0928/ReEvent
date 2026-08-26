@@ -32,3 +32,15 @@ val ReEventAmberSoft = Color(0xFFFFF1D2)
 // Coral / error
 val ReEventCoral = Color(0xFFE56B6F)
 val ReEventCoralSoft = Color(0xFFFFE6E8)
+
+// Editorial home tokens are intentionally scoped to role dashboards.
+val HomeCanvas = Color(0xFFFBFAF6)
+val HomePaper = Color(0xFFFFFEFB)
+val HomeForest = Color(0xFF00513F)
+val HomeDeepForest = Color(0xFF003E33)
+val HomeSage = Color(0xFFE6EBD8)
+val HomeMist = Color(0xFFEFF3EE)
+val HomeInk = Color(0xFF103F34)
+val HomeMuted = Color(0xFF6B707C)
+val HomeGold = Color(0xFFCDA42B)
+val HomeLine = Color(0xFFDDE2D6)

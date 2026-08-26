@@ -98,6 +98,7 @@ class SupabaseCoreGateway @Inject constructor(private val authGateway: SupabaseA
         val id: String, @SerialName("origin_event_id") val eventId: String, @SerialName("current_owner_id") val ownerId: String? = null,
         val title: String, val category: String, val material: String, val condition: String, val quantity: Double, val unit: String,
         @SerialName("address_text") val addressText: String? = null, val latitude: Double? = null, val longitude: Double? = null,
+        @SerialName("reuse_count") val reuseCount: Int = 0,
         val status: String, @SerialName("archived_at") val archivedAt: String? = null,
         @SerialName("created_at") val createdAt: String, @SerialName("updated_at") val updatedAt: String
     ) {
@@ -108,6 +109,7 @@ class SupabaseCoreGateway @Inject constructor(private val authGateway: SupabaseA
                 enumValue(status, ResourceStatus.entries), listing?.buyUnitPrice ?: listing?.rentUnitPrice ?: 0,
                 imagePaths, millis(createdAt), millis(updatedAt), SyncState.SYNCED, archivedAt != null, listing,
                 geoLocation(addressText.orEmpty(), latitude, longitude),
+                reuseCount,
             )
         }.onFailure { Log.w(TAG, "Ignoring malformed resource row $id", it) }.getOrNull()
     }
@@ -226,12 +228,26 @@ class SupabaseCoreGateway @Inject constructor(private val authGateway: SupabaseA
 
     @Serializable private data class TransactionRow(
         val id: String, @SerialName("origin_event_id") val eventId: String, @SerialName("resource_id") val resourceId: String,
+        @SerialName("programme_id") val programmeId: String? = null,
         @SerialName("counter_resource_id") val counterResourceId: String? = null,
         @SerialName("requester_id") val requesterId: String? = null,
         @SerialName("sender_id") val senderId: String? = null, @SerialName("receiver_id") val receiverId: String? = null, @SerialName("partner_id") val partnerId: String? = null,
         @SerialName("transaction_type") val type: String, val status: String, val quantity: Double,
+        @SerialName("approved_at") val approvedAt: String? = null,
+        @SerialName("in_transit_at") val inTransitAt: String? = null,
+        @SerialName("active_at") val activeAt: String? = null,
+        @SerialName("return_started_at") val returnStartedAt: String? = null,
+        @SerialName("completed_at") val completedAt: String? = null,
         @SerialName("created_at") val createdAt: String, @SerialName("updated_at") val updatedAt: String
-    ) { fun toDomainOrNull() = runCatching { CircularTransaction(id, eventId, resourceId, requireNotNull(senderId), requireNotNull(receiverId), partnerId, TransactionType.valueOf(type), TransactionStatus.valueOf(status), quantity, millis(createdAt), millis(updatedAt), SyncState.SYNCED, false, requireNotNull(requesterId), counterResourceId) }.getOrNull() }
+    ) { fun toDomainOrNull() = runCatching {
+        CircularTransaction(
+            id, eventId, resourceId, requireNotNull(senderId), requireNotNull(receiverId), partnerId,
+            TransactionType.valueOf(type), TransactionStatus.valueOf(status), quantity, millis(createdAt),
+            millis(updatedAt), SyncState.SYNCED, false, requireNotNull(requesterId), counterResourceId,
+            programmeId, approvedAt?.let(::millis), inTransitAt?.let(::millis), activeAt?.let(::millis),
+            returnStartedAt?.let(::millis), completedAt?.let(::millis),
+        )
+    }.getOrNull() }
 
     @Serializable private data class ImpactRow(
         val id: String, @SerialName("event_id") val eventId: String, @SerialName("resource_id") val resourceId: String,

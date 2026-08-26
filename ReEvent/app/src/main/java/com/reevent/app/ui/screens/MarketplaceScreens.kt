@@ -58,6 +58,61 @@ import com.reevent.app.ui.theme.ReEventTextSecondary
 import kotlinx.coroutines.flow.flowOf
 
 @Composable
+fun FocusedMarketplaceTransactionScreen(
+    user: User,
+    transactionId: String,
+    onPassport: (String) -> Unit,
+    onBack: () -> Unit,
+    onNavigate: (TopLevelDestination) -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: FeatureViewModel = hiltViewModel(),
+) {
+    LaunchedEffect(user.id, transactionId) { viewModel.refresh() }
+    val transactions by viewModel.transactions(user.id).collectAsState(emptyList())
+    val transaction = transactions.firstOrNull { it.id == transactionId }
+    val resource by (transaction?.resourceId?.let(viewModel::resource) ?: flowOf(null)).collectAsState(null)
+    val syncCommands by viewModel.pendingSyncCommands().collectAsState(emptyList())
+    ReEventScaffold(
+        selected = TopLevelDestination.MARKETPLACE,
+        onNavigate = onNavigate,
+        modifier = modifier,
+    ) { padding ->
+        ReEventLazyColumn(paddingValues = padding) {
+            item {
+                ScreenHeader(
+                    title = "Lifecycle request",
+                    subtitle = "Focused from your priority inbox",
+                    onBack = onBack,
+                    onProfile = { onNavigate(TopLevelDestination.ACCOUNT) },
+                )
+            }
+            if (transaction == null) {
+                item {
+                    EmptyMarketplacePanel(
+                        "Request unavailable",
+                        "This transaction is no longer available to this account. Refresh or return to the dashboard.",
+                    )
+                }
+            } else {
+                item {
+                    TransactionCard(
+                        user = user,
+                        transaction = transaction,
+                        resource = resource,
+                        syncCommand = syncCommands.firstOrNull { it.transactionId == transaction.id },
+                        onApprove = { viewModel.approveTransaction(user, transaction) },
+                        onCancel = { viewModel.cancelTransaction(user, transaction) },
+                        onComplete = { viewModel.completeTransaction(user, transaction) },
+                        onInTransit = { viewModel.moveTransactionInTransit(user, transaction) },
+                        onPassport = { onPassport(transaction.resourceId) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun MarketplaceVisualScreen(
     user: User,
     onPassport: (String) -> Unit,

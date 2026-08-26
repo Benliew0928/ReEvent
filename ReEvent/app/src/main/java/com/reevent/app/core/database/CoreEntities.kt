@@ -77,6 +77,7 @@ data class ResourceEntity(
     val location: String? = null,
     val latitude: Double? = null,
     val longitude: Double? = null,
+    val reuseCount: Int = 0,
 ) {
     init { require(accountId.isNotBlank()) { "Resource cache rows require an accountId" } }
 }
@@ -161,7 +162,8 @@ data class LegacyProgrammeDraftEntity(
         Index(value = ["accountId", "senderId"]),
         Index(value = ["accountId", "receiverId"]),
         Index(value = ["accountId", "partnerId"]),
-        Index(value = ["accountId", "requesterId"])
+        Index(value = ["accountId", "requesterId"]),
+        Index(value = ["accountId", "programmeId"])
     ]
 )
 data class TransactionEntity(
@@ -180,7 +182,13 @@ data class TransactionEntity(
     val createdAt: Long,
     val updatedAt: Long,
     val syncState: String,
-    val archived: Boolean
+    val archived: Boolean,
+    val programmeId: String? = null,
+    val approvedAt: Long? = null,
+    val inTransitAt: Long? = null,
+    val activeAt: Long? = null,
+    val returnStartedAt: Long? = null,
+    val completedAt: Long? = null,
 ) {
     init { require(accountId.isNotBlank()) { "Transaction cache rows require an accountId" } }
 }

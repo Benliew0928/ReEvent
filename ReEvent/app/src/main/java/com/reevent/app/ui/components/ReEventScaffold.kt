@@ -3,8 +3,10 @@ package com.reevent.app.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -23,21 +25,31 @@ fun ReEventScaffold(
     modifier: Modifier = Modifier,
     content: @Composable (PaddingValues) -> Unit,
 ) {
-    Scaffold(
-        modifier = modifier,
-        containerColor = ReEventBackground,
-        bottomBar = {
-            selected?.let { ReEventBottomBar(selected = it, onNavigate = onNavigate) }
-        },
-    ) { innerPadding ->
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .background(ReEventBackground),
-            contentAlignment = Alignment.TopCenter,
-        ) {
-            content(innerPadding)
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val usesRail = selected != null && maxWidth >= 600.dp
+        Row(Modifier.fillMaxSize()) {
+            if (usesRail) {
+                ReEventNavigationRail(
+                    selected = requireNotNull(selected),
+                    onNavigate = onNavigate,
+                )
+            }
+            Scaffold(
+                modifier = Modifier.weight(1f),
+                containerColor = ReEventBackground,
+                bottomBar = {
+                    if (!usesRail) selected?.let { ReEventBottomBar(selected = it, onNavigate = onNavigate) }
+                },
+            ) { innerPadding ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(ReEventBackground),
+                    contentAlignment = Alignment.TopCenter,
+                ) {
+                    content(innerPadding)
+                }
+            }
         }
     }
 }

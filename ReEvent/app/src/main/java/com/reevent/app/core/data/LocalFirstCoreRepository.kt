@@ -87,6 +87,8 @@ class LocalFirstCoreRepository @Inject constructor(
     override fun observeOwnedResources(ownerId: String): Flow<List<ResourceItem>> = dao.observeOwnedResources(accountScope.requireId(), ownerId).map(List<ResourceEntity>::toResources)
     override fun observeMarketplace(): Flow<List<ResourceItem>> = dao.observeMarketplace(accountScope.requireId()).map(List<ResourceEntity>::toResources)
     override fun observeResource(resourceId: String): Flow<ResourceItem?> = dao.observeResource(accountScope.requireId(), resourceId).map { it?.toDomain() }
+    override fun observeResources(resourceIds: Set<String>): Flow<List<ResourceItem>> =
+        dao.observeResourcesById(accountScope.requireId(), resourceIds).map(List<ResourceEntity>::toResources)
 
     override suspend fun saveResource(resource: ResourceItem): AppResult<ResourceItem> = persist(resource, "resource_items", resource.id) { accountId ->
         dao.upsertResource(resource.copy(syncState = com.reevent.app.core.model.SyncState.PENDING).toEntity(accountId))
@@ -119,6 +121,8 @@ class LocalFirstCoreRepository @Inject constructor(
     }
 
     override fun observePassport(resourceId: String): Flow<ResourcePassport?> = dao.observePassport(accountScope.requireId(), resourceId).map { it?.toDomain() }
+    override fun observePassports(resourceIds: Set<String>): Flow<List<ResourcePassport>> =
+        dao.observePassportsByResourceId(accountScope.requireId(), resourceIds).map { rows -> rows.map(PassportEntity::toDomain) }
 
     override fun observeProgrammes(partnerId: String?): Flow<List<CircularProgramme>> =
         (partnerId?.let { dao.observePartnerProgrammes(accountScope.requireId(), it) } ?: dao.observeProgrammes(accountScope.requireId())).map(List<ProgrammeEntity>::toProgrammes)

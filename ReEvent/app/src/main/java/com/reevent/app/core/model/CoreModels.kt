@@ -86,6 +86,8 @@ data class ResourceItem(
     val archived: Boolean = false,
     val marketplaceListing: MarketplaceListing? = null,
     val geoLocation: GeoLocation? = null,
+    /** Authoritative number of completed reuse cycles projected by the server. */
+    val reuseCount: Int = 0,
 )
 
 /** Published marketplace terms supplied by the server, never inferred from resource condition. */
@@ -201,7 +203,13 @@ data class CircularTransaction(
     val syncState: SyncState = SyncState.PENDING,
     val archived: Boolean = false,
     val requesterId: String = senderId,
-    val counterResourceId: String? = null
+    val counterResourceId: String? = null,
+    val programmeId: String? = null,
+    val approvedAt: Long? = null,
+    val inTransitAt: Long? = null,
+    val activeAt: Long? = null,
+    val returnStartedAt: Long? = null,
+    val completedAt: Long? = null,
 )
 
 data class ImpactRecord(

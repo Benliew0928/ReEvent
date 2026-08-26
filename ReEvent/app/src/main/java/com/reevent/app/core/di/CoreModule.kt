@@ -47,6 +47,7 @@ object CoreModule {
                 ReEventDatabase.MIGRATION_4_5,
                 ReEventDatabase.MIGRATION_5_6,
                 ReEventDatabase.MIGRATION_6_7,
+                ReEventDatabase.MIGRATION_7_8,
             )
             .build()
 

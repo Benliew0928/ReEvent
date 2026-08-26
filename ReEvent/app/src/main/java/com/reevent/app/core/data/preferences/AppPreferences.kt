@@ -19,6 +19,7 @@ class AppPreferences @Inject constructor(@ApplicationContext private val context
     private object Keys {
         val onboardingComplete = booleanPreferencesKey("onboarding_complete")
         val lastOpenedEventId = stringPreferencesKey("last_opened_event_id")
+        val lastOpenedProgrammeId = stringPreferencesKey("last_opened_programme_id")
         val themeMode = stringPreferencesKey("theme_mode")
         val distanceUnit = stringPreferencesKey("distance_unit")
         val cachedUserId = stringPreferencesKey("cached_user_id")
@@ -31,10 +32,12 @@ class AppPreferences @Inject constructor(@ApplicationContext private val context
     val cachedUserId: Flow<String?> = context.appPreferencesDataStore.data.map { it[Keys.cachedUserId] }
     val cachedRole: Flow<UserRole?> = context.appPreferencesDataStore.data.map { it[Keys.cachedRole]?.let(UserRole::valueOf) }
     val lastOpenedEventId: Flow<String?> = context.appPreferencesDataStore.data.map { it[Keys.lastOpenedEventId] }
+    val lastOpenedProgrammeId: Flow<String?> = context.appPreferencesDataStore.data.map { it[Keys.lastOpenedProgrammeId] }
     val passwordRecoveryPending: Flow<Boolean> = context.appPreferencesDataStore.data.map { it[Keys.passwordRecoveryPending] ?: false }
 
     suspend fun setOnboardingComplete(value: Boolean) = context.appPreferencesDataStore.edit { it[Keys.onboardingComplete] = value }
     suspend fun setLastOpenedEvent(eventId: String) = context.appPreferencesDataStore.edit { it[Keys.lastOpenedEventId] = eventId }
+    suspend fun setLastOpenedProgramme(programmeId: String) = context.appPreferencesDataStore.edit { it[Keys.lastOpenedProgrammeId] = programmeId }
     suspend fun setThemeMode(mode: String) = context.appPreferencesDataStore.edit { it[Keys.themeMode] = mode }
     suspend fun setDistanceUnit(unit: String) = context.appPreferencesDataStore.edit { it[Keys.distanceUnit] = unit }
     suspend fun setPasswordRecoveryPending(value: Boolean) = context.appPreferencesDataStore.edit { it[Keys.passwordRecoveryPending] = value }
@@ -52,6 +55,7 @@ class AppPreferences @Inject constructor(@ApplicationContext private val context
             it.remove(Keys.cachedUserId)
             it.remove(Keys.cachedRole)
             it.remove(Keys.lastOpenedEventId)
+            it.remove(Keys.lastOpenedProgrammeId)
             it.remove(Keys.passwordRecoveryPending)
         }
         val draftPrefix = userId?.let { id -> "resource_draft_${id}_" } ?: "resource_draft_"

@@ -36,14 +36,13 @@ import com.reevent.app.ui.screens.EventDetailLiveScreen
 import com.reevent.app.ui.screens.EventEditorLiveScreen
 import com.reevent.app.ui.screens.EventListLiveScreen
 import com.reevent.app.ui.screens.FeatureViewModel
+import com.reevent.app.ui.screens.FocusedMarketplaceTransactionScreen
 import com.reevent.app.ui.screens.MarketplaceVisualScreen
 import com.reevent.app.ui.screens.MatchingLiveScreen
 import com.reevent.app.ui.screens.OnboardingFlowScreen
-import com.reevent.app.ui.screens.OrganizerHomeVisualScreen
 import com.reevent.app.ui.screens.OrganizerImpactVisualScreen
-import com.reevent.app.ui.screens.ParticipantReturnVisualScreen
 import com.reevent.app.ui.screens.PartnerMapVisualScreen
-import com.reevent.app.ui.screens.PartnerWorkbenchVisualScreen
+import com.reevent.app.ui.screens.PartnerProgrammesVisualScreen
 import com.reevent.app.ui.screens.PassportVisualScreen
 import com.reevent.app.ui.screens.PasswordRecoveryFlowScreen
 import com.reevent.app.ui.screens.ProfileFlowScreen
@@ -51,15 +50,30 @@ import com.reevent.app.ui.screens.QrScannerLiveScreen
 import com.reevent.app.ui.screens.ResourceEditorLiveScreen
 import com.reevent.app.ui.screens.SignInFlowScreen
 import com.reevent.app.ui.theme.ReEventBackground
+import com.reevent.app.ui.home.HomeTarget
+import com.reevent.app.ui.home.OrganizerHomeRouteScreen
+import com.reevent.app.ui.home.ParticipantHomeRouteScreen
+import com.reevent.app.ui.home.PartnerHomeRouteScreen
+import com.reevent.app.ui.home.PartnerPassportListScreen
 import kotlinx.serialization.Serializable
 
 @Serializable private data object OrganizerHomeRoute
 
-@Serializable private data object ParticipantReturnRoute
+@Serializable private data object ParticipantHomeRoute
 
-@Serializable private data object PartnerWorkbenchRoute
+@Serializable private data object PartnerHomeRoute
+
+@Serializable private data object PartnerProgrammesRoute
+
+@Serializable private data class FocusedProgrammeTransactionRoute(val transactionId: String)
+
+@Serializable private data object CreateProgrammeRoute
 
 @Serializable private data object MarketplaceRoute
+
+@Serializable private data class FocusedMarketplaceTransactionRoute(val transactionId: String)
+
+@Serializable private data object PartnerPassportListRoute
 
 @Serializable private data class OrganizerAddRoute(
     val eventId: String,
@@ -156,8 +170,8 @@ private fun RoleNavigationRoot(
     val start =
         when (role) {
             UserRole.ORGANIZER -> OrganizerHomeRoute
-            UserRole.PARTICIPANT -> ParticipantReturnRoute
-            UserRole.PARTNER -> PartnerWorkbenchRoute
+            UserRole.PARTICIPANT -> ParticipantHomeRoute
+            UserRole.PARTNER -> PartnerHomeRoute
         }
     CompositionLocalProvider(
         LocalUserRole provides role,
@@ -196,14 +210,9 @@ private fun androidx.navigation.NavGraphBuilder.organiserGraph(
     navigationTapGuard: NavigationTapGuard,
 ) {
     composable<OrganizerHomeRoute> {
-        OrganizerHomeVisualScreen(
+        OrganizerHomeRouteScreen(
             user = user,
-            onAddResource = { nav.openDetail(OrganizerAddRoute(it)) },
-            onPassport = { nav.openDetail(PassportRoute(it)) },
-            onImpact = { nav.openTopLevel(OrganizerImpactRoute) },
-            onMarketplace = { nav.openTopLevel(MarketplaceRoute) },
-            onPartnerMap = { nav.openTopLevel(PartnerMapRoute()) },
-            onManageEvents = { nav.openDetail(EventListRoute) },
+            onTarget = nav::openOrganizerHomeTarget,
             onProfile = { navigationTapGuard.runIfAllowed(nav::openProfile) },
         )
     }
@@ -298,6 +307,15 @@ private fun androidx.navigation.NavGraphBuilder.organiserGraph(
             nav::openOrganiserTopLevelDestination,
         )
     }
+    composable<FocusedMarketplaceTransactionRoute> { entry ->
+        FocusedMarketplaceTransactionScreen(
+            user = user,
+            transactionId = entry.toRoute<FocusedMarketplaceTransactionRoute>().transactionId,
+            onPassport = { nav.openDetail(PassportRoute(it)) },
+            onBack = nav::popBackStack,
+            onNavigate = nav::openOrganiserTopLevelDestination,
+        )
+    }
     composable<PartnerMapRoute> { entry ->
         val route = entry.toRoute<PartnerMapRoute>()
         PartnerMapVisualScreen(
@@ -314,8 +332,12 @@ private fun androidx.navigation.NavGraphBuilder.participantGraph(
     nav: NavHostController,
     user: User,
 ) {
-    composable<ParticipantReturnRoute> {
-        ParticipantReturnVisualScreen(user, { nav.openDetail(QrScannerRoute()) }, nav::openParticipantTopLevelDestination)
+    composable<ParticipantHomeRoute> {
+        ParticipantHomeRouteScreen(
+            user = user,
+            onTarget = nav::openParticipantHomeTarget,
+            onProfile = nav::openProfile,
+        )
     }
     composable<MarketplaceRoute> {
         MarketplaceVisualScreen(user, { nav.openDetail(PassportRoute(it)) }, nav::openParticipantTopLevelDestination)
@@ -348,11 +370,34 @@ private fun androidx.navigation.NavGraphBuilder.partnerGraph(
     nav: NavHostController,
     user: User,
 ) {
-    composable<PartnerWorkbenchRoute> {
-        PartnerWorkbenchVisualScreen(
+    composable<PartnerHomeRoute> {
+        PartnerHomeRouteScreen(
+            user = user,
+            onTarget = nav::openPartnerHomeTarget,
+            onProfile = nav::openProfile,
+        )
+    }
+    composable<PartnerProgrammesRoute> {
+        PartnerProgrammesVisualScreen(
             user = user,
             onNavigate = nav::openPartnerTopLevelDestination,
             onOpenPassport = { nav.openDetail(PassportRoute(it)) },
+        )
+    }
+    composable<FocusedProgrammeTransactionRoute> { entry ->
+        PartnerProgrammesVisualScreen(
+            user = user,
+            onNavigate = nav::openPartnerTopLevelDestination,
+            onOpenPassport = { nav.openDetail(PassportRoute(it)) },
+            focusedTransactionId = entry.toRoute<FocusedProgrammeTransactionRoute>().transactionId,
+        )
+    }
+    composable<CreateProgrammeRoute> {
+        PartnerProgrammesVisualScreen(
+            user = user,
+            onNavigate = nav::openPartnerTopLevelDestination,
+            onOpenPassport = { nav.openDetail(PassportRoute(it)) },
+            startCreating = true,
         )
     }
     composable<MarketplaceRoute> {
@@ -365,6 +410,14 @@ private fun androidx.navigation.NavGraphBuilder.partnerGraph(
     composable<PassportRoute> { entry ->
         PassportVisualScreen(user, entry.toRoute<PassportRoute>().resourceId, onMatch = {
         }, onBack = nav::popBackStack, onNavigate = nav::openPartnerTopLevelDestination)
+    }
+    composable<PartnerPassportListRoute> {
+        PartnerPassportListScreen(
+            user = user,
+            onOpenPassport = { nav.openDetail(PassportRoute(it)) },
+            onBack = nav::popBackStack,
+            onNavigate = nav::openPartnerTopLevelDestination,
+        )
     }
     composable<QrScannerRoute> { entry ->
         QrScannerLiveScreen(
@@ -395,7 +448,7 @@ private fun NavHostController.openOrganiserTopLevelDestination(destination: TopL
 
 private fun NavHostController.openParticipantTopLevelDestination(destination: TopLevelDestination) {
     when (destination) {
-        TopLevelDestination.RETURNS -> openTopLevel(ParticipantReturnRoute)
+        TopLevelDestination.HOME -> openTopLevel(ParticipantHomeRoute)
         TopLevelDestination.MARKETPLACE -> openTopLevel(MarketplaceRoute)
         TopLevelDestination.PARTNERS -> openTopLevel(PartnerMapRoute())
         TopLevelDestination.ACCOUNT -> openProfile()
@@ -405,9 +458,42 @@ private fun NavHostController.openParticipantTopLevelDestination(destination: To
 
 private fun NavHostController.openPartnerTopLevelDestination(destination: TopLevelDestination) {
     when (destination) {
-        TopLevelDestination.WORKBENCH -> openTopLevel(PartnerWorkbenchRoute)
+        TopLevelDestination.HOME -> openTopLevel(PartnerHomeRoute)
         TopLevelDestination.MARKETPLACE -> openTopLevel(MarketplaceRoute)
+        TopLevelDestination.PROGRAMMES -> openTopLevel(PartnerProgrammesRoute)
         TopLevelDestination.ACCOUNT -> openProfile()
+        else -> Unit
+    }
+}
+
+private fun NavHostController.openOrganizerHomeTarget(target: HomeTarget) {
+    when (target) {
+        is HomeTarget.Destination -> openOrganiserTopLevelDestination(target.destination)
+        is HomeTarget.MatchResource -> openDetail(MatchingRoute(target.resourceId))
+        is HomeTarget.FocusMarketplaceTransaction -> openDetail(FocusedMarketplaceTransactionRoute(target.transactionId))
+        is HomeTarget.Passport -> openDetail(PassportRoute(target.resourceId))
+        HomeTarget.ScanQr -> openDetail(QrScannerRoute())
+        HomeTarget.CreateEvent -> openDetail(EventEditorRoute())
+        else -> Unit
+    }
+}
+
+private fun NavHostController.openParticipantHomeTarget(target: HomeTarget) {
+    when (target) {
+        is HomeTarget.Destination -> openParticipantTopLevelDestination(target.destination)
+        is HomeTarget.Passport -> openDetail(PassportRoute(target.resourceId))
+        HomeTarget.ScanQr -> openDetail(QrScannerRoute())
+        else -> Unit
+    }
+}
+
+private fun NavHostController.openPartnerHomeTarget(target: HomeTarget) {
+    when (target) {
+        is HomeTarget.Destination -> openPartnerTopLevelDestination(target.destination)
+        is HomeTarget.FocusProgrammeTransaction -> openDetail(FocusedProgrammeTransactionRoute(target.transactionId))
+        is HomeTarget.Passport -> openDetail(PassportRoute(target.resourceId))
+        HomeTarget.CreateProgramme -> openDetail(CreateProgrammeRoute)
+        HomeTarget.PartnerPassports -> openDetail(PartnerPassportListRoute)
         else -> Unit
     }
 }

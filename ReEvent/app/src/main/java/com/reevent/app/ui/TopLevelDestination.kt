@@ -5,11 +5,10 @@ import com.reevent.app.core.model.UserRole
 /** Destinations that can be selected directly from an authenticated navigation bar. */
 enum class TopLevelDestination {
     HOME,
-    RETURNS,
-    WORKBENCH,
     MARKETPLACE,
     EVENTS,
     PARTNERS,
+    PROGRAMMES,
     IMPACT,
     ACCOUNT,
 }
@@ -28,7 +27,7 @@ internal fun topLevelDestinations(role: UserRole): List<TopLevelDestination> =
 
         UserRole.PARTICIPANT -> {
             listOf(
-                TopLevelDestination.RETURNS,
+                TopLevelDestination.HOME,
                 TopLevelDestination.MARKETPLACE,
                 TopLevelDestination.PARTNERS,
                 TopLevelDestination.ACCOUNT,
@@ -37,8 +36,9 @@ internal fun topLevelDestinations(role: UserRole): List<TopLevelDestination> =
 
         UserRole.PARTNER -> {
             listOf(
-                TopLevelDestination.WORKBENCH,
+                TopLevelDestination.HOME,
                 TopLevelDestination.MARKETPLACE,
+                TopLevelDestination.PROGRAMMES,
                 TopLevelDestination.ACCOUNT,
             )
         }

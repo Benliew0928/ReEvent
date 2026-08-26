@@ -23,7 +23,7 @@ class TopLevelDestinationTest {
     fun `participant and partner destinations stay role specific`() {
         assertEquals(
             listOf(
-                TopLevelDestination.RETURNS,
+                TopLevelDestination.HOME,
                 TopLevelDestination.MARKETPLACE,
                 TopLevelDestination.PARTNERS,
                 TopLevelDestination.ACCOUNT,
@@ -32,8 +32,9 @@ class TopLevelDestinationTest {
         )
         assertEquals(
             listOf(
-                TopLevelDestination.WORKBENCH,
+                TopLevelDestination.HOME,
                 TopLevelDestination.MARKETPLACE,
+                TopLevelDestination.PROGRAMMES,
                 TopLevelDestination.ACCOUNT,
             ),
             topLevelDestinations(UserRole.PARTNER),

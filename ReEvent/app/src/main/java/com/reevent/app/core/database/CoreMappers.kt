@@ -49,7 +49,7 @@ fun ResourceEntity.toDomain() = ResourceItem(
             terms = marketplaceTerms
         )
     },
-    geoLocation(location.orEmpty(), latitude, longitude),
+    geoLocation(location.orEmpty(), latitude, longitude), reuseCount,
 )
 fun ResourceItem.toEntity(accountId: String) = ResourceEntity(
     id, accountId, eventId, ownerId, title, category, material, condition.name, quantity, unit, status.name, valueCents,
@@ -64,6 +64,7 @@ fun ResourceItem.toEntity(accountId: String) = ResourceEntity(
     geoLocation?.displayAddress,
     geoLocation?.latitude,
     geoLocation?.longitude,
+    reuseCount,
 )
 
 fun PassportEntity.toDomain() = ResourcePassport(id, resourceId, qrPayload, historyJson, createdAt, updatedAt, SyncState.valueOf(syncState))
@@ -101,12 +102,12 @@ fun LegacyProgrammeDraftEntity.toDomain() = LegacyProgrammeDraft(
 fun TransactionEntity.toDomain() = CircularTransaction(
     id, eventId, resourceId, senderId, receiverId, partnerId, TransactionType.valueOf(type),
     TransactionStatus.valueOf(status), quantity, createdAt, updatedAt, SyncState.valueOf(syncState), archived,
-    requesterId, counterResourceId
+    requesterId, counterResourceId, programmeId, approvedAt, inTransitAt, activeAt, returnStartedAt, completedAt,
 )
 fun CircularTransaction.toEntity(accountId: String) = TransactionEntity(
     id, accountId, eventId, resourceId, senderId, receiverId, partnerId, requesterId, counterResourceId,
     type.name, status.name, quantity, createdAt,
-    updatedAt, syncState.name, archived
+    updatedAt, syncState.name, archived, programmeId, approvedAt, inTransitAt, activeAt, returnStartedAt, completedAt,
 )
 
 fun ImpactEntity.toDomain() = ImpactRecord(

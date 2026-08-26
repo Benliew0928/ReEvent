@@ -49,7 +49,6 @@ import com.reevent.app.core.model.LegacyProgrammeDraft
 import com.reevent.app.core.model.ProgrammeType
 import com.reevent.app.core.model.ResourceCondition
 import com.reevent.app.core.model.TransactionStatus
-import com.reevent.app.core.model.TransactionType
 import com.reevent.app.core.model.User
 import com.reevent.app.feature.passports.PassportQrPayload
 import com.reevent.app.feature.passports.PassportViewerAccessPolicy
@@ -185,55 +184,13 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 }
 
 @Composable
-fun ParticipantReturnVisualScreen(
-    user: User,
-    onScanResourceQr: () -> Unit,
-    onNavigate: (TopLevelDestination) -> Unit,
-    viewModel: FeatureViewModel = hiltViewModel(),
-) {
-    LaunchedEffect(user.id) { viewModel.refresh() }
-    val transactions by viewModel.transactions(user.id).collectAsState(emptyList())
-    val action by viewModel.action.collectAsState()
-    val returnTransaction =
-        transactions.firstOrNull {
-            it.type in setOf(TransactionType.BORROW, TransactionType.RENT, TransactionType.REPAIR) &&
-                it.status in setOf(TransactionStatus.ACTIVE, TransactionStatus.RETURN_IN_PROGRESS)
-        }
-    val displayTransaction =
-        returnTransaction ?: transactions.firstOrNull {
-            it.type in setOf(TransactionType.BORROW, TransactionType.RENT, TransactionType.REPAIR) &&
-                it.status == TransactionStatus.COMPLETED
-        }
-    val returnResource by (displayTransaction?.resourceId?.let(viewModel::resource) ?: flowOf(null)).collectAsState(null)
-    val returnPassport by (returnTransaction?.resourceId?.let(viewModel::passport) ?: flowOf(null)).collectAsState(null)
-    val returnQrPresentation =
-        returnPassport?.qrPayload?.let {
-            PassportQrPayload.renderablePayload(it, BuildConfig.PUBLIC_BASE_URL)
-        }
-    ParticipantReturnScreen(
-        onNavigate = onNavigate,
-        onProfile = { onNavigate(TopLevelDestination.ACCOUNT) },
-        onScanResourceQr = onScanResourceQr,
-        transactions = transactions,
-        returnResourceTitle = returnResource?.title,
-        returnPassportAssigned = returnPassport != null,
-        returnQrPayload = (returnQrPresentation as? PassportQrPayload.RenderResult.Ready)?.payload,
-        returnQrUnavailableMessage =
-            when (returnQrPresentation) {
-                null -> "No return passport is assigned yet."
-                is PassportQrPayload.RenderResult.Unavailable -> returnQrPresentation.message
-                is PassportQrPayload.RenderResult.Ready -> null
-            },
-        returnStatus = displayTransaction?.status,
-        returnActionError = action.error,
-    )
-}
-
-@Composable
-fun PartnerWorkbenchVisualScreen(
+fun PartnerProgrammesVisualScreen(
     user: User,
     onNavigate: (TopLevelDestination) -> Unit,
     onOpenPassport: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    focusedTransactionId: String? = null,
+    startCreating: Boolean = false,
     viewModel: FeatureViewModel = hiltViewModel(),
 ) {
     LaunchedEffect(user.id) { viewModel.refresh() }
@@ -249,19 +206,50 @@ fun PartnerWorkbenchVisualScreen(
                     TransactionStatus.CANCELLED,
                     TransactionStatus.REJECTED,
                 )
-        }
+        }.sortedByDescending { it.id == focusedTransactionId }
+    val focusedTask = recoveryTasks.firstOrNull { it.id == focusedTransactionId }
     var editingProgramme by remember { mutableStateOf<CircularProgramme?>(null) }
-    var creatingProgramme by rememberSaveable { mutableStateOf(false) }
+    var creatingProgramme by rememberSaveable { mutableStateOf(startCreating) }
     var replacementLegacy by remember { mutableStateOf<LegacyProgrammeDraft?>(null) }
 
-    ReEventScaffold(selected = TopLevelDestination.WORKBENCH, onNavigate = onNavigate) { padding ->
+    ReEventScaffold(
+        selected = TopLevelDestination.PROGRAMMES,
+        onNavigate = onNavigate,
+        modifier = modifier,
+    ) { padding ->
         ReEventLazyColumn(paddingValues = padding) {
             item {
                 ScreenHeader(
-                    title = "Partner workbench",
-                    subtitle = "Manage programmes and assigned handovers",
+                    title = "Programmes",
+                    subtitle = if (focusedTransactionId == null) "Manage programmes and assigned handovers" else "Focused programme task",
                     onProfile = { onNavigate(TopLevelDestination.ACCOUNT) },
                 )
+            }
+            if (focusedTransactionId != null) {
+                if (focusedTask == null) {
+                    item {
+                        EmptyMarketplacePanel(
+                            "Programme task unavailable",
+                            "This task is complete or no longer authorised for this account.",
+                        )
+                    }
+                } else {
+                    item { Text("Focused task", style = MaterialTheme.typography.titleLarge, color = ReEventInk) }
+                    item {
+                        val resource by viewModel.resource(focusedTask.resourceId).collectAsState(null)
+                        TransactionCard(
+                            user = user,
+                            transaction = focusedTask,
+                            resource = resource,
+                            syncCommand = syncCommands.firstOrNull { it.transactionId == focusedTask.id },
+                            onApprove = { viewModel.approveTransaction(user, focusedTask) },
+                            onCancel = { viewModel.cancelTransaction(user, focusedTask) },
+                            onComplete = { viewModel.completeTransaction(user, focusedTask) },
+                            onInTransit = { viewModel.moveTransactionInTransit(user, focusedTask) },
+                            onPassport = { onOpenPassport(focusedTask.resourceId) },
+                        )
+                    }
+                }
             }
             item {
                 PrimaryActionButton(
@@ -313,7 +301,7 @@ fun PartnerWorkbenchVisualScreen(
             } else {
                 item { Text("Assigned recovery tasks", style = MaterialTheme.typography.titleLarge, color = ReEventInk) }
             }
-            items(recoveryTasks, key = { it.id }) { transaction ->
+            items(recoveryTasks.filterNot { it.id == focusedTask?.id }, key = { it.id }) { transaction ->
                 val resource by viewModel.resource(transaction.resourceId).collectAsState(null)
                 TransactionCard(
                     user = user,
