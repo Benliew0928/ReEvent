@@ -1,6 +1,8 @@
 package com.reevent.app.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -12,26 +14,43 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Eco
+import androidx.compose.material.icons.outlined.AccessTime
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.MyLocation
+import androidx.compose.material.icons.outlined.Recycling
+import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,13 +61,21 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
+import com.reevent.app.R
 import com.reevent.app.BuildConfig
 import com.reevent.app.core.data.ResourcePresentationRules
 import com.reevent.app.core.model.CircularProgramme
@@ -59,10 +86,10 @@ import com.reevent.app.core.model.ProgrammeType
 import com.reevent.app.core.model.ResourceItem
 import com.reevent.app.core.model.ResourceStatus
 import com.reevent.app.core.model.User
+import com.reevent.app.core.model.UserRole
 import com.reevent.app.core.network.MapTilerHttpConfiguration
 import com.reevent.app.ui.TopLevelDestination
 import com.reevent.app.ui.components.ReEventScaffold
-import com.reevent.app.ui.components.ScreenHeader
 import com.reevent.app.ui.components.SecondaryActionButton
 import com.reevent.app.ui.materials.MaterialFamilyPickerField
 import com.reevent.app.ui.theme.ReEventBackground
@@ -73,6 +100,18 @@ import com.reevent.app.ui.theme.ReEventLine
 import com.reevent.app.ui.theme.ReEventMintSoft
 import com.reevent.app.ui.theme.ReEventSurface
 import com.reevent.app.ui.theme.ReEventTextSecondary
+import com.reevent.app.ui.theme.HomeBodyStyle
+import com.reevent.app.ui.theme.HomeCanvas
+import com.reevent.app.ui.theme.HomeCardTitleStyle
+import com.reevent.app.ui.theme.HomeDeepForest
+import com.reevent.app.ui.theme.HomeEditorialFont
+import com.reevent.app.ui.theme.HomeForest
+import com.reevent.app.ui.theme.HomeHeroTitleStyle
+import com.reevent.app.ui.theme.HomeInk
+import com.reevent.app.ui.theme.HomeLine
+import com.reevent.app.ui.theme.HomeMuted
+import com.reevent.app.ui.theme.HomePaper
+import com.reevent.app.ui.theme.HomeSage
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.camera.CameraPosition
@@ -100,6 +139,11 @@ import org.maplibre.spatialk.geojson.toJson
 
 private val distanceChoices = listOf("5 km" to 5.0, "15 km" to 15.0, "50 km" to 50.0, "Any" to null)
 
+private enum class MapRoleExperience { ORGANIZER, PARTICIPANT }
+
+private fun User.mapRoleExperience(): MapRoleExperience =
+    if (role == UserRole.PARTICIPANT) MapRoleExperience.PARTICIPANT else MapRoleExperience.ORGANIZER
+
 @Composable
 fun PartnerMapScreen(
     user: User,
@@ -125,74 +169,81 @@ fun PartnerMapScreen(
     mapContent: (@Composable (PartnerMapUiState, (PartnerCandidate) -> Unit, Modifier) -> Unit)? = null,
 ) {
     var confirmation by remember { mutableStateOf<PartnerCandidate?>(null) }
+    var showRefineFilters by rememberSaveable { mutableStateOf(false) }
+    val experience = user.mapRoleExperience()
     ReEventScaffold(
         selected = TopLevelDestination.PARTNERS,
         onNavigate = onNavigate,
         modifier = modifier,
     ) { padding ->
-        Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(HomeCanvas),
         ) {
-            ScreenHeader(
-                title = if (state.isResourceContext) "Eligible partner programmes" else "Partner network",
-                subtitle = if (state.isResourceContext) {
-                    "Server-verified routes for ${resource?.title ?: "this resource"}"
-                } else {
-                    "Exact collection, repair and recovery points"
-                },
-                onProfile = onProfile,
+            Image(
+                painter = painterResource(R.drawable.home_paper_texture),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize().alpha(0.055f),
             )
-            if (onBack != null) TextButton(onClick = onBack) { Text("Back to matching") }
-            PartnerMapFilters(
-                state = state,
-                onMaterialChange = onMaterialChange,
-                onToggleType = onToggleType,
-                onDistanceChange = onDistanceChange,
-                onPickupChange = onPickupChange,
-                onNearMe = onNearMe,
-            )
-            if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
-            state.error?.let { NoticePanel(it) }
-            state.mapError?.let { NoticePanel(it) }
-            if (!state.result.serverAuthoritative) {
-                NoticePanel("Showing cached programmes. Eligibility will be checked again when you submit a request.")
-            }
-            BoxWithConstraints(Modifier.fillMaxSize()) {
-                val expanded = maxWidth >= 840.dp
-                if (expanded) {
-                    Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        PartnerMapContent(
-                            state = state,
-                            onSelect = onSelectCandidate,
-                            mapContent = mapContent,
-                            onLoading = onMapLoading,
-                            onLoaded = onMapLoaded,
-                            onFailed = onMapFailed,
-                            modifier = Modifier.weight(1.1f).fillMaxHeight(),
-                        )
-                        PartnerCandidateList(
-                            state = state,
-                            onSelect = onSelectCandidate,
-                            modifier = Modifier.weight(0.9f).fillMaxHeight(),
-                        )
-                    }
+            Column(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .widthIn(max = 1040.dp)
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                EditorialMapHeader(
+                    user = user,
+                    resource = resource,
+                    experience = experience,
+                    onProfile = onProfile,
+                )
+                if (onBack != null) TextButton(onClick = onBack) { Text("Back to matching") }
+                if (experience == MapRoleExperience.ORGANIZER) {
+                    OrganizerMapStatusOverview(
+                        onRefineSearch = { showRefineFilters = !showRefineFilters },
+                    )
                 } else {
-                    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChip(
-                                selected = state.presentation == PartnerMapPresentation.MAP,
-                                onClick = { onPresentationChange(PartnerMapPresentation.MAP) },
-                                enabled = state.mapError == null && BuildConfig.MAPTILER_API_KEY.isNotBlank(),
-                                label = { Text("Map") },
-                            )
-                            FilterChip(
-                                selected = state.presentation == PartnerMapPresentation.LIST,
-                                onClick = { onPresentationChange(PartnerMapPresentation.LIST) },
-                                label = { Text("Programme list") },
-                            )
-                        }
-                        if (state.presentation == PartnerMapPresentation.MAP && state.mapError == null) {
+                    MapQuickFilters(
+                        experience = experience,
+                        state = state,
+                        onToggleType = onToggleType,
+                        onPickupChange = onPickupChange,
+                        onRefineSearch = { showRefineFilters = !showRefineFilters },
+                    )
+                }
+                PartnerMapFilters(
+                    state = state,
+                    onMaterialChange = onMaterialChange,
+                    onToggleType = onToggleType,
+                    onDistanceChange = onDistanceChange,
+                    onPickupChange = onPickupChange,
+                    onNearMe = onNearMe,
+                    showProgrammeTypes = true,
+                    showPickupOnly = experience == MapRoleExperience.ORGANIZER,
+                    visible = showRefineFilters,
+                    onDismiss = { showRefineFilters = false },
+                )
+                if (state.loading) {
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = HomeForest,
+                        trackColor = HomeSage,
+                    )
+                }
+                state.error?.let { NoticePanel(it) }
+                state.mapError?.let { NoticePanel(it) }
+                if (!state.result.serverAuthoritative) {
+                    NoticePanel("Showing cached programmes. Eligibility will be checked again when you submit a request.")
+                }
+                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                    val expanded = maxWidth >= 840.dp
+                    if (expanded) {
+                        Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             PartnerMapContent(
                                 state = state,
                                 onSelect = onSelectCandidate,
@@ -200,10 +251,70 @@ fun PartnerMapScreen(
                                 onLoading = onMapLoading,
                                 onLoaded = onMapLoaded,
                                 onFailed = onMapFailed,
-                                modifier = Modifier.fillMaxSize(),
+                                modifier = Modifier.weight(1.1f).fillMaxHeight(),
                             )
-                        } else {
-                            PartnerCandidateList(state, onSelectCandidate, Modifier.fillMaxSize())
+                            Column(
+                                modifier = Modifier.weight(0.9f).fillMaxHeight(),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                MapSummaryPanel(
+                                    experience = experience,
+                                    state = state,
+                                    onSelect = onSelectCandidate,
+                                )
+                                PartnerCandidateList(
+                                    state = state,
+                                    onSelect = onSelectCandidate,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                    } else {
+                        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            MapPresentationSwitch(
+                                state = state,
+                                onPresentationChange = onPresentationChange,
+                            )
+                            if (state.presentation == PartnerMapPresentation.MAP && state.mapError == null) {
+                                if (experience == MapRoleExperience.ORGANIZER) {
+                                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                                        PartnerMapContent(
+                                            state = state,
+                                            onSelect = onSelectCandidate,
+                                            mapContent = mapContent,
+                                            onLoading = onMapLoading,
+                                            onLoaded = onMapLoaded,
+                                            onFailed = onMapFailed,
+                                            modifier = Modifier.fillMaxSize(),
+                                        )
+                                        MapSummaryPanel(
+                                            experience = experience,
+                                            state = state,
+                                            onSelect = onSelectCandidate,
+                                            modifier = Modifier
+                                                .align(Alignment.BottomCenter)
+                                                .padding(horizontal = 4.dp, vertical = 8.dp),
+                                        )
+                                    }
+                                } else {
+                                    PartnerMapContent(
+                                        state = state,
+                                        onSelect = onSelectCandidate,
+                                        mapContent = mapContent,
+                                        onLoading = onMapLoading,
+                                        onLoaded = onMapLoaded,
+                                        onFailed = onMapFailed,
+                                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                                    )
+                                    MapSummaryPanel(
+                                        experience = experience,
+                                        state = state,
+                                        onSelect = onSelectCandidate,
+                                    )
+                                }
+                            } else {
+                                PartnerCandidateList(state, onSelectCandidate, Modifier.fillMaxSize())
+                            }
                         }
                     }
                 }
@@ -242,6 +353,394 @@ fun PartnerMapScreen(
 }
 
 @Composable
+private fun EditorialMapHeader(
+    user: User,
+    resource: ResourceItem?,
+    experience: MapRoleExperience,
+    onProfile: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val title = when (experience) {
+        MapRoleExperience.ORGANIZER -> "Keep every stop moving"
+        MapRoleExperience.PARTICIPANT -> "Return it, right here"
+    }
+    val subtitle = when {
+        resource != null -> "Find a verified route for ${resource.title}."
+        experience == MapRoleExperience.ORGANIZER -> "See recovery partners across your event."
+        else -> "Find a verified place for your item."
+    }
+    val botanicalRes = if (experience == MapRoleExperience.PARTICIPANT) {
+        R.drawable.map_botanical_partner
+    } else {
+        R.drawable.map_botanical_organizer
+    }
+    val botanicalWidth = if (experience == MapRoleExperience.PARTICIPANT) 300.dp else 260.dp
+    val botanicalHeight = if (experience == MapRoleExperience.PARTICIPANT) 304.dp else 270.dp
+    val mapScopeLabel = when (user.role) {
+        UserRole.ORGANIZER -> "Event recovery map"
+        UserRole.PARTICIPANT -> "Recovery locations"
+        UserRole.PARTNER -> "My recovery hub"
+        null -> "Recovery locations"
+    }
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(186.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = HomeForest)
+                Text(mapScopeLabel, style = HomeBodyStyle, color = HomeMuted)
+            }
+            Surface(
+                onClick = onProfile,
+                modifier = Modifier.size(44.dp),
+                shape = CircleShape,
+                color = HomeSage,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = user.displayName.mapInitials(),
+                        color = HomeInk,
+                        fontFamily = HomeEditorialFont,
+                        fontSize = 22.sp,
+                    )
+                }
+            }
+        }
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(top = 67.dp)
+                .fillMaxWidth(0.58f),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Text(title, style = HomeHeroTitleStyle, color = HomeInk)
+            Text(subtitle, style = HomeBodyStyle, color = HomeMuted)
+        }
+        Image(
+            painter = painterResource(botanicalRes),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            alignment = Alignment.TopEnd,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .zIndex(-1f)
+                .padding(top = 48.dp)
+                .width(botanicalWidth)
+                .requiredHeight(botanicalHeight),
+        )
+    }
+}
+
+@Composable
+private fun OrganizerMapStatusOverview(
+    onRefineSearch: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+        horizontalAlignment = Alignment.End,
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            color = HomePaper,
+            border = BorderStroke(1.dp, HomeLine),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OrganizerStatusItem(
+                    label = "Pending\ncollection",
+                    icon = Icons.Outlined.AccessTime,
+                    modifier = Modifier.weight(1f),
+                )
+                OrganizerStatusItem(
+                    label = "In\nprogress",
+                    icon = Icons.Outlined.Sync,
+                    modifier = Modifier.weight(1f),
+                )
+                OrganizerStatusItem(
+                    label = "Recovered",
+                    icon = Icons.Outlined.Recycling,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        TextButton(onClick = onRefineSearch) {
+            Text("More filters", color = HomeForest, style = MaterialTheme.typography.labelMedium)
+        }
+    }
+}
+
+@Composable
+private fun OrganizerStatusItem(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(
+            modifier = Modifier.size(38.dp),
+            shape = CircleShape,
+            color = HomeDeepForest,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size(21.dp), tint = Color.White)
+            }
+        }
+        Text(
+            text = label,
+            color = HomeInk,
+            fontFamily = HomeEditorialFont,
+            fontSize = 17.sp,
+            lineHeight = 19.sp,
+        )
+    }
+}
+
+@Composable
+private fun MapQuickFilters(
+    experience: MapRoleExperience,
+    state: PartnerMapUiState,
+    onToggleType: (ProgrammeType) -> Unit,
+    onPickupChange: (Boolean) -> Unit,
+    onRefineSearch: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val clearTypes = {
+        state.filters.programmeTypes.forEach(onToggleType)
+    }
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        when (experience) {
+            MapRoleExperience.ORGANIZER -> {
+                EditorialFilterChip(
+                    label = "All",
+                    selected = state.filters.programmeTypes.isEmpty(),
+                    onClick = clearTypes,
+                )
+                ProgrammeType.entries.forEach { type ->
+                    EditorialFilterChip(
+                        label = type.name.humanize(),
+                        selected = type in state.filters.programmeTypes,
+                        onClick = { onToggleType(type) },
+                    )
+                }
+            }
+
+            MapRoleExperience.PARTICIPANT -> {
+                EditorialFilterChip(
+                    label = "All",
+                    selected = state.filters.programmeTypes.isEmpty() && !state.filters.pickupOnly,
+                    onClick = {
+                        clearTypes()
+                        if (state.filters.pickupOnly) onPickupChange(false)
+                    },
+                )
+                EditorialFilterChip(
+                    label = "Pickup available",
+                    selected = state.filters.pickupOnly,
+                    onClick = { onPickupChange(!state.filters.pickupOnly) },
+                    leadingIcon = Icons.Outlined.MyLocation,
+                )
+            }
+        }
+        EditorialFilterChip(
+            label = "More filters",
+            selected = false,
+            onClick = onRefineSearch,
+        )
+    }
+}
+
+@Composable
+private fun EditorialFilterChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    leadingIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(22.dp),
+        color = if (selected) HomeForest else HomePaper,
+        border = BorderStroke(1.dp, if (selected) HomeForest else HomeLine),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            leadingIcon?.let {
+                Icon(
+                    it,
+                    contentDescription = null,
+                    modifier = Modifier.size(17.dp),
+                    tint = if (selected) Color.White else HomeForest,
+                )
+            }
+            Text(
+                label,
+                color = if (selected) Color.White else HomeForest,
+                fontFamily = HomeEditorialFont,
+                fontSize = 17.sp,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MapPresentationSwitch(
+    state: PartnerMapUiState,
+    onPresentationChange: (PartnerMapPresentation) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(
+            selected = state.presentation == PartnerMapPresentation.MAP,
+            onClick = { onPresentationChange(PartnerMapPresentation.MAP) },
+            enabled = state.mapError == null && BuildConfig.MAPTILER_API_KEY.isNotBlank(),
+            label = { Text("Map") },
+        )
+        FilterChip(
+            selected = state.presentation == PartnerMapPresentation.LIST,
+            onClick = { onPresentationChange(PartnerMapPresentation.LIST) },
+            label = { Text("Programme list") },
+        )
+    }
+}
+
+@Composable
+private fun MapSummaryPanel(
+    experience: MapRoleExperience,
+    state: PartnerMapUiState,
+    onSelect: (PartnerCandidate) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val candidates = state.result.candidates
+    if (candidates.isEmpty()) return
+    when (experience) {
+        MapRoleExperience.ORGANIZER -> OrganizerMapSummary(
+            candidates = candidates.take(3),
+            onSelect = onSelect,
+            modifier = modifier,
+        )
+
+        MapRoleExperience.PARTICIPANT -> ParticipantMapSummary(
+            candidate = state.selectedCandidate ?: candidates.first(),
+            onSelect = onSelect,
+            modifier = modifier,
+        )
+    }
+}
+
+@Composable
+private fun OrganizerMapSummary(
+    candidates: List<PartnerCandidate>,
+    onSelect: (PartnerCandidate) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(26.dp),
+        color = HomeDeepForest,
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text("${candidates.size} active recovery stops", style = HomeCardTitleStyle, color = Color.White)
+            candidates.forEach { candidate ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onSelect(candidate) }
+                        .padding(vertical = 7.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Surface(modifier = Modifier.size(36.dp), shape = CircleShape, color = HomeSage) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Outlined.Recycling, contentDescription = null, tint = HomeForest, modifier = Modifier.size(19.dp))
+                        }
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text(candidate.programme.name, color = Color.White, maxLines = 1)
+                        Text(candidate.summaryLabel(), color = HomeSage, style = MaterialTheme.typography.bodySmall)
+                    }
+                    Icon(Icons.Outlined.ChevronRight, contentDescription = "Open ${candidate.programme.name}", tint = Color.White)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ParticipantMapSummary(
+    candidate: PartnerCandidate,
+    onSelect: (PartnerCandidate) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(26.dp),
+        color = HomeSage,
+        border = BorderStroke(1.dp, HomeLine),
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Surface(modifier = Modifier.size(46.dp), shape = CircleShape, color = HomePaper) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.Eco, contentDescription = null, tint = HomeForest)
+                    }
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("Nearest partner", color = HomeForest, style = MaterialTheme.typography.labelMedium)
+                    Text(candidate.programme.name, color = HomeInk, style = HomeCardTitleStyle)
+                }
+            }
+            Text(candidate.summaryLabel(), color = HomeMuted, style = HomeBodyStyle)
+            Button(
+                onClick = { onSelect(candidate) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = HomeForest, contentColor = Color.White),
+            ) {
+                Text("View partner details")
+                Icon(Icons.Outlined.ChevronRight, contentDescription = null)
+            }
+        }
+    }
+}
+
+@Composable
 private fun PartnerMapContent(
     state: PartnerMapUiState,
     onSelect: (PartnerCandidate) -> Unit,
@@ -266,15 +765,30 @@ private fun PartnerMapFilters(
     onDistanceChange: (Double?) -> Unit,
     onPickupChange: (Boolean) -> Unit,
     onNearMe: () -> Unit,
+    showProgrammeTypes: Boolean,
+    showPickupOnly: Boolean,
+    visible: Boolean,
+    onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (!visible) return
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = ReEventMintSoft,
-        border = BorderStroke(1.dp, ReEventLine),
+        shape = RoundedCornerShape(22.dp),
+        color = HomePaper,
+        border = BorderStroke(1.dp, HomeLine),
     ) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("More filters", color = HomeForest, fontWeight = FontWeight.SemiBold)
+                    Text("Hide", color = HomeMuted)
+                }
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -291,16 +805,18 @@ private fun PartnerMapFilters(
                     Text(if (state.locationPermission == PartnerLocationPermission.PERMANENTLY_DENIED) "Location settings" else "Near me")
                 }
             }
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                ProgrammeType.entries.forEach { type ->
-                    FilterChip(
-                        selected = type in state.filters.programmeTypes,
-                        onClick = { onToggleType(type) },
-                        label = { Text(type.name.humanize()) },
-                    )
+            if (showProgrammeTypes) {
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ProgrammeType.entries.forEach { type ->
+                        FilterChip(
+                            selected = type in state.filters.programmeTypes,
+                            onClick = { onToggleType(type) },
+                            label = { Text(type.name.humanize()) },
+                        )
+                    }
                 }
             }
             Row(
@@ -315,12 +831,14 @@ private fun PartnerMapFilters(
                         label = { Text(label) },
                     )
                 }
-                Row(
-                    modifier = Modifier.clickable(role = Role.Checkbox) { onPickupChange(!state.filters.pickupOnly) },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Checkbox(checked = state.filters.pickupOnly, onCheckedChange = onPickupChange)
-                    Text("Pickup only")
+                if (showPickupOnly) {
+                    Row(
+                        modifier = Modifier.clickable(role = Role.Checkbox) { onPickupChange(!state.filters.pickupOnly) },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(checked = state.filters.pickupOnly, onCheckedChange = onPickupChange)
+                        Text("Pickup only")
+                    }
                 }
             }
             Text(originLabel(state.result.originSource), style = MaterialTheme.typography.bodySmall, color = ReEventTextSecondary)
@@ -387,7 +905,8 @@ private fun PartnerMapPane(
     val coroutineScope = rememberCoroutineScope()
     Box(
         modifier = modifier
-            .heightIn(min = 340.dp)
+            .heightIn(min = 260.dp)
+            .clip(RoundedCornerShape(26.dp))
             .semantics { contentDescription = "Interactive partner programme map with ${state.result.candidates.size} results" },
     ) {
         MaplibreMap(
@@ -524,22 +1043,29 @@ private fun PartnerCandidateCard(
                 contentDescription = "${programme.name}, ${programme.type.name.humanize()}, ${candidate.distanceKm?.let { "%.1f kilometres".format(it) } ?: "distance unavailable"}"
             }
             .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
         border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) ReEventGreenDeep else ReEventLine),
     ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(programme.name, style = MaterialTheme.typography.titleMedium, color = ReEventInk)
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(programme.name, style = HomeCardTitleStyle, color = HomeInk)
             Text(
-                "${programme.type.name.humanize()} · ${candidate.distanceKm?.let { "%.1f km".format(it) } ?: "distance unavailable"}",
-                color = ReEventTextSecondary,
+                candidate.summaryLabel(),
+                color = HomeMuted,
             )
-            Text(programme.geoLocation?.displayAddress ?: programme.location, maxLines = 2)
-            Text(if (programme.pickupAvailable) "Pickup available" else "Drop-off point", color = ReEventGreenDeep)
+            Text(programme.geoLocation?.displayAddress ?: programme.location, maxLines = 2, color = HomeInk)
             if (candidate.reasons.isNotEmpty()) Text(candidate.reasons.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
         }
     }
 }
 
+private fun PartnerCandidate.summaryLabel(): String = listOf(
+    programme.type.name.humanize(),
+    distanceKm?.let { "%.1f km".format(it) } ?: "distance unavailable",
+    if (programme.pickupAvailable) "Pickup available" else "Drop-off point",
+).joinToString(" · ")
+
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun PartnerCandidateDetailDialog(
     candidate: PartnerCandidate,
     resource: ResourceItem?,
@@ -551,51 +1077,65 @@ fun PartnerCandidateDetailDialog(
     modifier: Modifier = Modifier,
 ) {
     val programme = candidate.programme
-    AlertDialog(
+    ModalBottomSheet(
         modifier = modifier,
         onDismissRequest = onDismiss,
-        title = { Text(programme.name) },
-        text = {
-            Column(
-                Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(9.dp),
-            ) {
-                Text("${programme.type.name.humanize()} · ${candidate.distanceKm?.let { "%.1f km".format(it) } ?: "distance unavailable"}")
-                Text(programme.geoLocation?.displayAddress ?: programme.location, color = ReEventTextSecondary)
-                HorizontalDivider()
-                AcceptedRules(programme)
-                Text(if (programme.pickupAvailable) "Partner pickup is available." else "Drop-off is required.")
-                if (programme.processingMethod.isNotBlank()) Text("Processing: ${programme.processingMethod}")
-                if (programme.terms.isNotBlank()) Text("Terms: ${programme.terms}")
-                if (resource != null) {
-                    HorizontalDivider()
-                    Text("Why this matches", style = MaterialTheme.typography.titleSmall)
-                    candidate.reasons.forEach { Text("• $it") }
-                    candidate.score?.let { Text("Server match score: $it", color = ReEventTextSecondary) }
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = HomePaper,
+        contentColor = HomeInk,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 600.dp)
+                .padding(horizontal = 22.dp, vertical = 8.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(programme.name, style = HomeCardTitleStyle, color = HomeInk)
+            Text(candidate.summaryLabel(), color = HomeMuted, style = HomeBodyStyle)
+            Text(programme.geoLocation?.displayAddress ?: programme.location, color = ReEventTextSecondary)
+            HorizontalDivider(color = HomeLine)
+            AcceptedRules(programme)
+            Text(if (programme.pickupAvailable) "Partner pickup is available." else "Drop-off is required.")
+            if (programme.processingMethod.isNotBlank()) Text("Processing: ${programme.processingMethod}")
+            if (programme.terms.isNotBlank()) Text("Terms: ${programme.terms}")
+            if (resource != null) {
+                HorizontalDivider(color = HomeLine)
+                Text("Why this matches", style = MaterialTheme.typography.titleSmall)
+                candidate.reasons.forEach { Text("• $it") }
+                candidate.score?.let { Text("Server match score: $it", color = ReEventTextSecondary) }
+            } else {
+                HorizontalDivider(color = HomeLine)
+                Text("Eligible resource Passports", style = MaterialTheme.typography.titleSmall)
+                if (eligibleResources.isEmpty()) {
+                    Text("No active resource currently matches the published rules.", color = ReEventTextSecondary)
                 } else {
-                    HorizontalDivider()
-                    Text("Eligible resource Passports", style = MaterialTheme.typography.titleSmall)
-                    if (eligibleResources.isEmpty()) {
-                        Text("No active resource currently matches the published rules.", color = ReEventTextSecondary)
-                    } else {
-                        eligibleResources.take(5).forEach { item ->
-                            SecondaryActionButton(
-                                text = "View passport: ${item.title}",
-                                onClick = { onOpenPassport(item.id) },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
+                    eligibleResources.take(5).forEach { item ->
+                        SecondaryActionButton(
+                            text = "View passport: ${item.title}",
+                            onClick = { onOpenPassport(item.id) },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                     }
                 }
             }
-        },
-        confirmButton = {
             if (onRequest != null) {
-                TextButton(onClick = onRequest, enabled = canRequest) { Text("Request recovery") }
-            } else TextButton(onClick = onDismiss) { Text("Close") }
-        },
-        dismissButton = if (onRequest != null) {{ TextButton(onClick = onDismiss) { Text("Cancel") } }} else null,
-    )
+                Button(
+                    onClick = onRequest,
+                    enabled = canRequest,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = HomeForest, contentColor = Color.White),
+                ) {
+                    Text("Request recovery")
+                }
+                TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Cancel") }
+            } else {
+                TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Close") }
+            }
+        }
+    }
 }
 
 @Composable
@@ -684,3 +1224,11 @@ private fun originLabel(source: PartnerOriginSource): String = when (source) {
 }
 
 private fun String.humanize(): String = lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)
+
+private fun String.mapInitials(): String =
+    trim()
+        .split(Regex("\\s+"))
+        .filter(String::isNotBlank)
+        .take(2)
+        .joinToString(separator = "") { it.first().uppercase() }
+        .ifBlank { "R" }

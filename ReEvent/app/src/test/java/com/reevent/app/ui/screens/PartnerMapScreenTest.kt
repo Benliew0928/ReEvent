@@ -41,6 +41,7 @@ class PartnerMapScreenTest {
 
     @Test
     fun `fake marker and list share candidate detail selection`() {
+        var selectedType: ProgrammeType? = null
         compose.setContent {
             var state by remember { mutableStateOf(state(presentation = PartnerMapPresentation.MAP)) }
             ReEventTheme {
@@ -53,7 +54,7 @@ class PartnerMapScreenTest {
                     onProfile = {},
                     onBack = null,
                     onMaterialChange = {},
-                    onToggleType = {},
+                    onToggleType = { selectedType = it },
                     onDistanceChange = {},
                     onPickupChange = {},
                     onNearMe = {},
@@ -74,6 +75,11 @@ class PartnerMapScreenTest {
             }
         }
 
+        compose.onNodeWithText("Keep every stop moving").fetchSemanticsNode()
+        compose.onNodeWithText("Pending\ncollection").fetchSemanticsNode()
+        compose.onNodeWithText("More filters").performClick()
+        compose.onNodeWithText("Repair").performClick()
+        compose.runOnIdle { assertEquals(ProgrammeType.REPAIR, selectedType) }
         compose.onNodeWithText("Fake marker").performClick()
         compose.onNodeWithText("Accepted rules").fetchSemanticsNode()
         compose.onNodeWithText("Close").performClick()
@@ -131,12 +137,49 @@ class PartnerMapScreenTest {
             }
         }
 
+        compose.onNodeWithText("More filters").performClick()
         compose.onNodeWithText("Pickup only").performClick()
         compose.onNodeWithText("Map tiles are unavailable. Use the programme list below.").fetchSemanticsNode()
         compose.onNodeWithContentDescription("Repair Hub, Repair, 2.5 kilometres").fetchSemanticsNode()
         compose.runOnIdle {
             assertTrue(pickup)
         }
+    }
+
+    @Test
+    fun `participant map uses nearest partner presentation and pickup quick filter`() {
+        var pickup = false
+        compose.setContent {
+            ReEventTheme {
+                PartnerMapScreen(
+                    user = user(UserRole.PARTICIPANT),
+                    state = state(presentation = PartnerMapPresentation.MAP),
+                    resource = null,
+                    marketplaceResources = emptyList(),
+                    onNavigate = {},
+                    onProfile = {},
+                    onBack = null,
+                    onMaterialChange = {},
+                    onToggleType = {},
+                    onDistanceChange = {},
+                    onPickupChange = { pickup = it },
+                    onNearMe = {},
+                    onPresentationChange = {},
+                    onSelectCandidate = {},
+                    onMapLoading = {},
+                    onMapLoaded = {},
+                    onMapFailed = {},
+                    onOpenPassport = {},
+                    onCreateHandover = {},
+                    mapContent = { _, _, mapModifier -> Button(modifier = mapModifier, onClick = {}) { Text("Participant map") } },
+                )
+            }
+        }
+
+        compose.onNodeWithText("Return it, right here").fetchSemanticsNode()
+        compose.onNodeWithText("Nearest partner").fetchSemanticsNode()
+        compose.onNodeWithText("Pickup available").performClick()
+        compose.runOnIdle { assertTrue(pickup) }
     }
 
     private fun state(
@@ -190,11 +233,11 @@ class PartnerMapScreenTest {
         updatedAt = 1,
     )
 
-    private fun user() = User(
+    private fun user(role: UserRole = UserRole.ORGANIZER) = User(
         id = "owner",
         email = "owner@example.com",
         displayName = "Owner",
-        role = UserRole.ORGANIZER,
+        role = role,
         createdAt = 1,
         updatedAt = 1,
     )
