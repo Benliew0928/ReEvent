@@ -1302,3 +1302,19 @@ test('partner coordinates are bounded and geocoding quota is atomic per user win
   assert.equal(denied.rows[0].allowed, false)
   await database.close()
 })
+
+test('check_email_exists returns true for registered users and false for un-registered emails', async () => {
+  const database = await createDatabase()
+  const fixture = await createMarketplaceFixture(database)
+
+  const registeredEmail = 'organizer@example.test'
+  const nonExistentEmail = 'nonexistent_user_999@test.local'
+
+  const existsRegistered = await database.query(`select public.check_email_exists($1) as exists`, [registeredEmail])
+  assert.equal(existsRegistered.rows[0].exists, true)
+
+  const existsNonExistent = await database.query(`select public.check_email_exists($1) as exists`, [nonExistentEmail])
+  assert.equal(existsNonExistent.rows[0].exists, false)
+
+  await database.close()
+})

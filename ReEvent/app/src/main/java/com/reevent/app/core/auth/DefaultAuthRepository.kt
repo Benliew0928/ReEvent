@@ -99,6 +99,12 @@ class DefaultAuthRepository @Inject constructor(
         return remoteCall { gateway.resendSignUpConfirmation(email.trim()) }
     }
 
+    override suspend fun checkEmailExists(email: String): AppResult<Boolean> {
+        if (!isValidEmail(email)) return AppResult.Failure(FailureReason.VALIDATION)
+        if (!gateway.isConfigured()) return AppResult.Success(false)
+        return remoteCall { gateway.checkEmailExists(email.trim()) }
+    }
+
     override suspend fun startGoogleSignIn(): AppResult<Unit> {
         if (!gateway.isConfigured()) return AppResult.Failure(FailureReason.CONFIGURATION)
         beginFreshAuthentication()

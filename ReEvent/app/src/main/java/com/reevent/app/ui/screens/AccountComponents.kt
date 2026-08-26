@@ -264,30 +264,67 @@ internal fun PasswordResetEmailSentCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = ReEventMint),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
     ) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.Email, contentDescription = null, tint = ReEventGreenDeep)
-                Text("Check your inbox", style = MaterialTheme.typography.titleMedium, color = ReEventInk)
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.CheckCircle,
+                    contentDescription = null,
+                    tint = Color(0xFF00875A),
+                    modifier = Modifier.size(24.dp)
+                )
+                Text(
+                    text = "Check your inbox",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = Color(0xFF111827)
+                )
             }
             Text(
-                "If $email has a ReEvent account, a password-reset link is on its way. Check spam too. The link opens a protected screen in this app.",
-                color = ReEventTextSecondary,
+                text = "We sent a password reset link to $email. Please check your inbox and follow the link to reset your password.",
+                color = Color(0xFF374151),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
-                "For security, this message is the same whether or not an account exists.",
-                color = ReEventTextSecondary,
+                text = "If you don't see the email, check your spam or junk folder.",
+                color = Color(0xFF6B7280),
                 style = MaterialTheme.typography.bodySmall,
             )
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(onClick = onUseDifferentEmail, enabled = !loading) { Text("Use another email") }
-                TextButton(onClick = onResend, enabled = !loading) { Text("Resend link") }
+            Spacer(Modifier.height(4.dp))
+            Button(
+                onClick = onBack,
+                enabled = !loading,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF00875A),
+                    contentColor = Color.White,
+                ),
+            ) {
+                Text(
+                    text = backLabel,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                )
             }
-            TextButton(onClick = onBack, enabled = !loading, modifier = Modifier.fillMaxWidth()) {
-                Text(backLabel)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                TextButton(onClick = onUseDifferentEmail, enabled = !loading) {
+                    Text("Use another email", color = Color(0xFF00875A))
+                }
+                TextButton(onClick = onResend, enabled = !loading) {
+                    Text("Resend link", color = Color(0xFF00875A))
+                }
             }
         }
     }
