@@ -89,6 +89,7 @@ import com.reevent.app.core.model.User
 import com.reevent.app.core.model.UserRole
 import com.reevent.app.core.network.MapTilerHttpConfiguration
 import com.reevent.app.ui.TopLevelDestination
+import com.reevent.app.ui.components.ProfileAvatarButton
 import com.reevent.app.ui.components.ReEventScaffold
 import com.reevent.app.ui.components.SecondaryActionButton
 import com.reevent.app.ui.materials.MaterialFamilyPickerField
@@ -404,21 +405,7 @@ private fun EditorialMapHeader(
                 Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = HomeForest)
                 Text(mapScopeLabel, style = HomeSupportingTextStyle, color = HomeSupportingInk)
             }
-            Surface(
-                onClick = onProfile,
-                modifier = Modifier.size(44.dp),
-                shape = CircleShape,
-                color = HomeSage,
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = user.displayName.mapInitials(),
-                        color = HomeInk,
-                        fontFamily = HomeEditorialFont,
-                        fontSize = 22.sp,
-                    )
-                }
-            }
+            ProfileAvatarButton(displayName = user.displayName, onClick = onProfile)
         }
         Column(
             modifier = Modifier
@@ -1227,11 +1214,3 @@ private fun originLabel(source: PartnerOriginSource): String = when (source) {
 }
 
 private fun String.humanize(): String = lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)
-
-private fun String.mapInitials(): String =
-    trim()
-        .split(Regex("\\s+"))
-        .filter(String::isNotBlank)
-        .take(2)
-        .joinToString(separator = "") { it.first().uppercase() }
-        .ifBlank { "R" }

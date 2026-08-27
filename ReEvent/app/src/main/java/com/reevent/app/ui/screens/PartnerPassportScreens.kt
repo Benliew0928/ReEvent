@@ -50,8 +50,10 @@ import com.reevent.app.core.model.MaterialCatalog
 import com.reevent.app.core.model.MaterialFamily
 import com.reevent.app.core.model.ProgrammeType
 import com.reevent.app.core.model.ResourceCondition
+import com.reevent.app.core.model.ResourceItem
 import com.reevent.app.core.model.TransactionStatus
 import com.reevent.app.core.model.User
+import com.reevent.app.core.model.UserRole
 import com.reevent.app.feature.passports.PassportQrPayload
 import com.reevent.app.feature.passports.PassportViewerAccessPolicy
 import com.reevent.app.ui.TopLevelDestination
@@ -80,6 +82,7 @@ fun PassportVisualScreen(
     val resource by viewModel.resource(resourceId).collectAsState(null)
     val passport by viewModel.passport(resourceId).collectAsState(null)
     val viewerTransactions by viewModel.transactions(user.id).collectAsState(emptyList())
+    val action by viewModel.action.collectAsState()
     val event by (
         resource?.eventId?.let(viewModel::event)
             ?: flowOf<com.reevent.app.core.model.Event?>(null)
@@ -114,8 +117,23 @@ fun PassportVisualScreen(
         recommendedAction = resource?.recommendedAction(),
         recoverySteps = historySteps.ifEmpty { resource?.let { listOf(it.toPassportRecoveryStep()) }.orEmpty() },
         showMatchAction = viewerAccess?.canFindPartnerMatches == true,
+        profileName = user.displayName,
+        lifecycleActions = resource?.let { item -> user.passportLifecycleActionsFor(item) }.orEmpty(),
+        onLifecycleAction = resource?.let { item ->
+            { lifecycleAction -> viewModel.applyLifecycleAction(user, item, lifecycleAction) }
+        },
+        lifecycleActionLoading = action.loading,
+        lifecycleActionNotice = action.notice,
+        lifecycleActionError = action.error,
     )
 }
+
+private fun User.passportLifecycleActionsFor(resource: ResourceItem): List<ResourceLifecycleAction> =
+    when {
+        role == UserRole.ORGANIZER && id == resource.ownerId -> ResourceLifecycleAction.entries
+        role == UserRole.PARTICIPANT -> listOf(ResourceLifecycleAction.RETURN)
+        else -> emptyList()
+    }
 
 @Composable
 fun PartnerMapVisualScreen(

@@ -85,6 +85,7 @@ import com.reevent.app.core.model.User
 import com.reevent.app.core.model.UserRole
 import com.reevent.app.ui.TopLevelDestination
 import com.reevent.app.ui.components.LocalResourcePhotoLoader
+import com.reevent.app.ui.components.ProfileAvatarButton
 import com.reevent.app.ui.components.ReEventScaffold
 import com.reevent.app.ui.materials.MaterialFamilyIcon
 import com.reevent.app.ui.materials.MaterialFamilyPickerField
@@ -212,11 +213,7 @@ private fun MarketplaceHeader(
             Surface(Modifier.size(54.dp).clickable(onClick = onToggleSearch), RoundedCornerShape(16.dp), HomePaper, border = BorderStroke(1.dp, HomeLine)) {
                 Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Search, "Search marketplace", tint = HomeForest) }
             }
-            Surface(Modifier.size(54.dp).clickable(onClick = onProfile), CircleShape, HomeSage) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(user.displayName.initials(), fontFamily = HomeEditorialFont, fontSize = 22.sp, color = HomeForest)
-                }
-            }
+            ProfileAvatarButton(displayName = user.displayName, onClick = onProfile)
         }
         AnimatedVisibility(searchExpanded) {
             OutlinedTextField(
@@ -489,5 +486,4 @@ private fun MarketplaceActivity(
     }
 }
 
-private fun String.initials(): String = trim().split(Regex("\\s+")).filter(String::isNotBlank).take(2).joinToString("") { it.first().uppercase() }.ifBlank { "R" }
 private fun TransactionType.displayLabel(): String = name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)

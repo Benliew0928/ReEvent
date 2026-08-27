@@ -82,6 +82,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 import com.reevent.app.R
 import com.reevent.app.ui.TopLevelDestination
+import com.reevent.app.ui.components.ProfileAvatarButton
 import com.reevent.app.ui.components.ReEventScaffold
 import com.reevent.app.ui.theme.HomeBodyFont
 import com.reevent.app.ui.theme.HomeBodyStyle
@@ -237,24 +238,7 @@ private fun HomeHeader(
                 onScopeSelected = onScopeSelected,
                 modifier = Modifier.weight(1f),
             )
-            Surface(
-                onClick = onProfile,
-                modifier = Modifier.size(54.dp),
-                shape = CircleShape,
-                color = HomeSage,
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = initials(state.displayName),
-                        color = HomeInk,
-                        fontFamily = HomeEditorialFont,
-                        fontSize = 22.sp,
-                        modifier = Modifier.semantics {
-                            contentDescription = "Profile for ${state.displayName.ifBlank { "signed-in user" }}"
-                        },
-                    )
-                }
-            }
+            ProfileAvatarButton(displayName = state.displayName, onClick = onProfile)
         }
         Box(
             modifier = Modifier
@@ -870,12 +854,3 @@ private fun HomeIcon.vector(): ImageVector = when (this) {
     HomeIcon.IMPACT -> Icons.Outlined.Insights
     HomeIcon.CAPACITY -> Icons.Outlined.Speed
 }
-
-private fun initials(displayName: String): String = displayName
-    .trim()
-    .split(Regex("\\s+"))
-    .filter(String::isNotBlank)
-    .take(2)
-    .mapNotNull { it.firstOrNull()?.uppercaseChar() }
-    .joinToString("")
-    .ifBlank { "ME" }

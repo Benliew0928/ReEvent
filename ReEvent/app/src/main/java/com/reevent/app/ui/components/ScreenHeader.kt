@@ -13,7 +13,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -41,6 +40,7 @@ fun ScreenHeader(
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
     onProfile: (() -> Unit)? = null,
+    profileName: String = "",
 ) {
     Row(
         modifier =
@@ -81,11 +81,7 @@ fun ScreenHeader(
                 onClick = {},
             )
             Spacer(Modifier.width(8.dp))
-            SoftIconButton(
-                icon = Icons.Outlined.Person,
-                contentDescription = "Profile",
-                onClick = onProfile,
-            )
+            ProfileAvatarButton(displayName = profileName, onClick = onProfile)
         }
     }
 }

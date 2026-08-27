@@ -23,10 +23,11 @@ fun ReEventScaffold(
     selected: TopLevelDestination?,
     onNavigate: (TopLevelDestination) -> Unit,
     modifier: Modifier = Modifier,
+    showBottomNavigation: Boolean = true,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val usesRail = selected != null && maxWidth >= 600.dp
+        val usesRail = showBottomNavigation && selected != null && maxWidth >= 600.dp
         Row(Modifier.fillMaxSize()) {
             if (usesRail) {
                 ReEventNavigationRail(
@@ -38,7 +39,9 @@ fun ReEventScaffold(
                 modifier = Modifier.weight(1f),
                 containerColor = ReEventBackground,
                 bottomBar = {
-                    if (!usesRail) selected?.let { ReEventBottomBar(selected = it, onNavigate = onNavigate) }
+                    if (showBottomNavigation && !usesRail) {
+                        selected?.let { ReEventBottomBar(selected = it, onNavigate = onNavigate) }
+                    }
                 },
             ) { innerPadding ->
                 Box(

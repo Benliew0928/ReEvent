@@ -9,9 +9,11 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
@@ -23,19 +25,29 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Clear
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.QrCodeScanner
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -46,7 +58,9 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -79,12 +93,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.reevent.app.R
 import com.reevent.app.core.data.ResourcePresentationRules
 import com.reevent.app.core.data.blocksResourceArchive
+import com.reevent.app.core.model.CircularTransaction
 import com.reevent.app.core.model.Event
 import com.reevent.app.core.model.GeoLocation
 import com.reevent.app.core.model.MaterialCatalog
@@ -98,12 +114,15 @@ import com.reevent.app.feature.events.EventFormValidation
 import com.reevent.app.ui.TopLevelDestination
 import com.reevent.app.ui.components.LogoMark
 import com.reevent.app.ui.components.PrimaryActionButton
+import com.reevent.app.ui.components.ProfileAvatarButton
 import com.reevent.app.ui.components.ReEventScaffold
 import com.reevent.app.ui.components.SecondaryActionButton
 import com.reevent.app.ui.components.StatusChip
 import com.reevent.app.ui.components.SyncStateChip
+import com.reevent.app.ui.materials.MaterialFamilyIcon
 import com.reevent.app.ui.materials.MaterialFamilyPickerField
 import com.reevent.app.ui.theme.ReEventAmber
+import com.reevent.app.ui.theme.ReEventBackground
 import com.reevent.app.ui.theme.ReEventBlue
 import com.reevent.app.ui.theme.ReEventCoral
 import com.reevent.app.ui.theme.ReEventGreen
@@ -176,13 +195,16 @@ fun AddResourceLiveScreen(
     onNavigate: (TopLevelDestination) -> Unit,
     initialResource: ResourceItem? = null,
     viewModel: FeatureViewModel = hiltViewModel(),
+    restoreDraft: Boolean = true,
 ) {
     val event by viewModel.event(eventId).collectAsState(null)
     var title by rememberSaveable(initialResource?.id) { mutableStateOf(initialResource?.title.orEmpty()) }
     var category by rememberSaveable(initialResource?.id) { mutableStateOf(initialResource?.category ?: resourceCategories.first()) }
     var materialFamily by rememberSaveable(initialResource?.id) { mutableStateOf(initialResource?.materialFamily ?: MaterialFamily.WOOD) }
     var materialDetail by rememberSaveable(initialResource?.id) { mutableStateOf(initialResource?.materialDetail.orEmpty()) }
-    var quantity by rememberSaveable(initialResource?.id) { mutableStateOf(initialResource?.quantity?.toString() ?: "1") }
+    var quantity by rememberSaveable(initialResource?.id) {
+        mutableStateOf(initialResource?.quantity?.let(ResourcePresentationRules::quantityNumber) ?: "1")
+    }
     var unit by rememberSaveable(initialResource?.id) { mutableStateOf(initialResource?.unit ?: resourceUnits.first()) }
     var condition by rememberSaveable(initialResource?.id) { mutableStateOf(initialResource?.condition ?: ResourceCondition.GOOD) }
     var value by rememberSaveable(initialResource?.id) {
@@ -201,13 +223,15 @@ fun AddResourceLiveScreen(
     var useEventLocation by rememberSaveable(initialResource?.id) { mutableStateOf(initialResource?.geoLocation == null) }
     var resourceLocation by remember(initialResource?.id) { mutableStateOf(initialResource?.geoLocation) }
     var choosingResourceLocation by remember { mutableStateOf(false) }
-    var draftResourceId by rememberSaveable(initialResource?.id, eventId) { mutableStateOf<String?>(initialResource?.id) }
+    var draftResourceId by rememberSaveable(initialResource?.id, eventId, restoreDraft) { mutableStateOf<String?>(initialResource?.id) }
     var submitted by rememberSaveable { mutableStateOf(false) }
     var photoNotice by rememberSaveable { mutableStateOf<String?>(null) }
     val storedDraft by viewModel.resourceDraft(user.id, eventId).collectAsState(DRAFT_LOADING)
-    var draftRestored by rememberSaveable(initialResource?.id, eventId) { mutableStateOf(initialResource != null) }
-    LaunchedEffect(storedDraft, initialResource?.id) {
-        if (initialResource == null && !draftRestored && storedDraft != DRAFT_LOADING) {
+    var draftRestored by rememberSaveable(initialResource?.id, eventId, restoreDraft) {
+        mutableStateOf(initialResource != null || !restoreDraft)
+    }
+    LaunchedEffect(storedDraft, initialResource?.id, restoreDraft) {
+        if (restoreDraft && initialResource == null && !draftRestored && storedDraft != DRAFT_LOADING) {
             draftRestored = true
             storedDraft?.let { saved ->
                 runCatching { resourceDraftJson.decodeFromString(ResourceDraft.serializer(), saved) }.getOrNull()?.let { draft ->
@@ -307,33 +331,70 @@ fun AddResourceLiveScreen(
                 photoNotice = "Photo ready to upload when you save."
             }
         }
-    FeatureScaffold(
-        title = if (initialResource == null) "Add a resource" else "Edit resource",
-        actionLabel = "Back",
-        onAction = onBack,
-        viewModel = viewModel,
-        selected = TopLevelDestination.EVENTS,
+    val saveResource = saveResource@{
+        submitted = true
+        if (!formValid) return@saveResource
+        val now = System.currentTimeMillis()
+        val resourceId = initialResource?.id ?: draftResourceId ?: UUID.randomUUID().toString()
+        if (initialResource == null) draftResourceId = resourceId
+        val resource =
+            ResourceItem(
+                resourceId,
+                eventId,
+                user.id,
+                title.trim(),
+                category,
+                materialFamily,
+                materialDetail.trim().takeIf(String::isNotBlank),
+                condition,
+                checkNotNull(quantityValue).toDouble(),
+                unit,
+                initialResource?.status ?: ResourceStatus.ACTIVE,
+                valueCents ?: 0,
+                initialResource?.imageUrls.orEmpty(),
+                initialResource?.createdAt ?: now,
+                now,
+                geoLocation = if (useEventLocation) null else resourceLocation,
+            )
+        if (initialResource == null) {
+            viewModel.saveResource(resource, photoUri) {
+                viewModel.clearResourceDraft(user.id, eventId)
+                onSaved(resourceId)
+            }
+        } else if (photoUri == null) {
+            viewModel.updateResource(resource) { onSaved(resourceId) }
+        } else {
+            viewModel.updateResource(resource, photoUri) { onSaved(resourceId) }
+        }
+    }
+    ResourceEditorEditorialScaffold(
+        isNewResource = initialResource == null,
+        action = action,
+        onBack = onBack,
         onNavigate = onNavigate,
+        onSave = saveResource,
     ) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
                 Text(
                     "Create a traceable item for this event. It is saved locally first and syncs when connected.",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = HomeBodyStyle,
+                    color = HomeSupportingInk,
                 )
                 if (initialResource == null) {
                     Text(
                         "Draft saves automatically on this device. It remains here if an upload fails.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = ReEventTextSecondary,
+                        style = HomeSupportingTextStyle,
+                        color = HomeSupportingInk,
                     )
                 }
+                ResourceEditorSection(number = "1", title = "Resource details") {
                 OutlinedTextField(title, {
                     title = it
                 }, Modifier.fillMaxWidth(), label = {
                     Text("Resource name *")
                 }, singleLine = true, isError = titleError, supportingText = { if (titleError) Text("Enter at least 2 characters.") })
-                ResourceChoiceField("Category", category, resourceCategories) { category = it }
+                EditorialResourceChoiceField("Category", category, resourceCategories) { category = it }
                 MaterialFamilyPickerField(materialFamily, { selected -> selected?.let { materialFamily = it } }, Modifier.fillMaxWidth())
                 OutlinedTextField(
                     materialDetail,
@@ -347,6 +408,8 @@ fun AddResourceLiveScreen(
                         else Text("${materialDetail.length}/${MaterialCatalog.MAX_DETAIL_LENGTH}")
                     },
                 )
+                }
+                ResourceEditorSection(number = "2", title = "Quantity & condition") {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         quantity,
@@ -357,16 +420,18 @@ fun AddResourceLiveScreen(
                         isError = quantityError,
                         supportingText = { if (quantityError) Text("1–10,000") },
                     )
-                    Box(Modifier.weight(1f)) { ResourceChoiceField("Unit", unit, resourceUnits) { unit = it } }
+                    Box(Modifier.weight(1f)) { EditorialResourceChoiceField("Unit", unit, resourceUnits) { unit = it } }
                 }
-                ResourceChoiceField(
+                EditorialResourceChoiceField(
                     "Condition",
                     condition.toDisplayLabel(),
                     ResourceCondition.entries.map(ResourceCondition::toDisplayLabel),
                 ) { selected ->
                     condition = ResourceCondition.entries.first { it.toDisplayLabel() == selected }
                 }
-                ResourceChoiceField(
+                }
+                ResourceEditorSection(number = "3", title = "Location & photo") {
+                EditorialResourceChoiceField(
                     "Location",
                     if (useEventLocation) "Use event location" else "Use resource override",
                     listOf("Use event location", "Use resource override"),
@@ -379,7 +444,7 @@ fun AddResourceLiveScreen(
                         color = ReEventTextSecondary,
                     )
                 } else {
-                    SecondaryActionButton(
+                    ResourceEditorSecondaryButton(
                         if (resourceLocation == null) "Choose resource location" else "Adjust resource pin",
                         { choosingResourceLocation = true },
                         Modifier.fillMaxWidth(),
@@ -447,12 +512,12 @@ fun AddResourceLiveScreen(
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
-                SecondaryActionButton(
+                ResourceEditorSecondaryButton(
                     if (photoUri == null) "Select photo" else "Replace photo",
                     { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                     Modifier.fillMaxWidth(),
                 )
-                SecondaryActionButton(
+                ResourceEditorSecondaryButton(
                     "Take photo with camera",
                     {
                         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
@@ -467,46 +532,7 @@ fun AddResourceLiveScreen(
                     },
                     Modifier.fillMaxWidth(),
                 )
-                PrimaryActionButton(
-                    if (initialResource == null) "Save resource and passport" else "Save resource",
-                    saveResource@{
-                        submitted = true
-                        if (!formValid) return@saveResource
-                        val now = System.currentTimeMillis()
-                        val resourceId = initialResource?.id ?: draftResourceId ?: UUID.randomUUID().toString()
-                        if (initialResource == null) draftResourceId = resourceId
-                        val resource =
-                            ResourceItem(
-                                resourceId,
-                                eventId,
-                                user.id,
-                                title.trim(),
-                                category,
-                                materialFamily,
-                                materialDetail.trim().takeIf(String::isNotBlank),
-                                condition,
-                                checkNotNull(quantityValue).toDouble(),
-                                unit,
-                                initialResource?.status ?: ResourceStatus.ACTIVE,
-                                valueCents ?: 0,
-                                initialResource?.imageUrls.orEmpty(),
-                                initialResource?.createdAt ?: now,
-                                now,
-                                geoLocation = if (useEventLocation) null else resourceLocation,
-                            )
-                        if (initialResource == null) {
-                            viewModel.saveResource(resource, photoUri) {
-                                viewModel.clearResourceDraft(user.id, eventId)
-                                onSaved(resourceId)
-                            }
-                        } else if (photoUri == null) {
-                            viewModel.updateResource(resource) { onSaved(resourceId) }
-                        } else {
-                            viewModel.updateResource(resource, photoUri) { onSaved(resourceId) }
-                        }
-                    },
-                    Modifier.fillMaxWidth(),
-                )
+                }
             }
         }
     }
@@ -521,6 +547,368 @@ fun AddResourceLiveScreen(
             },
             search = viewModel::searchPlaces,
             reverse = viewModel::reversePlace,
+        )
+    }
+}
+
+@Composable
+internal fun ResourceEditorEditorialScaffold(
+    isNewResource: Boolean,
+    action: FeatureActionState,
+    onBack: () -> Unit,
+    onNavigate: (TopLevelDestination) -> Unit,
+    onSave: () -> Unit,
+    content: LazyListScope.() -> Unit,
+) {
+    ReEventScaffold(
+        selected = TopLevelDestination.EVENTS,
+        onNavigate = onNavigate,
+        showBottomNavigation = false,
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(ReEventBackground),
+        ) {
+            Image(
+                painter = painterResource(R.drawable.home_paper_texture),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize().alpha(0.15f),
+            )
+            Image(
+                painter = painterResource(R.drawable.home_botanical_sprig),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                alignment = Alignment.TopEnd,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(y = 54.dp)
+                    .width(260.dp)
+                    .height(218.dp)
+                    .alpha(0.42f),
+            )
+            LazyColumn(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .widthIn(max = 760.dp)
+                    .fillMaxSize()
+                    .testTag("resource_editor_editorial"),
+                contentPadding = PaddingValues(
+                    start = 20.dp,
+                    top = padding.calculateTopPadding() + 118.dp,
+                    end = 20.dp,
+                    bottom = padding.calculateBottomPadding() + 94.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                action.error?.let { message ->
+                    item { ResourceEditorFeedback(message = message, isError = true) }
+                }
+                action.notice?.let { message ->
+                    item { ResourceEditorFeedback(message = message, isError = false) }
+                }
+                if (action.loading) {
+                    item {
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = HomeForest,
+                            trackColor = HomeSage,
+                        )
+                    }
+                }
+                content()
+            }
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .widthIn(max = 760.dp)
+                    .fillMaxWidth()
+                    .zIndex(1f),
+                color = ReEventBackground.copy(alpha = 0.92f),
+                shadowElevation = 2.dp,
+            ) {
+                ResourceEditorPinnedHeader(
+                    isNewResource = isNewResource,
+                    onBack = onBack,
+                    modifier = Modifier.padding(
+                        start = 20.dp,
+                        top = padding.calculateTopPadding() + 10.dp,
+                        end = 20.dp,
+                        bottom = 12.dp,
+                    ),
+                )
+            }
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .widthIn(max = 760.dp)
+                    .fillMaxWidth()
+                    .zIndex(1f),
+                color = ReEventBackground.copy(alpha = 0.94f),
+                shadowElevation = 10.dp,
+            ) {
+                Button(
+                    onClick = onSave,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = 20.dp,
+                            top = 12.dp,
+                            end = 20.dp,
+                            bottom = padding.calculateBottomPadding() + 12.dp,
+                        )
+                        .height(58.dp)
+                        .testTag("resource_editor_save"),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = HomeForest,
+                        contentColor = Color.White,
+                    ),
+                ) {
+                    if (action.loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Text(
+                            text = if (isNewResource) "Save resource & create passport" else "Save resource",
+                            style = HomeBodyStyle.copy(
+                                fontSize = 18.sp,
+                                lineHeight = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResourceEditorPinnedHeader(
+    isNewResource: Boolean,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Surface(
+            onClick = onBack,
+            modifier = Modifier
+                .size(48.dp)
+                .testTag("resource_editor_back"),
+            shape = RoundedCornerShape(24.dp),
+            color = HomePaper.copy(alpha = 0.96f),
+            border = BorderStroke(1.dp, HomeForest.copy(alpha = 0.74f)),
+            tonalElevation = 0.dp,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                    contentDescription = "Back",
+                    tint = HomeForest,
+                    modifier = Modifier.size(26.dp),
+                )
+            }
+        }
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = if (isNewResource) "NEW RESOURCE" else "EDIT RESOURCE",
+                    modifier = Modifier.weight(1f),
+                    style = HomeSupportingTextStyle.copy(fontSize = 13.sp, letterSpacing = 1.2.sp),
+                    color = HomeForest,
+                )
+                if (isNewResource) {
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = HomeSage,
+                        tonalElevation = 0.dp,
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.CheckCircle,
+                                contentDescription = null,
+                                tint = HomeForest,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Text(
+                                text = "Draft saved",
+                                style = HomeSupportingTextStyle.copy(fontSize = 12.sp),
+                                color = HomeForest,
+                            )
+                        }
+                    }
+                }
+            }
+            Text(
+                text = if (isNewResource) "Add a resource" else "Edit resource",
+                style = HomeGreetingStyle.copy(fontSize = 36.sp, lineHeight = 38.sp),
+                color = HomeInk,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ResourceEditorSection(
+    number: String,
+    title: String,
+    content: @Composable () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        color = HomePaper,
+        border = BorderStroke(1.dp, ReEventLine),
+        shadowElevation = 4.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Surface(
+                    modifier = Modifier.size(44.dp),
+                    shape = RoundedCornerShape(22.dp),
+                    color = HomeForest,
+                    tonalElevation = 0.dp,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = number,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White,
+                        )
+                    }
+                }
+                Text(
+                    text = title,
+                    style = HomeCardTitleStyle.copy(fontSize = 30.sp, lineHeight = 32.sp),
+                    color = HomeInk,
+                )
+            }
+            content()
+        }
+    }
+}
+
+@Composable
+private fun EditorialResourceChoiceField(
+    label: String,
+    selected: String,
+    options: List<String>,
+    modifier: Modifier = Modifier,
+    onSelected: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier.fillMaxWidth()) {
+        Surface(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            color = ReEventSurface,
+            border = BorderStroke(1.dp, ReEventLine),
+            tonalElevation = 0.dp,
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = label,
+                        style = HomeSupportingTextStyle.copy(fontSize = 15.sp),
+                        color = HomeForest,
+                    )
+                    Text(
+                        selected,
+                        style = HomeBodyStyle.copy(fontSize = 17.sp, lineHeight = 22.sp),
+                        color = HomeInk,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Outlined.ChevronRight,
+                    contentDescription = "Choose $label",
+                    tint = HomeForest,
+                )
+            }
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option) },
+                    onClick = {
+                        onSelected(option)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResourceEditorSecondaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier.height(54.dp),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, ReEventLine),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = ReEventSurface,
+            contentColor = HomeForest,
+        ),
+    ) {
+        Text(
+            text = text,
+            style = HomeBodyStyle.copy(
+                fontSize = 17.sp,
+                lineHeight = 21.sp,
+                fontWeight = FontWeight.SemiBold,
+            ),
+        )
+    }
+}
+
+@Composable
+private fun ResourceEditorFeedback(
+    message: String,
+    isError: Boolean,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = if (isError) Color(0xFFFFE6E8) else HomeSage,
+        border = BorderStroke(1.dp, if (isError) Color(0xFFE8B8BD) else HomeLine),
+        tonalElevation = 0.dp,
+    ) {
+        Text(
+            text = message,
+            modifier = Modifier.padding(14.dp),
+            style = HomeSupportingTextStyle,
+            color = if (isError) Color(0xFF8A2836) else HomeInk,
         )
     }
 }
@@ -711,25 +1099,11 @@ private fun EventEditorialHeader(
                     color = HomeSupportingInk,
                 )
             }
-            Surface(
+            ProfileAvatarButton(
+                displayName = user.displayName,
                 onClick = onProfile,
-                modifier = Modifier
-                    .size(54.dp)
-                    .testTag("events_avatar"),
-                shape = RoundedCornerShape(27.dp),
-                color = HomeSage,
-                tonalElevation = 0.dp,
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = user.eventsInitials(),
-                        color = HomeInk,
-                        fontFamily = HomeEditorialFont,
-                        fontSize = 24.sp,
-                        modifier = Modifier.testTag("events_avatar_initials"),
-                    )
-                }
-            }
+                modifier = Modifier.testTag("events_avatar"),
+            )
         }
         Box(
             modifier = Modifier
@@ -1029,16 +1403,6 @@ private fun Event.editorialDate(): EditorialEventDate {
 private fun String.editorialStatus(): String =
     lowercase(Locale.US).replace('_', ' ').replaceFirstChar(Char::titlecase)
 
-private fun User.eventsInitials(): String =
-    displayName
-        .trim()
-        .split(Regex("\\s+"))
-        .filter(String::isNotBlank)
-        .take(2)
-        .mapNotNull { it.firstOrNull()?.uppercaseChar() }
-        .joinToString("")
-        .ifBlank { "ME" }
-
 private val EVENT_DAY_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("dd", Locale.US)
 private val EVENT_MONTH_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM", Locale.US)
 private val EventEmptyCardSurface = Color(0xFFF2F1E8)
@@ -1090,7 +1454,7 @@ fun EventEditorLiveScreen(
         unfocusedContainerColor = HomePaper,
     )
     ReEventScaffold(
-        selected = TopLevelDestination.EVENTS,
+        selected = null,
         onNavigate = onNavigate,
     ) { padding ->
         Box(
@@ -1128,25 +1492,27 @@ fun EventEditorLiveScreen(
                     .height(188.dp)
                     .alpha(0.08f),
             )
-            LazyColumn(
+            Column(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .widthIn(max = 760.dp)
-                    .fillMaxSize(),
-                contentPadding = PaddingValues(
+                    .fillMaxSize()
+                    .padding(
                     start = 20.dp,
-                    top = padding.calculateTopPadding() + 24.dp,
+                    top = padding.calculateTopPadding() + 14.dp,
                     end = 20.dp,
-                    bottom = padding.calculateBottomPadding() + 28.dp,
+                    bottom = padding.calculateBottomPadding() + 16.dp,
                 ),
-                verticalArrangement = Arrangement.spacedBy(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.SpaceBetween,
+                    ) {
                         Surface(
                             onClick = onBack,
-                            modifier = Modifier.size(54.dp),
-                            shape = RoundedCornerShape(27.dp),
+                            modifier = Modifier.size(44.dp),
+                            shape = RoundedCornerShape(22.dp),
                             color = HomePaper.copy(alpha = 0.94f),
                             border = BorderStroke(1.dp, HomeForest.copy(alpha = 0.7f)),
                             tonalElevation = 0.dp,
@@ -1156,19 +1522,19 @@ fun EventEditorLiveScreen(
                                     imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                                     contentDescription = "Back",
                                     tint = HomeForest,
-                                    modifier = Modifier.size(28.dp),
+                                    modifier = Modifier.size(24.dp),
                                 )
                             }
                         }
-                        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
                                 text = editorTitle,
-                                style = HomeGreetingStyle.copy(fontSize = 50.sp, lineHeight = 52.sp),
+                                style = HomeGreetingStyle.copy(fontSize = 42.sp, lineHeight = 44.sp),
                                 color = HomeForest,
                             )
                             Text(
                                 text = editorSubtitle,
-                                style = HomeBodyStyle.copy(fontSize = 20.sp, lineHeight = 27.sp),
+                                style = HomeBodyStyle.copy(fontSize = 16.sp, lineHeight = 21.sp),
                                 color = HomeSupportingInk,
                             )
                         }
@@ -1211,14 +1577,14 @@ fun EventEditorLiveScreen(
                         }
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(26.dp),
+                            shape = RoundedCornerShape(22.dp),
                             color = HomeSage.copy(alpha = 0.86f),
                             border = BorderStroke(1.dp, HomeLine),
                             tonalElevation = 0.dp,
                         ) {
                             Column(
-                                modifier = Modifier.padding(20.dp),
-                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
                                 Text(
                                     text = "EVENT DETAILS",
@@ -1246,7 +1612,7 @@ fun EventEditorLiveScreen(
                                     onValueChange = { description = it },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(142.dp),
+                                        .height(104.dp),
                                     label = { Text("Description") },
                                     shape = RoundedCornerShape(16.dp),
                                     colors = editorialFieldColors,
@@ -1255,22 +1621,22 @@ fun EventEditorLiveScreen(
                                     onClick = { choosingEventLocation = true },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(64.dp),
+                                        .height(56.dp),
                                     shape = RoundedCornerShape(16.dp),
                                     color = HomePaper,
                                     border = BorderStroke(1.dp, HomeLine),
                                     tonalElevation = 0.dp,
                                 ) {
                                     Row(
-                                        modifier = Modifier.padding(horizontal = 18.dp),
+                                        modifier = Modifier.padding(horizontal = 16.dp),
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                                     ) {
                                         Icon(
                                             imageVector = Icons.Outlined.LocationOn,
                                             contentDescription = null,
                                             tint = HomeForest,
-                                            modifier = Modifier.size(26.dp),
+                                            modifier = Modifier.size(22.dp),
                                         )
                                         Text(
                                             text = geoLocation?.displayAddress ?: "Event location *",
@@ -1284,7 +1650,7 @@ fun EventEditorLiveScreen(
                                             imageVector = Icons.Outlined.ChevronRight,
                                             contentDescription = "Choose event location",
                                             tint = HomeForest,
-                                            modifier = Modifier.size(28.dp),
+                                            modifier = Modifier.size(24.dp),
                                         )
                                     }
                                 }
@@ -1305,7 +1671,7 @@ fun EventEditorLiveScreen(
                                 BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                                     val stackDates = maxWidth < 330.dp
                                     if (stackDates) {
-                                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                             EventDatePickerField(
                                                 label = "Start date *",
                                                 value = startDate,
@@ -1320,7 +1686,7 @@ fun EventEditorLiveScreen(
                                             )
                                         }
                                     } else {
-                                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                             EventDatePickerField(
                                                 label = "Start date *",
                                                 value = startDate,
@@ -1373,8 +1739,8 @@ fun EventEditorLiveScreen(
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(62.dp),
-                            shape = RoundedCornerShape(18.dp),
+                                .height(56.dp),
+                            shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = HomeForest,
                                 contentColor = Color.White,
@@ -1382,7 +1748,7 @@ fun EventEditorLiveScreen(
                         ) {
                             Text(
                                 text = if (eventId == null) "Create event" else "Save changes",
-                                style = HomeBodyStyle.copy(fontSize = 18.sp),
+                                style = HomeBodyStyle.copy(fontSize = 16.sp),
                             )
                         }
                         Row(
@@ -1391,8 +1757,8 @@ fun EventEditorLiveScreen(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             Surface(
-                                modifier = Modifier.size(30.dp),
-                                shape = RoundedCornerShape(15.dp),
+                                modifier = Modifier.size(26.dp),
+                                shape = RoundedCornerShape(13.dp),
                                 color = HomeSage,
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
@@ -1401,7 +1767,7 @@ fun EventEditorLiveScreen(
                                         color = HomeForest,
                                         fontFamily = HomeEditorialFont,
                                         fontWeight = FontWeight.SemiBold,
-                                        fontSize = 20.sp,
+                                        fontSize = 18.sp,
                                     )
                                 }
                             }
@@ -1420,7 +1786,6 @@ fun EventEditorLiveScreen(
                             )
                         }
                     }
-                }
             }
         }
     }
@@ -1554,124 +1919,27 @@ fun EventDetailLiveScreen(
     val event by viewModel.event(eventId).collectAsState(null)
     val resources by viewModel.resources(eventId).collectAsState(emptyList())
     val transactions by viewModel.eventTransactions(eventId).collectAsState(emptyList())
-    var searchQuery by rememberSaveable(eventId) { mutableStateOf("") }
-    var statusFilter by rememberSaveable(eventId) { mutableStateOf("All statuses") }
+    val action by viewModel.action.collectAsState()
     var archiveResourceId by rememberSaveable(eventId) { mutableStateOf<String?>(null) }
     var archiveEventConfirmation by rememberSaveable(eventId) { mutableStateOf(false) }
-    val visibleResources =
-        resources.filter { resource ->
-            val matchesSearch =
-                searchQuery.trim().let { query ->
-                    query.isBlank() ||
-                        listOf(resource.title, resource.category, resource.materialLabel).any { it.contains(query, ignoreCase = true) }
-                }
-            val matchesStatus = statusFilter == "All statuses" || resource.status.toDisplayLabel() == statusFilter
-            matchesSearch && matchesStatus
-        }
-    FeatureScaffold(
-        title = event?.name ?: "Event details",
-        actionLabel = "Back",
-        onAction = onBack,
-        viewModel = viewModel,
-        selected = TopLevelDestination.EVENTS,
+    EventDetailEditorialContent(
+        event = event,
+        resources = resources,
+        transactions = transactions,
+        error = action.error,
+        notice = action.notice,
+        loading = action.loading,
+        onBack = onBack,
+        onEditEvent = onEditEvent,
+        onAddResource = onAddResource,
+        onScanResourceQr = onScanResourceQr,
+        onEditResource = onEditResource,
+        onOpenPassport = onOpenPassport,
+        onArchiveResource = { archiveResourceId = it },
+        onArchiveEvent = { archiveEventConfirmation = true },
         onNavigate = onNavigate,
-    ) {
-        item {
-            Surface(
-                Modifier.fillMaxWidth(),
-                shape =
-                    androidx.compose.foundation.shape
-                        .RoundedCornerShape(20.dp),
-                color = ReEventSurface,
-                border = androidx.compose.foundation.BorderStroke(1.dp, ReEventLine),
-            ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Event workspace", style = MaterialTheme.typography.labelLarge, color = ReEventGreen)
-                    Text(
-                        event?.description?.ifBlank { "No description yet" } ?: "Loading event…",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(event?.venue?.ifBlank { "Venue to be confirmed" } ?: "", color = ReEventTextSecondary)
-                    event?.let {
-                        Text(
-                            "${EventFormValidation.dateText(it.startsAt)} to ${EventFormValidation.dateText(it.endsAt)}",
-                            color = ReEventTextSecondary,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        SyncStateChip(it.syncState)
-                    }
-                    PrimaryActionButton("Add resource", onAddResource, Modifier.fillMaxWidth())
-                    SecondaryActionButton("Scan resource QR", onScanResourceQr, Modifier.fillMaxWidth())
-                    SecondaryActionButton("Edit event details", onEditEvent, Modifier.fillMaxWidth())
-                    SecondaryActionButton("Archive this event", { archiveEventConfirmation = true }, Modifier.fillMaxWidth())
-                }
-            }
-        }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Search resources") },
-                    placeholder = { Text("Name, category or material") },
-                    singleLine = true,
-                )
-                ResourceChoiceField(
-                    label = "Filter by status",
-                    selected = statusFilter,
-                    options = listOf("All statuses") + ResourceStatus.entries.map(ResourceStatus::toDisplayLabel),
-                    onSelected = { statusFilter = it },
-                )
-                if (searchQuery.isNotBlank() || statusFilter != "All statuses") {
-                    SecondaryActionButton("Clear search and filter", {
-                        searchQuery = ""
-                        statusFilter = "All statuses"
-                    }, Modifier.fillMaxWidth())
-                }
-            }
-        }
-        if (resources.isEmpty()) {
-            item { EmptyPanel("No resources yet", "Add a resource to start this event's circular recovery flow.") {} }
-        } else if (visibleResources.isEmpty()) {
-            item { EmptyPanel("No matching resources", "Try a different name, material, or status.") {} }
-        }
-        items(visibleResources, key = ResourceItem::id) { resource ->
-            val blockingTransactions = transactions.filter { it.blocksResourceArchive(resource.id) }
-            Surface(
-                Modifier.fillMaxWidth(),
-                shape =
-                    androidx.compose.foundation.shape
-                        .RoundedCornerShape(20.dp),
-                color = ReEventSurface,
-                border = androidx.compose.foundation.BorderStroke(1.dp, ReEventLine),
-            ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(resource.title, style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "${ResourcePresentationRules.quantityLabel(
-                            resource.quantity,
-                            resource.unit,
-                        )} · ${resource.category} · ${resource.condition.toDisplayLabel()}",
-                        color = ReEventTextSecondary,
-                    )
-                    ResourceStatusSummary(resource.status, resource.syncState)
-                    resource.imageUrls.firstOrNull()?.let { StoredResourcePhoto(it, viewModel) }
-                    PrimaryActionButton("Open digital passport", { onOpenPassport(resource.id) }, Modifier.fillMaxWidth())
-                    SecondaryActionButton("Edit resource", { onEditResource(resource.id) }, Modifier.fillMaxWidth())
-                    if (blockingTransactions.isEmpty()) {
-                        SecondaryActionButton("Archive resource", { archiveResourceId = resource.id }, Modifier.fillMaxWidth())
-                    } else {
-                        Text(
-                            "Archive unavailable: ${blockingTransactions.size} active transaction${if (blockingTransactions.size == 1) "" else "s"} must be completed, rejected, or cancelled first.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = ReEventTextSecondary,
-                        )
-                    }
-                }
-            }
-        }
-    }
+        loadPhoto = viewModel::resourcePhoto,
+    )
 
     val archiveCandidate = resources.firstOrNull { it.id == archiveResourceId }
     archiveCandidate?.let { resource ->
@@ -1724,6 +1992,774 @@ fun EventDetailLiveScreen(
             dismissButton = {
                 TextButton(onClick = { archiveEventConfirmation = false }) { Text("Cancel") }
             },
+        )
+    }
+}
+
+private enum class EventInventoryFilter {
+    ALL,
+    AVAILABLE,
+    LISTED,
+    RECOVERY_IN_PROGRESS,
+    RECOVERED,
+    ARCHIVED,
+}
+
+private fun EventInventoryFilter.displayLabel(): String =
+    when (this) {
+        EventInventoryFilter.ALL -> "All"
+        EventInventoryFilter.AVAILABLE -> "Available"
+        EventInventoryFilter.LISTED -> "Listed"
+        EventInventoryFilter.RECOVERY_IN_PROGRESS -> "Recovery in progress"
+        EventInventoryFilter.RECOVERED -> "Recovered"
+        EventInventoryFilter.ARCHIVED -> "Archived"
+    }
+
+private fun EventInventoryFilter.matches(resource: ResourceItem): Boolean =
+    when (this) {
+        EventInventoryFilter.ALL -> true
+        EventInventoryFilter.AVAILABLE -> resource.status == ResourceStatus.ACTIVE
+        EventInventoryFilter.LISTED -> resource.marketplaceListing != null
+        EventInventoryFilter.RECOVERY_IN_PROGRESS -> resource.status == ResourceStatus.RECOVERY_IN_PROGRESS
+        EventInventoryFilter.RECOVERED -> resource.status == ResourceStatus.RECOVERED
+        EventInventoryFilter.ARCHIVED -> resource.status == ResourceStatus.ARCHIVED
+    }
+
+@Composable
+internal fun EventDetailEditorialContent(
+    event: Event?,
+    resources: List<ResourceItem>,
+    transactions: List<CircularTransaction>,
+    error: String? = null,
+    notice: String? = null,
+    loading: Boolean = false,
+    onBack: () -> Unit,
+    onEditEvent: () -> Unit,
+    onAddResource: () -> Unit,
+    onScanResourceQr: () -> Unit,
+    onEditResource: (String) -> Unit,
+    onOpenPassport: (String) -> Unit,
+    onArchiveResource: (String) -> Unit,
+    onArchiveEvent: () -> Unit,
+    onNavigate: (TopLevelDestination) -> Unit,
+    loadPhoto: suspend (String) -> ByteArray?,
+    modifier: Modifier = Modifier,
+) {
+    val eventKey = event?.id ?: "event-detail"
+    var searchQuery by rememberSaveable(eventKey) { mutableStateOf("") }
+    var searchExpanded by rememberSaveable(eventKey) { mutableStateOf(false) }
+    var selectedFilter by rememberSaveable(eventKey) { mutableStateOf(EventInventoryFilter.ALL) }
+    var moreFiltersExpanded by rememberSaveable(eventKey) { mutableStateOf(false) }
+    var expandedResourceId by rememberSaveable(eventKey) { mutableStateOf<String?>(null) }
+    val visibleResources =
+        resources.filter { resource ->
+            val matchesSearch =
+                searchQuery.trim().let { query ->
+                    query.isBlank() ||
+                        listOf(resource.title, resource.category, resource.materialLabel).any {
+                            it.contains(query, ignoreCase = true)
+                        }
+                }
+            matchesSearch && selectedFilter.matches(resource)
+        }
+    val listedCount = resources.count { it.marketplaceListing != null }
+    val availableCount = resources.count { it.status == ResourceStatus.ACTIVE }
+
+    ReEventScaffold(
+        selected = TopLevelDestination.EVENTS,
+        onNavigate = onNavigate,
+        modifier = modifier,
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(HomeCanvas),
+        ) {
+            Image(
+                painter = painterResource(R.drawable.home_paper_texture),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .alpha(0.055f),
+            )
+            Image(
+                painter = painterResource(R.drawable.home_botanical_sprig),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                alignment = Alignment.TopEnd,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .width(250.dp)
+                    .height(206.dp)
+                    .alpha(0.13f),
+            )
+            Image(
+                painter = painterResource(R.drawable.home_botanical_sprig),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                alignment = Alignment.BottomStart,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .width(230.dp)
+                    .height(188.dp)
+                    .alpha(0.08f),
+            )
+            LazyColumn(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .widthIn(max = 760.dp)
+                    .fillMaxSize()
+                    .testTag("event_detail_editorial"),
+                contentPadding = PaddingValues(
+                    top = padding.calculateTopPadding() + 84.dp,
+                    bottom = padding.calculateBottomPadding() + 28.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                item {
+                    EventDetailHeader(
+                        event = event,
+                        modifier = Modifier.padding(horizontal = 20.dp),
+                    )
+                }
+                error?.let { message ->
+                    item {
+                        EventDetailFeedback(
+                            message = message,
+                            isError = true,
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                        )
+                    }
+                }
+                notice?.let { message ->
+                    item {
+                        EventDetailFeedback(
+                            message = message,
+                            isError = false,
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                        )
+                    }
+                }
+                if (loading) {
+                    item {
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp)
+                                .testTag("event_detail_loading"),
+                            color = HomeForest,
+                            trackColor = HomeSage,
+                        )
+                    }
+                }
+                item {
+                    EventDetailActionBand(
+                        onAddResource = onAddResource,
+                        onScanResourceQr = onScanResourceQr,
+                    )
+                }
+                item {
+                    EventInventoryMetricStrip(
+                        resourceCount = resources.size,
+                        listedCount = listedCount,
+                        availableCount = availableCount,
+                        modifier = Modifier.padding(horizontal = 20.dp),
+                    )
+                }
+                item {
+                    EventInventoryToolbar(
+                        searchQuery = searchQuery,
+                        searchExpanded = searchExpanded,
+                        selectedFilter = selectedFilter,
+                        moreFiltersExpanded = moreFiltersExpanded,
+                        onSearchExpandedChange = { searchExpanded = it },
+                        onSearchQueryChange = { searchQuery = it },
+                        onFilterSelected = {
+                            selectedFilter = it
+                            moreFiltersExpanded = false
+                        },
+                        onMoreFiltersExpandedChange = { moreFiltersExpanded = it },
+                        modifier = Modifier.padding(horizontal = 20.dp),
+                    )
+                }
+                when {
+                    resources.isEmpty() -> item {
+                        EventInventoryEmptyState(
+                            title = "No resources yet",
+                            detail = "Add a resource to start this event's circular recovery flow.",
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                        )
+                    }
+
+                    visibleResources.isEmpty() -> item {
+                        EventInventoryEmptyState(
+                            title = "No matching resources",
+                            detail = "Try a different name or filter.",
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                        )
+                    }
+
+                    else -> items(visibleResources, key = ResourceItem::id) { resource ->
+                        EventInventoryResourceRow(
+                            resource = resource,
+                            blockingTransactions = transactions.filter { it.blocksResourceArchive(resource.id) },
+                            expanded = expandedResourceId == resource.id,
+                            loadPhoto = loadPhoto,
+                            onToggleExpanded = {
+                                expandedResourceId = if (expandedResourceId == resource.id) null else resource.id
+                            },
+                            onOpenPassport = { onOpenPassport(resource.id) },
+                            onEditResource = { onEditResource(resource.id) },
+                            onArchiveResource = { onArchiveResource(resource.id) },
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                        )
+                    }
+                }
+                item {
+                    OutlinedButton(
+                        onClick = onArchiveEvent,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp)
+                            .padding(horizontal = 20.dp)
+                            .testTag("event_detail_archive_event"),
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, ReEventCoral),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = HomePaper.copy(alpha = 0.9f),
+                            contentColor = ReEventCoral,
+                        ),
+                    ) {
+                        Icon(Icons.Outlined.Archive, contentDescription = null, modifier = Modifier.size(19.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Archive event", style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+            }
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .widthIn(max = 760.dp)
+                    .fillMaxWidth()
+                    .zIndex(1f),
+                color = HomeCanvas.copy(alpha = 0.60f),
+                tonalElevation = 0.dp,
+            ) {
+                EventDetailPinnedActions(
+                    onBack = onBack,
+                    onEditEvent = onEditEvent,
+                    modifier = Modifier.padding(
+                        start = 20.dp,
+                        top = padding.calculateTopPadding() + 10.dp,
+                        end = 20.dp,
+                        bottom = 10.dp,
+                    ),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EventDetailHeader(
+    event: Event?,
+    modifier: Modifier = Modifier,
+) {
+    val eventStatus = event?.status?.uppercase()?.takeIf(String::isNotBlank) ?: "LIVE"
+    val eventName = event?.name ?: "Event details"
+    val venue = event?.venue?.ifBlank { "Venue to be confirmed" } ?: "Loading venue…"
+    val dateRange =
+        event?.let {
+            "${EventFormValidation.dateText(it.startsAt)}–${EventFormValidation.dateText(it.endsAt)}"
+        } ?: "Loading dates…"
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Text(
+            text = "• $eventStatus EVENT",
+            style = HomeSupportingTextStyle.copy(fontSize = 13.sp, letterSpacing = 1.1.sp),
+            color = HomeForest,
+        )
+        Text(
+            text = eventName,
+            style = HomeGreetingStyle.copy(fontSize = 46.sp, lineHeight = 48.sp),
+            color = HomeInk,
+        )
+        EventMetadataLine(Icons.Outlined.LocationOn, venue, "Event location")
+        EventMetadataLine(Icons.Outlined.CalendarMonth, dateRange, "Event dates")
+    }
+}
+
+@Composable
+private fun EventDetailPinnedActions(
+    onBack: () -> Unit,
+    onEditEvent: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(
+            onClick = onBack,
+            modifier = Modifier
+                .size(48.dp)
+                .testTag("event_detail_back"),
+            shape = RoundedCornerShape(24.dp),
+            color = HomePaper.copy(alpha = 0.94f),
+            border = BorderStroke(1.dp, HomeForest.copy(alpha = 0.7f)),
+            tonalElevation = 0.dp,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                    contentDescription = "Back",
+                    tint = HomeForest,
+                    modifier = Modifier.size(26.dp),
+                )
+            }
+        }
+        Spacer(Modifier.weight(1f))
+        TextButton(
+            onClick = onEditEvent,
+            modifier = Modifier.testTag("event_detail_manage"),
+        ) {
+            Text("Manage event", style = HomeSupportingTextStyle.copy(fontSize = 16.sp), color = HomeForest)
+            Spacer(Modifier.width(6.dp))
+            Icon(
+                imageVector = Icons.Outlined.Edit,
+                contentDescription = null,
+                tint = HomeForest,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun EventMetadataLine(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String,
+    contentDescription: String,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = HomeSupportingInk,
+            modifier = Modifier.size(21.dp),
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge,
+            color = HomeSupportingInk,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun EventDetailActionBand(
+    onAddResource: () -> Unit,
+    onScanResourceQr: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(modifier = modifier.fillMaxWidth(), color = HomeForest, tonalElevation = 0.dp) {
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OutlinedButton(
+                onClick = onAddResource,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(64.dp)
+                    .testTag("event_detail_add_resource"),
+                shape = RoundedCornerShape(18.dp),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.72f)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+            ) {
+                Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(28.dp))
+                Spacer(Modifier.width(10.dp))
+                Text("Add resource", style = MaterialTheme.typography.titleMedium)
+            }
+            OutlinedButton(
+                onClick = onScanResourceQr,
+                modifier = Modifier
+                    .size(64.dp)
+                    .testTag("event_detail_scan_qr"),
+                shape = RoundedCornerShape(18.dp),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.72f)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                contentPadding = PaddingValues(0.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.QrCodeScanner,
+                    contentDescription = "Scan resource QR",
+                    modifier = Modifier.size(30.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EventInventoryMetricStrip(
+    resourceCount: Int,
+    listedCount: Int,
+    availableCount: Int,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        EventInventoryMetric(resourceCount.toString(), "Resources", Modifier.weight(1f))
+        Box(Modifier.width(1.dp).height(64.dp).background(HomeLine))
+        EventInventoryMetric(listedCount.toString(), "Listed", Modifier.weight(1f))
+        Box(Modifier.width(1.dp).height(64.dp).background(HomeLine))
+        EventInventoryMetric(availableCount.toString(), "Available", Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun EventInventoryMetric(value: String, label: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(
+            text = value,
+            style = HomeGreetingStyle.copy(fontSize = 34.sp, lineHeight = 36.sp),
+            color = HomeInk,
+        )
+        Text(text = label, style = HomeSupportingTextStyle, color = HomeSupportingInk)
+    }
+}
+
+@Composable
+private fun EventInventoryToolbar(
+    searchQuery: String,
+    searchExpanded: Boolean,
+    selectedFilter: EventInventoryFilter,
+    moreFiltersExpanded: Boolean,
+    onSearchExpandedChange: (Boolean) -> Unit,
+    onSearchQueryChange: (String) -> Unit,
+    onFilterSelected: (EventInventoryFilter) -> Unit,
+    onMoreFiltersExpandedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "Resource inventory",
+                modifier = Modifier.weight(1f),
+                style = HomeCardTitleStyle.copy(fontSize = 31.sp, lineHeight = 34.sp),
+                color = HomeInk,
+            )
+            IconButton(
+                onClick = { onSearchExpandedChange(!searchExpanded) },
+                modifier = Modifier.testTag("event_detail_search"),
+            ) {
+                Icon(Icons.Outlined.Search, contentDescription = "Search resources", tint = HomeInk)
+            }
+            Box {
+                IconButton(
+                    onClick = { onMoreFiltersExpandedChange(!moreFiltersExpanded) },
+                    modifier = Modifier.testTag("event_detail_more_filters"),
+                ) {
+                    Icon(
+                        Icons.Outlined.FilterList,
+                        contentDescription = "Filter by status",
+                        tint = if (selectedFilter in EventInventoryFilter.entries.drop(3)) HomeForest else HomeSupportingInk,
+                    )
+                }
+                DropdownMenu(
+                    expanded = moreFiltersExpanded,
+                    onDismissRequest = { onMoreFiltersExpandedChange(false) },
+                ) {
+                    EventInventoryFilter.entries.drop(3).forEach { filter ->
+                        DropdownMenuItem(
+                            text = { Text(filter.displayLabel()) },
+                            onClick = { onFilterSelected(filter) },
+                        )
+                    }
+                }
+            }
+        }
+        AnimatedVisibility(searchExpanded) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("event_detail_search_field"),
+                label = { Text("Search resources") },
+                placeholder = { Text("Name, category or material") },
+                singleLine = true,
+                trailingIcon = {
+                    IconButton(
+                        onClick = {
+                            onSearchQueryChange("")
+                            onSearchExpandedChange(false)
+                        },
+                    ) {
+                        Icon(Icons.Outlined.Clear, contentDescription = "Close search")
+                    }
+                },
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = HomeForest,
+                    unfocusedBorderColor = HomeLine,
+                    focusedLabelColor = HomeForest,
+                    cursorColor = HomeForest,
+                    focusedContainerColor = HomePaper.copy(alpha = 0.92f),
+                    unfocusedContainerColor = HomePaper.copy(alpha = 0.92f),
+                ),
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            listOf(EventInventoryFilter.ALL, EventInventoryFilter.AVAILABLE, EventInventoryFilter.LISTED).forEach { filter ->
+                EventInventoryFilterChip(
+                    label = filter.displayLabel(),
+                    selected = selectedFilter == filter,
+                    onClick = { onFilterSelected(filter) },
+                    modifier = Modifier.testTag("event_detail_filter_${filter.name.lowercase()}")
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EventInventoryFilterChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(20.dp),
+        color = if (selected) HomeForest else HomeSage.copy(alpha = 0.7f),
+        border = if (selected) null else BorderStroke(1.dp, HomeLine),
+        tonalElevation = 0.dp,
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+            style = HomeSupportingTextStyle.copy(fontSize = 15.sp),
+            color = if (selected) Color.White else HomeForest,
+        )
+    }
+}
+
+@Composable
+private fun EventInventoryEmptyState(
+    title: String,
+    detail: String,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = HomePaper.copy(alpha = 0.88f),
+        border = BorderStroke(1.dp, HomeLine),
+        tonalElevation = 0.dp,
+    ) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(title, style = HomeCardTitleStyle, color = HomeInk)
+            Text(detail, style = HomeSupportingTextStyle, color = HomeSupportingInk)
+        }
+    }
+}
+
+@Composable
+private fun EventInventoryResourceRow(
+    resource: ResourceItem,
+    blockingTransactions: List<CircularTransaction>,
+    expanded: Boolean,
+    loadPhoto: suspend (String) -> ByteArray?,
+    onToggleExpanded: () -> Unit,
+    onOpenPassport: () -> Unit,
+    onEditResource: () -> Unit,
+    onArchiveResource: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth().testTag("event_resource_${resource.id}")) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggleExpanded)
+                .padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            EventResourceThumbnail(resource = resource, loadPhoto = loadPhoto)
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = resource.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = HomeInk,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = "${ResourcePresentationRules.quantityLabel(resource.quantity, resource.unit)} · ${resource.materialLabel}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = HomeSupportingInk,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            StatusChip(resource.inventoryStatusLabel(), resource.inventoryStatusColor())
+            IconButton(
+                onClick = onToggleExpanded,
+                modifier = Modifier.testTag("event_resource_expand_${resource.id}"),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.ChevronRight,
+                    contentDescription = if (expanded) "Close ${resource.title} actions" else "Open ${resource.title} actions",
+                    tint = HomeInk,
+                )
+            }
+        }
+        AnimatedVisibility(expanded) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 82.dp, top = 4.dp, bottom = 12.dp)
+                    .testTag("event_resource_actions_${resource.id}"),
+                verticalArrangement = Arrangement.spacedBy(9.dp),
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    EventResourceActionButton("Passport", onOpenPassport, Modifier.weight(1f))
+                    EventResourceActionButton("Edit", onEditResource, Modifier.weight(1f))
+                    EventResourceActionButton(
+                        label = "Archive",
+                        onClick = onArchiveResource,
+                        modifier = Modifier.weight(1f),
+                        enabled = blockingTransactions.isEmpty(),
+                        danger = true,
+                    )
+                }
+                if (blockingTransactions.isNotEmpty()) {
+                    Text(
+                        text = "Archive unavailable until ${blockingTransactions.size} active transaction${if (blockingTransactions.size == 1) "" else "s"} is resolved.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = HomeSupportingInk,
+                    )
+                }
+            }
+        }
+        HorizontalDivider(color = HomeLine)
+    }
+}
+
+@Composable
+private fun EventResourceActionButton(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    danger: Boolean = false,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier.height(42.dp),
+        enabled = enabled,
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, if (danger) ReEventCoral else HomeLine),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = HomePaper.copy(alpha = 0.92f),
+            contentColor = if (danger) ReEventCoral else HomeForest,
+            disabledContentColor = HomeSupportingInk,
+        ),
+        contentPadding = PaddingValues(horizontal = 6.dp),
+    ) {
+        Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+    }
+}
+
+@Composable
+private fun EventResourceThumbnail(
+    resource: ResourceItem,
+    loadPhoto: suspend (String) -> ByteArray?,
+    modifier: Modifier = Modifier,
+) {
+    val photoPath = resource.imageUrls.firstOrNull()
+    val bitmap by produceState<Bitmap?>(initialValue = null, photoPath) {
+        value =
+            photoPath?.let { path ->
+                loadPhoto(path)?.let { bytes ->
+                    withContext(Dispatchers.Default) { BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }
+                }
+            }
+    }
+    Surface(
+        modifier = modifier
+            .size(68.dp)
+            .testTag("event_resource_thumbnail_${resource.id}"),
+        shape = RoundedCornerShape(12.dp),
+        color = HomeSage.copy(alpha = 0.76f),
+        tonalElevation = 0.dp,
+    ) {
+        if (bitmap == null) {
+            Box(contentAlignment = Alignment.Center) {
+                MaterialFamilyIcon(
+                    family = resource.materialFamily,
+                    modifier = Modifier.size(38.dp),
+                    tint = HomeForest,
+                    contentDescription = "${resource.materialLabel} material icon",
+                )
+            }
+        } else {
+            Image(
+                bitmap = bitmap!!.asImageBitmap(),
+                contentDescription = "${resource.title} photo",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        }
+    }
+}
+
+private fun ResourceItem.inventoryStatusLabel(): String =
+    when {
+        marketplaceListing != null -> "Listed"
+        status == ResourceStatus.ACTIVE -> "Available"
+        else -> status.toDisplayLabel()
+    }
+
+private fun ResourceItem.inventoryStatusColor(): Color =
+    when {
+        marketplaceListing != null -> HomeForest
+        status == ResourceStatus.ACTIVE -> HomeForest
+        else -> status.toUiColor()
+    }
+
+@Composable
+private fun EventDetailFeedback(
+    message: String,
+    isError: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = if (isError) Color(0xFFFFE6E8) else HomeSage,
+        border = BorderStroke(1.dp, if (isError) Color(0xFFE8B8BD) else HomeLine),
+        tonalElevation = 0.dp,
+    ) {
+        Text(
+            text = message,
+            modifier = Modifier.padding(14.dp),
+            style = HomeSupportingTextStyle,
+            color = if (isError) Color(0xFF8A2836) else HomeInk,
         )
     }
 }

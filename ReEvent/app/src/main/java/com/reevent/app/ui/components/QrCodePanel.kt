@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.createBitmap
 import com.google.zxing.BarcodeFormat
@@ -29,6 +30,7 @@ import com.reevent.app.ui.theme.ReEventSurface
 fun QrCodePanel(
     payload: String,
     modifier: Modifier = Modifier,
+    qrSize: Dp = 208.dp,
 ) {
     val bitmap = remember(payload) { createQrBitmap(payload) }
     Surface(
@@ -41,7 +43,7 @@ fun QrCodePanel(
             Image(
                 bitmap = bitmap.asImageBitmap(),
                 contentDescription = "Resource passport QR code",
-                modifier = Modifier.size(208.dp).background(androidx.compose.ui.graphics.Color.White),
+                modifier = Modifier.size(qrSize).background(androidx.compose.ui.graphics.Color.White),
             )
         }
     }

@@ -227,6 +227,7 @@ private fun androidx.navigation.NavGraphBuilder.organiserGraph(
                 nav.popBackStack()
             },
             onNavigate = nav::openOrganiserTopLevelDestination,
+            restoreDraft = false,
         )
     }
     composable<EventListRoute> {

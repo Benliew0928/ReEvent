@@ -723,6 +723,36 @@ test('quantity and active-event constraints reject invented release data', async
   await database.close()
 })
 
+test('an incomplete draft event can be archived without becoming actionable', async () => {
+  const database = await createDatabase()
+  const organizerId = '10000000-0000-4000-8000-000000000032'
+  await createActor(database, organizerId, 'ORGANIZER')
+
+  const draft = await runAs(database, organizerId, () => database.query(`
+    insert into public.events(owner_id, name, starts_at, ends_at, status)
+    values ($1, 'Incomplete local draft', now() + interval '1 day', now() + interval '2 days', 'DRAFT')
+    returning id
+  `, [organizerId]))
+  const eventId = draft.rows[0].id
+
+  await assert.rejects(
+    runAs(database, organizerId, () => database.query(`
+      update public.events set status = 'ACTIVE' where id = $1
+    `, [eventId])),
+    /events_active_fields_check/
+  )
+  await runAs(database, organizerId, () => database.query(`
+    update public.events set status = 'ARCHIVED', archived_at = now() where id = $1
+  `, [eventId]))
+
+  const archived = await database.query(`
+    select status, archived_at from public.events where id = $1
+  `, [eventId])
+  assert.equal(archived.rows[0].status, 'ARCHIVED')
+  assert(archived.rows[0].archived_at)
+  await database.close()
+})
+
 test('listing request, approval, replay, and cancellation preserve allocations and ReCoins', async () => {
   const database = await createDatabase()
   const fixture = await createMarketplaceFixture(database)
