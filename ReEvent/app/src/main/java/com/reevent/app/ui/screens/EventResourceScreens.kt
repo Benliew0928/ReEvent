@@ -9,31 +9,53 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -45,13 +67,22 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.reevent.app.R
 import com.reevent.app.core.data.ResourcePresentationRules
 import com.reevent.app.core.data.blocksResourceArchive
 import com.reevent.app.core.model.Event
@@ -80,12 +111,30 @@ import com.reevent.app.ui.theme.ReEventLine
 import com.reevent.app.ui.theme.ReEventMintSoft
 import com.reevent.app.ui.theme.ReEventSurface
 import com.reevent.app.ui.theme.ReEventTextSecondary
+import com.reevent.app.ui.theme.HomeBodyFont
+import com.reevent.app.ui.theme.HomeBodyStyle
+import com.reevent.app.ui.theme.HomeCanvas
+import com.reevent.app.ui.theme.HomeCardTitleStyle
+import com.reevent.app.ui.theme.HomeEditorialFont
+import com.reevent.app.ui.theme.HomeForest
+import com.reevent.app.ui.theme.HomeGreetingStyle
+import com.reevent.app.ui.theme.HomeInk
+import com.reevent.app.ui.theme.HomeLine
+import com.reevent.app.ui.theme.HomePaper
+import com.reevent.app.ui.theme.HomeSage
+import com.reevent.app.ui.theme.HomeSupportingInk
+import com.reevent.app.ui.theme.HomeSupportingTextStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import java.util.UUID
 
 @Serializable
@@ -514,63 +563,486 @@ fun EventListLiveScreen(
 ) {
     LaunchedEffect(user.id) { viewModel.refresh() }
     val events by viewModel.events(user.id).collectAsState(emptyList())
-    FeatureScaffold(
-        title = "Your events",
-        actionLabel = "Back",
-        onAction = onBack,
-        viewModel = viewModel,
+    val action by viewModel.action.collectAsState()
+    EventListEditorialContent(
+        user = user,
+        events = events,
+        error = action.error,
+        notice = action.notice,
+        loading = action.loading,
+        onCreate = onCreate,
+        onOpen = { event ->
+            viewModel.selectEvent(event.id)
+            onOpen(event.id)
+        },
+        onNavigate = onNavigate,
+    )
+}
+
+/**
+ * The Events landing page intentionally owns only presentation. Its event stream and callbacks
+ * come from [EventListLiveScreen], so the editorial redesign does not change persistence,
+ * selection, navigation, or lifecycle behaviour.
+ */
+@Composable
+internal fun EventListEditorialContent(
+    user: User,
+    events: List<Event>,
+    error: String? = null,
+    notice: String? = null,
+    loading: Boolean = false,
+    onCreate: () -> Unit,
+    onOpen: (Event) -> Unit,
+    onNavigate: (TopLevelDestination) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    ReEventScaffold(
         selected = TopLevelDestination.EVENTS,
         onNavigate = onNavigate,
-    ) {
-        item {
-            Surface(
-                color = ReEventMintSoft,
-                shape =
-                    androidx.compose.foundation.shape
-                        .RoundedCornerShape(20.dp),
+        modifier = modifier,
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(HomeCanvas),
+        ) {
+            Image(
+                painter = painterResource(R.drawable.home_paper_texture),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .alpha(0.055f),
+            )
+            LazyColumn(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .widthIn(max = 760.dp)
+                    .fillMaxSize()
+                    .testTag("events_editorial_list"),
+                contentPadding = PaddingValues(
+                    start = 16.dp,
+                    top = padding.calculateTopPadding() + 14.dp,
+                    end = 16.dp,
+                    bottom = padding.calculateBottomPadding() + 24.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Plan every resource before teardown", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Choose an event workspace to manage its inventory and recovery work.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = ReEventTextSecondary,
+                item {
+                    EventEditorialHeader(
+                        user = user,
+                        hasEvents = events.isNotEmpty(),
+                        eventCount = events.size,
+                        onProfile = { onNavigate(TopLevelDestination.ACCOUNT) },
                     )
                 }
-            }
-        }
-        item { PrimaryActionButton("Create event", onCreate, Modifier.fillMaxWidth()) }
-        if (events.isEmpty()) item { EmptyPanel("No events yet", "Create an event before adding resources or tracking recovery.") {} }
-        items(events, key = Event::id) { event ->
-            Surface(
-                Modifier.fillMaxWidth(),
-                shape =
-                    androidx.compose.foundation.shape
-                        .RoundedCornerShape(20.dp),
-                color = ReEventSurface,
-                border = androidx.compose.foundation.BorderStroke(1.dp, ReEventLine),
-            ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(event.name, style = MaterialTheme.typography.titleLarge)
-                    Text(event.venue.ifBlank { "Venue to be confirmed" }, color = ReEventTextSecondary)
-                    StatusChip(event.status.lowercase().replaceFirstChar(Char::titlecase), ReEventGreen)
-                    Text(
-                        event.description.ifBlank {
-                            "Add a description to help your team prepare."
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = ReEventTextSecondary,
-                    )
-                    PrimaryActionButton("Open event", {
-                        viewModel.selectEvent(event.id)
-                        onOpen(event.id)
-                    }, Modifier.fillMaxWidth())
+                if (loading) {
+                    item {
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("events_loading"),
+                            color = HomeForest,
+                            trackColor = HomeSage,
+                        )
+                    }
+                }
+                error?.let { message ->
+                    item { EventEditorialFeedback(message = message, isError = true) }
+                }
+                notice?.let { message ->
+                    item { EventEditorialFeedback(message = message, isError = false) }
+                }
+                if (events.isEmpty()) {
+                    item { EventEmptyStateCard(onCreate = onCreate) }
+                    item { EventBenefitsCard() }
+                } else {
+                    itemsIndexed(events, key = { _, event -> event.id }) { index, event ->
+                        EventEditorialCard(
+                            event = event,
+                            featured = index % 2 == 0,
+                            onOpen = { onOpen(event) },
+                        )
+                    }
+                    item { EventCreateButton(label = "Create a new event", onClick = onCreate, outlined = true) }
                 }
             }
         }
     }
 }
 
+@Composable
+private fun EventEditorialHeader(
+    user: User,
+    hasEvents: Boolean,
+    eventCount: Int,
+    onProfile: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(HomeForest, RoundedCornerShape(4.dp)),
+                )
+                Text(
+                    text = if (hasEvents) {
+                        "$eventCount ACTIVE EVENT${if (eventCount == 1) "" else "S"}"
+                    } else {
+                        "EVENTS OVERVIEW"
+                    },
+                    style = HomeSupportingTextStyle.copy(
+                        fontSize = 12.sp,
+                        lineHeight = 14.sp,
+                        letterSpacing = 0.9.sp,
+                    ),
+                    color = HomeSupportingInk,
+                )
+            }
+            Surface(
+                onClick = onProfile,
+                modifier = Modifier
+                    .size(54.dp)
+                    .testTag("events_avatar"),
+                shape = RoundedCornerShape(27.dp),
+                color = HomeSage,
+                tonalElevation = 0.dp,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = user.eventsInitials(),
+                        color = HomeInk,
+                        fontFamily = HomeEditorialFont,
+                        fontSize = 24.sp,
+                        modifier = Modifier.testTag("events_avatar_initials"),
+                    )
+                }
+            }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(if (hasEvents) 112.dp else 96.dp),
+        ) {
+            if (hasEvents) {
+                Image(
+                    painter = painterResource(R.drawable.events_list_botanical_cutout),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    alignment = Alignment.BottomEnd,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .width(148.dp)
+                        .height(86.dp),
+                )
+            }
+            Column(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .fillMaxWidth(if (hasEvents) 0.72f else 1f),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Text(
+                    text = if (hasEvents) "Events" else "Your events",
+                    modifier = Modifier.testTag("events_heading"),
+                    style = HomeGreetingStyle.copy(fontSize = 48.sp, lineHeight = 50.sp),
+                    color = HomeInk,
+                )
+                Text(
+                    text = if (hasEvents) {
+                        "A clearer way to keep every plan moving."
+                    } else {
+                        "Start where every good recovery plan begins."
+                    },
+                    style = HomeSupportingTextStyle,
+                    color = HomeSupportingInk,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EventEmptyStateCard(
+    onCreate: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("events_empty_state"),
+        shape = RoundedCornerShape(24.dp),
+        color = EventEmptyCardSurface,
+        tonalElevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 22.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            EventEmptyIllustration()
+            Text(
+                text = "Nothing on the calendar yet",
+                style = HomeCardTitleStyle.copy(fontSize = 30.sp, lineHeight = 34.sp),
+                color = HomeInk,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = "Create an event to plan resources, teams and recovery from day one.",
+                style = HomeSupportingTextStyle,
+                color = HomeSupportingInk,
+                textAlign = TextAlign.Center,
+            )
+            EventCreateButton(label = "Create your first event", onClick = onCreate)
+        }
+    }
+}
+
+@Composable
+private fun EventEmptyIllustration(modifier: Modifier = Modifier) {
+    Image(
+        painter = painterResource(R.drawable.events_empty_illustration),
+        contentDescription = null,
+        contentScale = ContentScale.Fit,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(142.dp),
+    )
+}
+
+@Composable
+private fun EventBenefitsCard(modifier: Modifier = Modifier) {
+    Image(
+        painter = painterResource(R.drawable.events_benefits_panel),
+        contentDescription = "What you can do: plan resources, invite partners, track recovery",
+        modifier = modifier
+            .fillMaxWidth()
+            .aspectRatio(547f / 189f)
+            .testTag("events_benefits"),
+        contentScale = ContentScale.FillWidth,
+    )
+}
+
+@Composable
+private fun EventEditorialCard(
+    event: Event,
+    featured: Boolean,
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val date = event.editorialDate()
+    val cardColor = if (featured) HomeForest else HomeSage
+    val contentColor = if (featured) Color.White else HomeInk
+    val detailColor = if (featured) Color(0xFFE1E7E5) else HomeSupportingInk
+    val lineColor = if (featured) Color.White.copy(alpha = 0.35f) else HomeLine
+    Surface(
+        onClick = onOpen,
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("event_card_${event.id}"),
+        shape = RoundedCornerShape(24.dp),
+        color = cardColor,
+        border = if (featured) null else BorderStroke(1.dp, HomeLine),
+        tonalElevation = 0.dp,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 22.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Column(
+                modifier = Modifier.width(72.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = date.day,
+                    color = contentColor,
+                    fontFamily = HomeEditorialFont,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 45.sp,
+                    lineHeight = 43.sp,
+                )
+                Text(
+                    text = date.month,
+                    color = contentColor,
+                    fontFamily = HomeEditorialFont,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 19.sp,
+                    letterSpacing = 1.sp,
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(118.dp)
+                    .background(lineColor),
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(9.dp),
+            ) {
+                Text(
+                    text = event.name,
+                    color = contentColor,
+                    fontFamily = HomeEditorialFont,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 29.sp,
+                    lineHeight = 30.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Icon(
+                        imageVector = Icons.Outlined.LocationOn,
+                        contentDescription = null,
+                        tint = detailColor,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Text(
+                        text = event.venue.ifBlank { "Venue to be confirmed" },
+                        color = detailColor,
+                        style = HomeSupportingTextStyle,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                EventStatusPill(
+                    label = event.status.editorialStatus(),
+                    featured = featured,
+                )
+            }
+            Icon(
+                imageVector = Icons.Outlined.ChevronRight,
+                contentDescription = "Open ${event.name}",
+                tint = contentColor,
+                modifier = Modifier.size(30.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun EventStatusPill(label: String, featured: Boolean) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = if (featured) HomeSage else HomePaper,
+        border = if (featured) null else BorderStroke(1.dp, HomeForest.copy(alpha = 0.45f)),
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 11.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(HomeForest, RoundedCornerShape(4.dp)),
+            )
+            Text(
+                text = label,
+                color = HomeForest,
+                fontFamily = HomeBodyFont,
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                letterSpacing = 0.45.sp,
+            )
+        }
+    }
+}
+
+@Composable
+private fun EventCreateButton(
+    label: String,
+    onClick: () -> Unit,
+    outlined: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(62.dp)
+            .testTag("events_create"),
+        shape = RoundedCornerShape(18.dp),
+        color = if (outlined) HomePaper else HomeForest,
+        border = BorderStroke(1.dp, HomeForest),
+        tonalElevation = 0.dp,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = "+  $label",
+                color = if (outlined) HomeForest else Color.White,
+                fontFamily = HomeBodyFont,
+                fontWeight = FontWeight.Bold,
+                fontSize = 19.sp,
+            )
+        }
+    }
+}
+
+@Composable
+private fun EventEditorialFeedback(
+    message: String,
+    isError: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = if (isError) Color(0xFFFFE6E8) else HomeSage,
+        border = BorderStroke(1.dp, if (isError) Color(0xFFE8B8BD) else HomeLine),
+    ) {
+        Text(
+            text = message,
+            modifier = Modifier.padding(14.dp),
+            style = HomeBodyStyle.copy(fontSize = 14.sp, lineHeight = 19.sp),
+            color = if (isError) Color(0xFF8A2836) else HomeInk,
+        )
+    }
+}
+
+private data class EditorialEventDate(
+    val day: String,
+    val month: String,
+)
+
+private fun Event.editorialDate(): EditorialEventDate {
+    val date = Instant.ofEpochMilli(startsAt).atZone(ZoneId.systemDefault())
+    return EditorialEventDate(
+        day = EVENT_DAY_FORMAT.format(date),
+        month = EVENT_MONTH_FORMAT.format(date).uppercase(Locale.US),
+    )
+}
+
+private fun String.editorialStatus(): String =
+    lowercase(Locale.US).replace('_', ' ').replaceFirstChar(Char::titlecase)
+
+private fun User.eventsInitials(): String =
+    displayName
+        .trim()
+        .split(Regex("\\s+"))
+        .filter(String::isNotBlank)
+        .take(2)
+        .mapNotNull { it.firstOrNull()?.uppercaseChar() }
+        .joinToString("")
+        .ifBlank { "ME" }
+
+private val EVENT_DAY_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("dd", Locale.US)
+private val EVENT_MONTH_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM", Locale.US)
+private val EventEmptyCardSurface = Color(0xFFF2F1E8)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventEditorLiveScreen(
     user: User,
@@ -588,6 +1060,7 @@ fun EventEditorLiveScreen(
     var choosingEventLocation by remember { mutableStateOf(false) }
     var startDate by rememberSaveable(eventId) { mutableStateOf("") }
     var endDate by rememberSaveable(eventId) { mutableStateOf("") }
+    var datePickerTarget by rememberSaveable(eventId) { mutableStateOf<String?>(null) }
     var submitted by rememberSaveable(eventId) { mutableStateOf(false) }
     LaunchedEffect(existing?.id) {
         existing?.let {
@@ -600,107 +1073,394 @@ fun EventEditorLiveScreen(
         }
     }
     val validation = EventFormValidation.validate(name, venue, startDate, endDate)
-    FeatureScaffold(
-        title = if (eventId == null) "Create event" else "Edit event",
-        actionLabel = "Back",
-        onAction = onBack,
-        viewModel = viewModel,
+    val action by viewModel.action.collectAsState()
+    val editorTitle = if (eventId == null) "Create an event" else "Edit event"
+    val editorSubtitle = if (eventId == null) {
+        "Set the details for a more circular gathering."
+    } else {
+        "Keep the details for your gathering up to date."
+    }
+    val editorialFieldColors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = HomeForest,
+        unfocusedBorderColor = HomeLine,
+        focusedLabelColor = HomeForest,
+        unfocusedLabelColor = HomeSupportingInk,
+        cursorColor = HomeForest,
+        focusedContainerColor = HomePaper,
+        unfocusedContainerColor = HomePaper,
+    )
+    ReEventScaffold(
         selected = TopLevelDestination.EVENTS,
         onNavigate = onNavigate,
-    ) {
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    "All fields marked * are required before the event can be saved.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = ReEventTextSecondary,
-                )
-                OutlinedTextField(
-                    name,
-                    { name = it },
-                    Modifier.fillMaxWidth(),
-                    label = { Text("Event name *") },
-                    isError = submitted && validation.nameError != null,
-                    supportingText = { if (submitted) validation.nameError?.let { message -> Text(message) } },
-                )
-                OutlinedTextField(description, { description = it }, Modifier.fillMaxWidth(), label = { Text("Description") })
-                SecondaryActionButton(
-                    text = if (geoLocation == null) "Choose event location *" else "Adjust event pin",
-                    onClick = { choosingEventLocation = true },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                geoLocation?.let {
-                    Text(
-                        "${it.displayAddress}\n${"%.6f".format(it.latitude)}, ${"%.6f".format(it.longitude)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = ReEventTextSecondary,
-                    )
-                }
-                if (submitted && geoLocation == null) {
-                    Text("Select an exact event location.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                }
-                OutlinedTextField(
-                    startDate,
-                    { startDate = it },
-                    Modifier.fillMaxWidth(),
-                    label = { Text("Start date *") },
-                    placeholder = { Text("YYYY-MM-DD") },
-                    isError = submitted && validation.startDateError != null,
-                    supportingText = { if (submitted) validation.startDateError?.let { message -> Text(message) } },
-                    singleLine = true,
-                )
-                OutlinedTextField(
-                    endDate,
-                    { endDate = it },
-                    Modifier.fillMaxWidth(),
-                    label = { Text("End date *") },
-                    placeholder = { Text("YYYY-MM-DD") },
-                    isError = submitted && validation.endDateError != null,
-                    supportingText = { if (submitted) validation.endDateError?.let { message -> Text(message) } },
-                    singleLine = true,
-                )
-                PrimaryActionButton(
-                    if (eventId == null) "Create event" else "Save changes",
-                    saveEvent@{
-                        submitted = true
-                        if (!validation.isValid || geoLocation == null) return@saveEvent
-                        val now = System.currentTimeMillis()
-                        val start = checkNotNull(EventFormValidation.parseDate(startDate))
-                        val end = checkNotNull(EventFormValidation.parseDate(endDate))
-                        val event =
-                            existing?.copy(
-                                name = name.trim(),
-                                description = description.trim(),
-                                venue = venue.trim(),
-                                geoLocation = geoLocation,
-                                startsAt = EventFormValidation.startOfDayMillis(start),
-                                endsAt = EventFormValidation.endOfDayMillis(end),
-                                updatedAt = now,
-                            ) ?: Event(
-                                UUID.randomUUID().toString(),
-                                user.id,
-                                name.trim(),
-                                description.trim(),
-                                venue.trim(),
-                                EventFormValidation.startOfDayMillis(start),
-                                EventFormValidation.endOfDayMillis(end),
-                                "DRAFT",
-                                now,
-                                now,
-                                geoLocation = geoLocation,
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(HomeCanvas),
+        ) {
+            Image(
+                painter = painterResource(R.drawable.home_paper_texture),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .alpha(0.055f),
+            )
+            Image(
+                painter = painterResource(R.drawable.home_botanical_sprig),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                alignment = Alignment.TopEnd,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .width(250.dp)
+                    .height(206.dp)
+                    .alpha(0.13f),
+            )
+            Image(
+                painter = painterResource(R.drawable.home_botanical_sprig),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                alignment = Alignment.BottomStart,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .width(230.dp)
+                    .height(188.dp)
+                    .alpha(0.08f),
+            )
+            LazyColumn(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .widthIn(max = 760.dp)
+                    .fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = 20.dp,
+                    top = padding.calculateTopPadding() + 24.dp,
+                    end = 20.dp,
+                    bottom = padding.calculateBottomPadding() + 28.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                        Surface(
+                            onClick = onBack,
+                            modifier = Modifier.size(54.dp),
+                            shape = RoundedCornerShape(27.dp),
+                            color = HomePaper.copy(alpha = 0.94f),
+                            border = BorderStroke(1.dp, HomeForest.copy(alpha = 0.7f)),
+                            tonalElevation = 0.dp,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = HomeForest,
+                                    modifier = Modifier.size(28.dp),
+                                )
+                            }
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                            Text(
+                                text = editorTitle,
+                                style = HomeGreetingStyle.copy(fontSize = 50.sp, lineHeight = 52.sp),
+                                color = HomeForest,
                             )
-                        viewModel.saveEvent(event, if (existing == null) "Event created" else "Event updated") { onSaved(it.id) }
-                    },
-                    Modifier.fillMaxWidth(),
-                )
-                if (existing != null) {
-                    Text(
-                        "Archive is available from Event details, where you can review linked resources before removing the event from active views.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = ReEventTextSecondary,
-                    )
+                            Text(
+                                text = editorSubtitle,
+                                style = HomeBodyStyle.copy(fontSize = 20.sp, lineHeight = 27.sp),
+                                color = HomeSupportingInk,
+                            )
+                        }
+                        action.error?.let { message ->
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                color = Color(0xFFFFE6E8),
+                                border = BorderStroke(1.dp, Color(0xFFE8B8BD)),
+                            ) {
+                                Text(
+                                    text = message,
+                                    modifier = Modifier.padding(14.dp),
+                                    style = HomeSupportingTextStyle,
+                                    color = Color(0xFF8A2836),
+                                )
+                            }
+                        }
+                        action.notice?.let { message ->
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                color = HomeSage,
+                                border = BorderStroke(1.dp, HomeLine),
+                            ) {
+                                Text(
+                                    text = message,
+                                    modifier = Modifier.padding(14.dp),
+                                    style = HomeSupportingTextStyle,
+                                    color = HomeInk,
+                                )
+                            }
+                        }
+                        if (action.loading) {
+                            LinearProgressIndicator(
+                                modifier = Modifier.fillMaxWidth(),
+                                color = HomeForest,
+                                trackColor = HomeSage,
+                            )
+                        }
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(26.dp),
+                            color = HomeSage.copy(alpha = 0.86f),
+                            border = BorderStroke(1.dp, HomeLine),
+                            tonalElevation = 0.dp,
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(20.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                            ) {
+                                Text(
+                                    text = "EVENT DETAILS",
+                                    style = HomeSupportingTextStyle.copy(
+                                        fontSize = 14.sp,
+                                        letterSpacing = 1.5.sp,
+                                    ),
+                                    color = HomeForest,
+                                )
+                                OutlinedTextField(
+                                    value = name,
+                                    onValueChange = { name = it },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    label = { Text("Event name *") },
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = editorialFieldColors,
+                                    isError = submitted && validation.nameError != null,
+                                    supportingText = {
+                                        if (submitted) validation.nameError?.let { message -> Text(message) }
+                                    },
+                                    singleLine = true,
+                                )
+                                OutlinedTextField(
+                                    value = description,
+                                    onValueChange = { description = it },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(142.dp),
+                                    label = { Text("Description") },
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = editorialFieldColors,
+                                )
+                                Surface(
+                                    onClick = { choosingEventLocation = true },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(64.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = HomePaper,
+                                    border = BorderStroke(1.dp, HomeLine),
+                                    tonalElevation = 0.dp,
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 18.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.LocationOn,
+                                            contentDescription = null,
+                                            tint = HomeForest,
+                                            modifier = Modifier.size(26.dp),
+                                        )
+                                        Text(
+                                            text = geoLocation?.displayAddress ?: "Event location *",
+                                            modifier = Modifier.weight(1f),
+                                            style = HomeBodyStyle,
+                                            color = HomeInk,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Outlined.ChevronRight,
+                                            contentDescription = "Choose event location",
+                                            tint = HomeForest,
+                                            modifier = Modifier.size(28.dp),
+                                        )
+                                    }
+                                }
+                                geoLocation?.let {
+                                    Text(
+                                        text = "${it.displayAddress}\n${"%.6f".format(it.latitude)}, ${"%.6f".format(it.longitude)}",
+                                        style = HomeSupportingTextStyle,
+                                        color = HomeSupportingInk,
+                                    )
+                                }
+                                if (submitted && geoLocation == null) {
+                                    Text(
+                                        text = "Select an exact event location.",
+                                        color = MaterialTheme.colorScheme.error,
+                                        style = HomeSupportingTextStyle,
+                                    )
+                                }
+                                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                                    val stackDates = maxWidth < 330.dp
+                                    if (stackDates) {
+                                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                                            EventDatePickerField(
+                                                label = "Start date *",
+                                                value = startDate,
+                                                error = if (submitted) validation.startDateError else null,
+                                                onClick = { datePickerTarget = "start" },
+                                            )
+                                            EventDatePickerField(
+                                                label = "End date *",
+                                                value = endDate,
+                                                error = if (submitted) validation.endDateError else null,
+                                                onClick = { datePickerTarget = "end" },
+                                            )
+                                        }
+                                    } else {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                            EventDatePickerField(
+                                                label = "Start date *",
+                                                value = startDate,
+                                                error = if (submitted) validation.startDateError else null,
+                                                onClick = { datePickerTarget = "start" },
+                                                modifier = Modifier.weight(1f),
+                                            )
+                                            EventDatePickerField(
+                                                label = "End date *",
+                                                value = endDate,
+                                                error = if (submitted) validation.endDateError else null,
+                                                onClick = { datePickerTarget = "end" },
+                                                modifier = Modifier.weight(1f),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Button(
+                            onClick = saveEvent@{
+                                submitted = true
+                                if (!validation.isValid || geoLocation == null) return@saveEvent
+                                val now = System.currentTimeMillis()
+                                val start = checkNotNull(EventFormValidation.parseDate(startDate))
+                                val end = checkNotNull(EventFormValidation.parseDate(endDate))
+                                val event =
+                                    existing?.copy(
+                                        name = name.trim(),
+                                        description = description.trim(),
+                                        venue = venue.trim(),
+                                        geoLocation = geoLocation,
+                                        startsAt = EventFormValidation.startOfDayMillis(start),
+                                        endsAt = EventFormValidation.endOfDayMillis(end),
+                                        updatedAt = now,
+                                    ) ?: Event(
+                                        UUID.randomUUID().toString(),
+                                        user.id,
+                                        name.trim(),
+                                        description.trim(),
+                                        venue.trim(),
+                                        EventFormValidation.startOfDayMillis(start),
+                                        EventFormValidation.endOfDayMillis(end),
+                                        "DRAFT",
+                                        now,
+                                        now,
+                                        geoLocation = geoLocation,
+                                    )
+                                viewModel.saveEvent(event, if (existing == null) "Event created" else "Event updated") { onSaved(it.id) }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(62.dp),
+                            shape = RoundedCornerShape(18.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = HomeForest,
+                                contentColor = Color.White,
+                            ),
+                        ) {
+                            Text(
+                                text = if (eventId == null) "Create event" else "Save changes",
+                                style = HomeBodyStyle.copy(fontSize = 18.sp),
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(30.dp),
+                                shape = RoundedCornerShape(15.dp),
+                                color = HomeSage,
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = "i",
+                                        color = HomeForest,
+                                        fontFamily = HomeEditorialFont,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 20.sp,
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "All fields marked * are required before the event can be saved.",
+                                modifier = Modifier.weight(1f),
+                                style = HomeSupportingTextStyle,
+                                color = HomeSupportingInk,
+                            )
+                        }
+                        if (existing != null) {
+                            Text(
+                                text = "Archive is available from Event details, where you can review linked resources before removing the event from active views.",
+                                style = HomeSupportingTextStyle,
+                                color = HomeSupportingInk,
+                            )
+                        }
+                    }
                 }
             }
+        }
+    }
+    datePickerTarget?.let { target ->
+        val selectingStartDate = target == "start"
+        val currentDateText = if (selectingStartDate) startDate else endDate
+        val initialSelectedDateMillis = EventFormValidation.parseDate(currentDateText)
+            ?.atStartOfDay(ZoneOffset.UTC)
+            ?.toInstant()
+            ?.toEpochMilli()
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialSelectedDateMillis)
+        DatePickerDialog(
+            onDismissRequest = { datePickerTarget = null },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { selectedDateMillis ->
+                            val selectedDate = Instant.ofEpochMilli(selectedDateMillis)
+                                .atZone(ZoneOffset.UTC)
+                                .toLocalDate()
+                                .toString()
+                            if (selectingStartDate) {
+                                startDate = selectedDate
+                            } else {
+                                endDate = selectedDate
+                            }
+                        }
+                        datePickerTarget = null
+                    },
+                ) {
+                    Text("Confirm")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { datePickerTarget = null }) {
+                    Text("Cancel")
+                }
+            },
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
     if (choosingEventLocation) {
@@ -715,6 +1475,66 @@ fun EventEditorLiveScreen(
             search = viewModel::searchPlaces,
             reverse = viewModel::reversePlace,
         )
+    }
+}
+
+@Composable
+private fun EventDatePickerField(
+    label: String,
+    value: String,
+    error: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(start = 4.dp),
+            style = HomeSupportingTextStyle,
+            color = if (error == null) HomeForest else MaterialTheme.colorScheme.error,
+            maxLines = 1,
+        )
+        Surface(
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(58.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = HomePaper,
+            border = BorderStroke(1.dp, if (error == null) HomeLine else MaterialTheme.colorScheme.error),
+            tonalElevation = 0.dp,
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = value.ifBlank { "YYYY-MM-DD" },
+                    modifier = Modifier.weight(1f),
+                    style = HomeSupportingTextStyle.copy(fontSize = 13.sp),
+                    color = if (value.isBlank()) HomeSupportingInk else HomeInk,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Icon(
+                    imageVector = Icons.Outlined.CalendarMonth,
+                    contentDescription = "Select $label",
+                    tint = HomeForest,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+        }
+        error?.let { message ->
+            Text(
+                text = message,
+                style = HomeSupportingTextStyle.copy(fontSize = 12.sp, lineHeight = 16.sp),
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
     }
 }
 

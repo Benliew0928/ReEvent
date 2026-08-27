@@ -101,6 +101,8 @@ import com.reevent.app.ui.theme.HomeMuted
 import com.reevent.app.ui.theme.HomePaper
 import com.reevent.app.ui.theme.HomeSage
 import com.reevent.app.ui.theme.HomeSectionTitleStyle
+import com.reevent.app.ui.theme.HomeSupportingInk
+import com.reevent.app.ui.theme.HomeSupportingTextStyle
 
 @Composable
 fun EditorialRoleHomeScreen(
@@ -266,7 +268,7 @@ private fun HomeHeader(
                 verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 Text(state.greeting, style = HomeGreetingStyle, color = HomeInk)
-                Text(state.greetingSubtitle, style = HomeBodyStyle, color = HomeMuted)
+                Text(state.greetingSubtitle, style = HomeSupportingTextStyle, color = HomeSupportingInk)
             }
             Image(
                 painter = painterResource(R.drawable.home_botanical_sprig),
@@ -526,11 +528,12 @@ private fun HeroMetric(
             text = metric.label,
             color = Color.White,
             fontFamily = HomeBodyFont,
+            fontWeight = FontWeight.SemiBold,
             fontSize = 13.sp,
             maxLines = 2,
         )
         metric.detail?.let {
-            Text(it, color = HomeGold, fontFamily = HomeBodyFont, fontSize = 12.sp)
+            Text(it, color = HomeGold, fontFamily = HomeBodyFont, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
         }
     }
 }
@@ -574,6 +577,7 @@ private fun PrioritySection(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                         color = HomeInk,
                         fontFamily = HomeBodyFont,
+                        fontWeight = FontWeight.SemiBold,
                     )
                 }
                 Spacer(Modifier.width(8.dp))
@@ -588,8 +592,8 @@ private fun PrioritySection(
                     Text(
                         "Nothing needs your attention right now.",
                         modifier = Modifier.padding(top = 16.dp, bottom = 6.dp),
-                        style = HomeBodyStyle,
-                        color = HomeMuted,
+                        style = HomeSupportingTextStyle,
+                        color = HomeSupportingInk,
                     )
                 } else {
                     priorities.forEachIndexed { index, priority ->
@@ -635,7 +639,7 @@ private fun PriorityRow(
                 )
             }
             Text(priority.title, style = HomeCardTitleStyle, color = if (enabled) HomeInk else HomeMuted)
-            Text(priority.detail, style = HomeBodyStyle, color = HomeMuted)
+            Text(priority.detail, style = HomeSupportingTextStyle, color = HomeSupportingInk)
             priority.disabledReason?.let { Text(it, style = HomeLabelStyle, color = HomeGold) }
         }
         Icon(
@@ -705,7 +709,14 @@ private fun StripMetric(
         IconBadge(icon = metric.icon, description = metric.label)
         Column {
             Text(metric.value, color = HomeInk, fontFamily = HomeEditorialFont, fontSize = 24.sp)
-            Text(metric.label, color = HomeInk, fontFamily = HomeBodyFont, fontSize = 12.sp, lineHeight = 15.sp)
+            Text(
+                metric.label,
+                color = HomeInk,
+                fontFamily = HomeBodyFont,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 12.sp,
+                lineHeight = 15.sp,
+            )
         }
     }
 }
@@ -760,10 +771,8 @@ private fun QuickLink(
             Text(link.title, color = HomeInk, fontFamily = HomeEditorialFont, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
             Text(
                 link.detail,
-                color = HomeMuted,
-                fontFamily = HomeBodyFont,
-                fontSize = 12.sp,
-                lineHeight = 15.sp,
+                color = HomeSupportingInk,
+                style = HomeSupportingTextStyle.copy(fontSize = 12.sp, lineHeight = 15.sp),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -790,7 +799,7 @@ private fun HomeEmptyPanel(
             verticalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             Text(state.title, style = HomeCardTitleStyle, color = HomeInk)
-            Text(state.detail, style = HomeBodyStyle, color = HomeMuted)
+            Text(state.detail, style = HomeSupportingTextStyle, color = HomeSupportingInk)
             TextButton(onClick = { onTarget(state.target) }) {
                 Text(state.actionLabel, color = HomeForest, fontFamily = HomeBodyFont, fontWeight = FontWeight.SemiBold)
             }

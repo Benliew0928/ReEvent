@@ -9,13 +9,10 @@ import com.reevent.app.R
 
 val HomeEditorialFont = FontFamily(
     Font(R.font.cormorant_garamond, FontWeight.Normal),
-    Font(R.font.cormorant_garamond, FontWeight.SemiBold),
 )
 
 val HomeBodyFont = FontFamily(
     Font(R.font.source_sans_3, FontWeight.Normal),
-    Font(R.font.source_sans_3, FontWeight.Medium),
-    Font(R.font.source_sans_3, FontWeight.SemiBold),
 )
 
 val HomeGreetingStyle = TextStyle(
@@ -48,14 +45,21 @@ val HomeCardTitleStyle = TextStyle(
 
 val HomeBodyStyle = TextStyle(
     fontFamily = HomeBodyFont,
-    fontWeight = FontWeight.Normal,
+    fontWeight = FontWeight.SemiBold,
     fontSize = 16.sp,
     lineHeight = 22.sp,
 )
 
-val HomeLabelStyle = TextStyle(
+val HomeSupportingTextStyle = TextStyle(
     fontFamily = HomeBodyFont,
     fontWeight = FontWeight.SemiBold,
+    fontSize = 14.sp,
+    lineHeight = 20.sp,
+)
+
+val HomeLabelStyle = TextStyle(
+    fontFamily = HomeBodyFont,
+    fontWeight = FontWeight.Bold,
     fontSize = 12.sp,
     lineHeight = 16.sp,
     letterSpacing = 0.7.sp,

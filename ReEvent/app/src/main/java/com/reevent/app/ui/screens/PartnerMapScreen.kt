@@ -112,6 +112,8 @@ import com.reevent.app.ui.theme.HomeLine
 import com.reevent.app.ui.theme.HomeMuted
 import com.reevent.app.ui.theme.HomePaper
 import com.reevent.app.ui.theme.HomeSage
+import com.reevent.app.ui.theme.HomeSupportingInk
+import com.reevent.app.ui.theme.HomeSupportingTextStyle
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.camera.CameraPosition
@@ -400,7 +402,7 @@ private fun EditorialMapHeader(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = HomeForest)
-                Text(mapScopeLabel, style = HomeBodyStyle, color = HomeMuted)
+                Text(mapScopeLabel, style = HomeSupportingTextStyle, color = HomeSupportingInk)
             }
             Surface(
                 onClick = onProfile,
@@ -426,7 +428,7 @@ private fun EditorialMapHeader(
             verticalArrangement = Arrangement.spacedBy(5.dp),
         ) {
             Text(title, style = HomeHeroTitleStyle, color = HomeInk)
-            Text(subtitle, style = HomeBodyStyle, color = HomeMuted)
+            Text(subtitle, style = HomeSupportingTextStyle, color = HomeSupportingInk)
         }
         Image(
             painter = painterResource(botanicalRes),
@@ -726,7 +728,7 @@ private fun ParticipantMapSummary(
                     Text(candidate.programme.name, color = HomeInk, style = HomeCardTitleStyle)
                 }
             }
-            Text(candidate.summaryLabel(), color = HomeMuted, style = HomeBodyStyle)
+            Text(candidate.summaryLabel(), color = HomeSupportingInk, style = HomeSupportingTextStyle)
             Button(
                 onClick = { onSelect(candidate) },
                 modifier = Modifier.fillMaxWidth(),
@@ -1050,7 +1052,8 @@ private fun PartnerCandidateCard(
             Text(programme.name, style = HomeCardTitleStyle, color = HomeInk)
             Text(
                 candidate.summaryLabel(),
-                color = HomeMuted,
+                color = HomeSupportingInk,
+                style = HomeSupportingTextStyle,
             )
             Text(programme.geoLocation?.displayAddress ?: programme.location, maxLines = 2, color = HomeInk)
             if (candidate.reasons.isNotEmpty()) Text(candidate.reasons.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
@@ -1093,7 +1096,7 @@ fun PartnerCandidateDetailDialog(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(programme.name, style = HomeCardTitleStyle, color = HomeInk)
-            Text(candidate.summaryLabel(), color = HomeMuted, style = HomeBodyStyle)
+            Text(candidate.summaryLabel(), color = HomeSupportingInk, style = HomeSupportingTextStyle)
             Text(programme.geoLocation?.displayAddress ?: programme.location, color = ReEventTextSecondary)
             HorizontalDivider(color = HomeLine)
             AcceptedRules(programme)
