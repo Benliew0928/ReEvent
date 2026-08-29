@@ -17,16 +17,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChevronRight
-import androidx.compose.material.icons.automirrored.outlined.Logout
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -61,12 +56,22 @@ import com.reevent.app.core.model.User
 import com.reevent.app.ui.TopLevelDestination
 import com.reevent.app.ui.components.ReEventScaffold
 import com.reevent.app.ui.components.SyncQueueCard
+import com.reevent.app.ui.theme.HomeForest
+import com.reevent.app.ui.theme.HomeMist
 import com.reevent.app.ui.theme.ReEventCoral
-import com.reevent.app.ui.theme.ReEventGreen
 import com.reevent.app.ui.theme.ReEventInk
 import com.reevent.app.ui.theme.ReEventLine
-import com.reevent.app.ui.theme.ReEventSurface
 import com.reevent.app.ui.theme.ReEventTextSecondary
+
+enum class ProfileSubScreen {
+    PERSONAL_INFO,
+    ACCOUNT_INFO,
+    ACCOUNT_SECURITY,
+    PUSH_NOTIFICATIONS,
+    EMAIL_NOTIFICATIONS,
+    HELP,
+    ABOUT,
+}
 
 @Composable
 fun ProfileFlowScreen(
@@ -78,14 +83,7 @@ fun ProfileFlowScreen(
 ) {
     var passwordResetMode by rememberSaveable { mutableStateOf(false) }
     var accountDeletionVisible by rememberSaveable { mutableStateOf(false) }
-
-    var showPersonalInfoDialog by rememberSaveable { mutableStateOf(false) }
-    var showAccountInfoDialog by rememberSaveable { mutableStateOf(false) }
-    var showSecurityDialog by rememberSaveable { mutableStateOf(false) }
-    var showPushDialog by rememberSaveable { mutableStateOf(false) }
-    var showEmailDialog by rememberSaveable { mutableStateOf(false) }
-    var showHelpDialog by rememberSaveable { mutableStateOf(false) }
-    var showAboutDialog by rememberSaveable { mutableStateOf(false) }
+    var activeSubScreen by rememberSaveable { mutableStateOf<ProfileSubScreen?>(null) }
 
     val authState by viewModel.state.collectAsState()
     val syncCommands by syncViewModel.pendingSyncCommands().collectAsState(emptyList())
@@ -112,37 +110,47 @@ fun ProfileFlowScreen(
         )
     }
 
-    if (showPersonalInfoDialog) {
-        PersonalInfoDialog(user = user, onDismiss = { showPersonalInfoDialog = false })
-    }
-    if (showAccountInfoDialog) {
-        AccountInfoDialog(user = user, onDismiss = { showAccountInfoDialog = false })
-    }
-    if (showSecurityDialog) {
-        AccountSecurityDialog(
-            user = user,
-            onResetPassword = {
-                viewModel.clearFeedback()
-                passwordResetMode = true
-            },
-            onDeleteAccount = {
-                viewModel.clearFeedback()
-                accountDeletionVisible = true
-            },
-            onDismiss = { showSecurityDialog = false },
-        )
-    }
-    if (showPushDialog) {
-        PushNotificationDialog(onDismiss = { showPushDialog = false })
-    }
-    if (showEmailDialog) {
-        EmailNotificationDialog(onDismiss = { showEmailDialog = false })
-    }
-    if (showHelpDialog) {
-        HelpDialog(onDismiss = { showHelpDialog = false })
-    }
-    if (showAboutDialog) {
-        AboutDialog(onDismiss = { showAboutDialog = false })
+    when (activeSubScreen) {
+        ProfileSubScreen.PERSONAL_INFO -> {
+            PersonalInfoScreen(user = user, onBack = { activeSubScreen = null })
+            return
+        }
+        ProfileSubScreen.ACCOUNT_INFO -> {
+            AccountInfoScreen(user = user, onBack = { activeSubScreen = null })
+            return
+        }
+        ProfileSubScreen.ACCOUNT_SECURITY -> {
+            AccountSecurityScreen(
+                user = user,
+                onResetPassword = {
+                    viewModel.clearFeedback()
+                    passwordResetMode = true
+                },
+                onDeleteAccount = {
+                    viewModel.clearFeedback()
+                    accountDeletionVisible = true
+                },
+                onBack = { activeSubScreen = null },
+            )
+            return
+        }
+        ProfileSubScreen.PUSH_NOTIFICATIONS -> {
+            PushNotificationScreen(onBack = { activeSubScreen = null })
+            return
+        }
+        ProfileSubScreen.EMAIL_NOTIFICATIONS -> {
+            EmailNotificationScreen(onBack = { activeSubScreen = null })
+            return
+        }
+        ProfileSubScreen.HELP -> {
+            HelpScreen(onBack = { activeSubScreen = null })
+            return
+        }
+        ProfileSubScreen.ABOUT -> {
+            AboutScreen(onBack = { activeSubScreen = null })
+            return
+        }
+        null -> {}
     }
 
     ReEventScaffold(selected = TopLevelDestination.ACCOUNT, onNavigate = onNavigate) { padding ->
@@ -185,17 +193,17 @@ fun ProfileFlowScreen(
             AccountCard {
                 ProfileNavigationRow(
                     title = "Personal Information",
-                    onClick = { showPersonalInfoDialog = true },
+                    onClick = { activeSubScreen = ProfileSubScreen.PERSONAL_INFO },
                 )
                 HorizontalDivider(color = ReEventLine)
                 ProfileNavigationRow(
                     title = "Account Information",
-                    onClick = { showAccountInfoDialog = true },
+                    onClick = { activeSubScreen = ProfileSubScreen.ACCOUNT_INFO },
                 )
                 HorizontalDivider(color = ReEventLine)
                 ProfileNavigationRow(
                     title = "Account Security",
-                    onClick = { showSecurityDialog = true },
+                    onClick = { activeSubScreen = ProfileSubScreen.ACCOUNT_SECURITY },
                 )
             }
 
@@ -204,12 +212,12 @@ fun ProfileFlowScreen(
             AccountCard {
                 ProfileNavigationRow(
                     title = "Push Notification",
-                    onClick = { showPushDialog = true },
+                    onClick = { activeSubScreen = ProfileSubScreen.PUSH_NOTIFICATIONS },
                 )
                 HorizontalDivider(color = ReEventLine)
                 ProfileNavigationRow(
                     title = "Email Notification",
-                    onClick = { showEmailDialog = true },
+                    onClick = { activeSubScreen = ProfileSubScreen.EMAIL_NOTIFICATIONS },
                 )
             }
 
@@ -218,12 +226,12 @@ fun ProfileFlowScreen(
             AccountCard {
                 ProfileNavigationRow(
                     title = "Help",
-                    onClick = { showHelpDialog = true },
+                    onClick = { activeSubScreen = ProfileSubScreen.HELP },
                 )
                 HorizontalDivider(color = ReEventLine)
                 ProfileNavigationRow(
                     title = "About",
-                    onClick = { showAboutDialog = true },
+                    onClick = { activeSubScreen = ProfileSubScreen.ABOUT },
                 )
             }
 
@@ -248,8 +256,6 @@ fun ProfileFlowScreen(
                 border = BorderStroke(1.5.dp, ReEventCoral),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = ReEventCoral),
             ) {
-                Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
                 Text(
                     text = "Sign Out",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -260,14 +266,15 @@ fun ProfileFlowScreen(
 }
 
 @Composable
-private fun ProfileSectionLabel(text: String) {
+private fun ProfileSectionLabel(title: String) {
     Text(
-        text = text,
+        text = title,
         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
         color = ReEventInk,
-        modifier = Modifier.padding(top = 4.dp),
+        modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
     )
 }
+
 
 @Composable
 private fun ProfileNavigationRow(
@@ -330,7 +337,6 @@ private fun AccountDeletionDialog(
                         submitted = false
                     },
                     label = "Type DELETE MY ACCOUNT",
-                    icon = { Icon(Icons.Outlined.Info, contentDescription = null) },
                     keyboardType = KeyboardType.Text,
                     imeAction = ImeAction.Next,
                     isError = submitted && validation.confirmationError != null,
@@ -343,7 +349,6 @@ private fun AccountDeletionDialog(
                         submitted = false
                     },
                     label = "Current password",
-                    icon = { Icon(Icons.Outlined.Lock, contentDescription = null) },
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done,
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),

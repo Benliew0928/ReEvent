@@ -1,34 +1,18 @@
 package com.reevent.app.ui.screens
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.DeleteForever
-import androidx.compose.material.icons.outlined.Email
-import androidx.compose.material.icons.outlined.HelpOutline
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Phone
-import androidx.compose.material.icons.outlined.Security
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -37,7 +21,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,46 +29,36 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import com.reevent.app.core.model.User
 import com.reevent.app.ui.theme.HomeForest
-import com.reevent.app.ui.theme.HomeLine
 import com.reevent.app.ui.theme.HomeMist
-import com.reevent.app.ui.theme.HomePaper
 import com.reevent.app.ui.theme.ReEventCoral
-import com.reevent.app.ui.theme.ReEventGreen
-import com.reevent.app.ui.theme.ReEventGreenDeep
 import com.reevent.app.ui.theme.ReEventInk
 import com.reevent.app.ui.theme.ReEventLine
 import com.reevent.app.ui.theme.ReEventTextSecondary
 
 @Composable
-fun PersonalInfoDialog(
+fun PersonalInfoScreen(
     user: User,
-    onDismiss: () -> Unit,
+    onBack: () -> Unit,
 ) {
     var name by rememberSaveable { mutableStateOf(user.displayName) }
     var phone by rememberSaveable { mutableStateOf("+60 12-345 6789") }
     var savedMessage by remember { mutableStateOf(false) }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            color = HomePaper,
-            tonalElevation = 6.dp,
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                DialogHeader(title = "Personal Information", onDismiss = onDismiss)
-
+    AccountScaffold(
+        eyebrow = "ACCOUNT SETTINGS",
+        title = "Personal Information",
+        subtitle = "Update your full name and contact phone number.",
+        onBack = onBack,
+    ) {
+        AccountCard {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = {
@@ -93,7 +66,6 @@ fun PersonalInfoDialog(
                         savedMessage = false
                     },
                     label = { Text("Full Name") },
-                    leadingIcon = { Icon(Icons.Outlined.Person, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -109,8 +81,7 @@ fun PersonalInfoDialog(
                         savedMessage = false
                     },
                     label = { Text("Phone Number") },
-                    leadingIcon = { Icon(Icons.Outlined.Phone, contentDescription = null) },
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -142,23 +113,18 @@ fun PersonalInfoDialog(
 }
 
 @Composable
-fun AccountInfoDialog(
+fun AccountInfoScreen(
     user: User,
-    onDismiss: () -> Unit,
+    onBack: () -> Unit,
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            color = HomePaper,
-            tonalElevation = 6.dp,
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                DialogHeader(title = "Account Information", onDismiss = onDismiss)
-
+    AccountScaffold(
+        eyebrow = "ACCOUNT SETTINGS",
+        title = "Account Information",
+        subtitle = "View your account role, registered email, and active workspace.",
+        onBack = onBack,
+    ) {
+        AccountCard {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 InfoRow(label = "Account Role", value = "${roleLabel(requireNotNull(user.role))} Workspace")
                 HorizontalDivider(color = ReEventLine)
                 InfoRow(label = "Registered Email", value = user.email)
@@ -166,84 +132,56 @@ fun AccountInfoDialog(
                 InfoRow(label = "Account ID", value = user.id)
                 HorizontalDivider(color = ReEventLine)
                 InfoRow(label = "Status", value = "Verified Active")
-
-                Spacer(Modifier.height(4.dp))
-
-                TextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Close", color = HomeForest, fontWeight = FontWeight.Bold)
-                }
             }
         }
     }
 }
 
 @Composable
-fun AccountSecurityDialog(
+fun AccountSecurityScreen(
     user: User,
     onResetPassword: () -> Unit,
     onDeleteAccount: () -> Unit,
-    onDismiss: () -> Unit,
+    onBack: () -> Unit,
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            color = HomePaper,
-            tonalElevation = 6.dp,
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                DialogHeader(title = "Account Security", onDismiss = onDismiss)
-
+    AccountScaffold(
+        eyebrow = "ACCOUNT SETTINGS",
+        title = "Account Security",
+        subtitle = "Manage your account authentication and security settings.",
+        onBack = onBack,
+    ) {
+        AccountCard {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Surface(
                     shape = RoundedCornerShape(16.dp),
                     color = HomeMist,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        Icon(Icons.Outlined.Security, contentDescription = null, tint = HomeForest)
-                        Column {
-                            Text("Security Status", style = MaterialTheme.typography.titleSmall, color = ReEventInk)
-                            Text("Password and auth token protected", style = MaterialTheme.typography.bodySmall, color = ReEventTextSecondary)
-                        }
+                        Text("Security Status", style = MaterialTheme.typography.titleSmall, color = ReEventInk)
+                        Text("Password and auth token protected", style = MaterialTheme.typography.bodySmall, color = ReEventTextSecondary)
                     }
                 }
 
                 Button(
-                    onClick = {
-                        onDismiss()
-                        onResetPassword()
-                    },
+                    onClick = onResetPassword,
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = HomeForest, contentColor = Color.White),
                 ) {
-                    Icon(Icons.Outlined.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
                     Text("Reset Password", fontWeight = FontWeight.Bold)
                 }
 
                 OutlinedButton(
-                    onClick = {
-                        onDismiss()
-                        onDeleteAccount()
-                    },
+                    onClick = onDeleteAccount,
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, ReEventCoral),
+                    border = BorderStroke(1.dp, ReEventCoral),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = ReEventCoral),
                 ) {
-                    Icon(Icons.Outlined.DeleteForever, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
                     Text("Delete Account", fontWeight = FontWeight.Bold)
                 }
             }
@@ -252,27 +190,22 @@ fun AccountSecurityDialog(
 }
 
 @Composable
-fun PushNotificationDialog(
-    onDismiss: () -> Unit,
+fun PushNotificationScreen(
+    onBack: () -> Unit,
 ) {
     var eventUpdates by rememberSaveable { mutableStateOf(true) }
     var handovers by rememberSaveable { mutableStateOf(true) }
     var matchAlerts by rememberSaveable { mutableStateOf(true) }
     var allMuted by rememberSaveable { mutableStateOf(false) }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            color = HomePaper,
-            tonalElevation = 6.dp,
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                DialogHeader(title = "Push Notifications", onDismiss = onDismiss)
-
+    AccountScaffold(
+        eyebrow = "PREFERENCES",
+        title = "Push Notifications",
+        subtitle = "Configure push notification categories and instant alerts.",
+        onBack = onBack,
+    ) {
+        AccountCard {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 ToggleRow(
                     title = "Event updates",
                     subtitle = "Notifications for event milestones & changes",
@@ -332,24 +265,19 @@ fun PushNotificationDialog(
 }
 
 @Composable
-fun EmailNotificationDialog(
-    onDismiss: () -> Unit,
+fun EmailNotificationScreen(
+    onBack: () -> Unit,
 ) {
     var receiveMarketing by rememberSaveable { mutableStateOf(false) }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            color = HomePaper,
-            tonalElevation = 6.dp,
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                DialogHeader(title = "Email Notifications", onDismiss = onDismiss)
-
+    AccountScaffold(
+        eyebrow = "PREFERENCES",
+        title = "Email Notifications",
+        subtitle = "Manage newsletter and marketing email preferences.",
+        onBack = onBack,
+    ) {
+        AccountCard {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 ToggleRow(
                     title = "Marketing & Newsletters",
                     subtitle = "Receive circular economy updates, feature announcements and newsletters via email.",
@@ -357,10 +285,8 @@ fun EmailNotificationDialog(
                     onCheckedChange = { receiveMarketing = it },
                 )
 
-                Spacer(Modifier.height(8.dp))
-
                 Button(
-                    onClick = onDismiss,
+                    onClick = onBack,
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = HomeForest, contentColor = Color.White),
@@ -373,125 +299,58 @@ fun EmailNotificationDialog(
 }
 
 @Composable
-fun HelpDialog(
-    onDismiss: () -> Unit,
+fun HelpScreen(
+    onBack: () -> Unit,
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            color = HomePaper,
-            tonalElevation = 6.dp,
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                DialogHeader(title = "Help & Support", onDismiss = onDismiss)
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(
-                        modifier = Modifier.size(40.dp).clip(CircleShape).background(HomeMist),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(Icons.Outlined.HelpOutline, contentDescription = null, tint = HomeForest)
-                    }
-                    Text("Need support?", style = MaterialTheme.typography.titleMedium, color = ReEventInk)
-                }
-
+    AccountScaffold(
+        eyebrow = "SUPPORT",
+        title = "Help & Support",
+        subtitle = "Instructions and support contacts for ReEvent users.",
+        onBack = onBack,
+    ) {
+        AccountCard {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text("Need support?", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = ReEventInk)
                 Text(
                     text = "For this assignment build, contact the ReEvent project team through your course or team support channel. Include your account email, device details and a screenshot. Never send a password or reset link.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = ReEventTextSecondary,
                 )
-
                 HorizontalDivider(color = ReEventLine)
-
                 Text(
                     text = "This demo stores only the account and workflow data required for circular event management. ReCoins are assignment-only points with no cash value.",
                     style = MaterialTheme.typography.bodySmall,
                     color = ReEventTextSecondary,
                 )
-
-                TextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Got it", color = HomeForest, fontWeight = FontWeight.Bold)
-                }
             }
         }
     }
 }
 
 @Composable
-fun AboutDialog(
-    onDismiss: () -> Unit,
+fun AboutScreen(
+    onBack: () -> Unit,
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            color = HomePaper,
-            tonalElevation = 6.dp,
-        ) {
+    AccountScaffold(
+        eyebrow = "SUPPORT",
+        title = "About ReEvent",
+        subtitle = "Circular economy mobile solution for sustainable event management.",
+        onBack = onBack,
+    ) {
+        AccountCard {
             Column(
-                modifier = Modifier.padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("About ReEvent", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = ReEventInk)
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Outlined.Close, contentDescription = "Close", tint = ReEventInk)
-                    }
-                }
-
-                Box(
-                    modifier = Modifier.size(64.dp).clip(CircleShape).background(HomeMist),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Outlined.Info, contentDescription = null, tint = HomeForest, modifier = Modifier.size(32.dp))
-                }
-
-                Text("ReEvent Platform", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = ReEventInk)
+                Text("ReEvent Platform", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = ReEventInk)
                 Text("Version 1.0.0 (Build 2026)", style = MaterialTheme.typography.labelMedium, color = ReEventTextSecondary)
-
                 Text(
                     text = "ReEvent is a circular economy mobile solution designed for sustainable event management. It facilitates event resource passporting, material reuse, repair matching, and waste diversion proof.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = ReEventTextSecondary,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    textAlign = TextAlign.Center,
                 )
-
-                TextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Close", color = HomeForest, fontWeight = FontWeight.Bold)
-                }
             }
-        }
-    }
-}
-
-@Composable
-private fun DialogHeader(title: String, onDismiss: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(title, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = ReEventInk)
-        IconButton(onClick = onDismiss, modifier = Modifier.size(36.dp)) {
-            Icon(Icons.Outlined.Close, contentDescription = "Close", tint = ReEventInk)
         }
     }
 }

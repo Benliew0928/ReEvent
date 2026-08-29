@@ -138,7 +138,7 @@ internal fun AccountTextField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
-    icon: @Composable () -> Unit,
+    icon: @Composable (() -> Unit)? = null,
     keyboardType: KeyboardType,
     imeAction: ImeAction,
     visualTransformation: VisualTransformation = VisualTransformation.None,
