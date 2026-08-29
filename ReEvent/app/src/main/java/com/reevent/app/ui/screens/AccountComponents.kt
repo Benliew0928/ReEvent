@@ -69,9 +69,10 @@ import com.reevent.app.ui.theme.ReEventTextSecondary
 
 @Composable
 internal fun AccountScaffold(
-    eyebrow: String,
     title: String,
     subtitle: String,
+    eyebrow: String? = null,
+    headerTitle: String = "Profile",
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
@@ -103,13 +104,15 @@ internal fun AccountScaffold(
                         Spacer(Modifier.width(12.dp))
                     }
                     Text(
-                        text = "Profile",
+                        text = headerTitle,
                         style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                         color = ReEventInk,
                     )
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(eyebrow, style = MaterialTheme.typography.labelLarge, color = ReEventGreen, fontWeight = FontWeight.Bold)
+                    if (!eyebrow.isNullOrBlank()) {
+                        Text(eyebrow, style = MaterialTheme.typography.labelLarge, color = ReEventGreen, fontWeight = FontWeight.Bold)
+                    }
                     Text(title, style = MaterialTheme.typography.displaySmall, color = ReEventInk)
                     Text(subtitle, style = MaterialTheme.typography.bodyLarge, color = ReEventTextSecondary)
                 }

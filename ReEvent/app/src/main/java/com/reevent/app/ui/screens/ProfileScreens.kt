@@ -155,8 +155,8 @@ fun ProfileFlowScreen(
 
     ReEventScaffold(selected = TopLevelDestination.ACCOUNT, onNavigate = onNavigate) { padding ->
         AccountScaffold(
-            eyebrow = "ACCOUNT SETTINGS",
-            title = "Overview",
+            headerTitle = "Profile",
+            title = "Profile",
             subtitle = "Manage your personal details, preferences, and account security.",
             onBack = onBack,
             modifier = Modifier.padding(padding),

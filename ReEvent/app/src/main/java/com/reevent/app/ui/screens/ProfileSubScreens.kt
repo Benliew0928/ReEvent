@@ -52,7 +52,7 @@ fun PersonalInfoScreen(
     var savedMessage by remember { mutableStateOf(false) }
 
     AccountScaffold(
-        eyebrow = "ACCOUNT SETTINGS",
+        headerTitle = "Personal Information",
         title = "Personal Information",
         subtitle = "Update your full name and contact phone number.",
         onBack = onBack,
@@ -118,7 +118,7 @@ fun AccountInfoScreen(
     onBack: () -> Unit,
 ) {
     AccountScaffold(
-        eyebrow = "ACCOUNT SETTINGS",
+        headerTitle = "Account Information",
         title = "Account Information",
         subtitle = "View your account role, registered email, and active workspace.",
         onBack = onBack,
@@ -145,7 +145,7 @@ fun AccountSecurityScreen(
     onBack: () -> Unit,
 ) {
     AccountScaffold(
-        eyebrow = "ACCOUNT SETTINGS",
+        headerTitle = "Account Security",
         title = "Account Security",
         subtitle = "Manage your account authentication and security settings.",
         onBack = onBack,
@@ -199,8 +199,8 @@ fun PushNotificationScreen(
     var allMuted by rememberSaveable { mutableStateOf(false) }
 
     AccountScaffold(
-        eyebrow = "PREFERENCES",
-        title = "Push Notifications",
+        headerTitle = "Push Notification",
+        title = "Push Notification",
         subtitle = "Configure push notification categories and instant alerts.",
         onBack = onBack,
     ) {
@@ -271,8 +271,8 @@ fun EmailNotificationScreen(
     var receiveMarketing by rememberSaveable { mutableStateOf(false) }
 
     AccountScaffold(
-        eyebrow = "PREFERENCES",
-        title = "Email Notifications",
+        headerTitle = "Email Notification",
+        title = "Email Notification",
         subtitle = "Manage newsletter and marketing email preferences.",
         onBack = onBack,
     ) {
@@ -303,8 +303,8 @@ fun HelpScreen(
     onBack: () -> Unit,
 ) {
     AccountScaffold(
-        eyebrow = "SUPPORT",
-        title = "Help & Support",
+        headerTitle = "Help",
+        title = "Help",
         subtitle = "Instructions and support contacts for ReEvent users.",
         onBack = onBack,
     ) {
@@ -332,8 +332,8 @@ fun AboutScreen(
     onBack: () -> Unit,
 ) {
     AccountScaffold(
-        eyebrow = "SUPPORT",
-        title = "About ReEvent",
+        headerTitle = "About",
+        title = "About",
         subtitle = "Circular economy mobile solution for sustainable event management.",
         onBack = onBack,
     ) {
