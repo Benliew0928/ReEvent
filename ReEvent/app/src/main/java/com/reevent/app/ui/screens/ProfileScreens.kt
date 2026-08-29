@@ -12,45 +12,29 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChevronRight
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.VisibilityOff
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.reevent.app.core.auth.AccountDeletionRules
-import com.reevent.app.core.auth.AuthUiState
 import com.reevent.app.core.auth.AuthViewModel
 import com.reevent.app.core.model.User
 import com.reevent.app.ui.TopLevelDestination
@@ -65,8 +49,12 @@ import com.reevent.app.ui.theme.ReEventTextSecondary
 
 enum class ProfileSubScreen {
     PERSONAL_INFO,
+    EDIT_NAME,
+    EDIT_PHONE,
+    EDIT_GENDER,
     ACCOUNT_INFO,
     ACCOUNT_SECURITY,
+    DELETE_ACCOUNT,
     PUSH_NOTIFICATIONS,
     EMAIL_NOTIFICATIONS,
     HELP,
@@ -82,8 +70,11 @@ fun ProfileFlowScreen(
     syncViewModel: FeatureViewModel = hiltViewModel(),
 ) {
     var passwordResetMode by rememberSaveable { mutableStateOf(false) }
-    var accountDeletionVisible by rememberSaveable { mutableStateOf(false) }
     var activeSubScreen by rememberSaveable { mutableStateOf<ProfileSubScreen?>(null) }
+
+    var userDisplayName by rememberSaveable { mutableStateOf(user.displayName) }
+    var userPhone by rememberSaveable { mutableStateOf<String?>(null) }
+    var userGender by rememberSaveable { mutableStateOf<String?>(null) }
 
     val authState by viewModel.state.collectAsState()
     val syncCommands by syncViewModel.pendingSyncCommands().collectAsState(emptyList())
@@ -101,18 +92,50 @@ fun ProfileFlowScreen(
         return
     }
 
-    if (accountDeletionVisible) {
-        AccountDeletionDialog(
-            email = user.email,
-            state = authState,
-            onDismiss = { accountDeletionVisible = false },
-            onSubmit = viewModel::deleteAccount,
-        )
-    }
-
     when (activeSubScreen) {
         ProfileSubScreen.PERSONAL_INFO -> {
-            PersonalInfoScreen(user = user, onBack = { activeSubScreen = null })
+            PersonalInfoScreen(
+                userDisplayName = userDisplayName,
+                phoneNumber = userPhone,
+                gender = userGender,
+                onEditName = { activeSubScreen = ProfileSubScreen.EDIT_NAME },
+                onEditPhone = { activeSubScreen = ProfileSubScreen.EDIT_PHONE },
+                onEditGender = { activeSubScreen = ProfileSubScreen.EDIT_GENDER },
+                onBack = { activeSubScreen = null },
+            )
+            return
+        }
+        ProfileSubScreen.EDIT_NAME -> {
+            EditNameScreen(
+                currentName = userDisplayName,
+                onSave = {
+                    userDisplayName = it
+                    activeSubScreen = ProfileSubScreen.PERSONAL_INFO
+                },
+                onBack = { activeSubScreen = ProfileSubScreen.PERSONAL_INFO },
+            )
+            return
+        }
+        ProfileSubScreen.EDIT_PHONE -> {
+            EditPhoneScreen(
+                currentPhone = userPhone,
+                onSave = {
+                    userPhone = it
+                    activeSubScreen = ProfileSubScreen.PERSONAL_INFO
+                },
+                onBack = { activeSubScreen = ProfileSubScreen.PERSONAL_INFO },
+            )
+            return
+        }
+        ProfileSubScreen.EDIT_GENDER -> {
+            EditGenderScreen(
+                currentGender = userGender,
+                onSave = {
+                    userGender = it
+                    activeSubScreen = ProfileSubScreen.PERSONAL_INFO
+                },
+                onBack = { activeSubScreen = ProfileSubScreen.PERSONAL_INFO },
+            )
             return
         }
         ProfileSubScreen.ACCOUNT_INFO -> {
@@ -128,9 +151,18 @@ fun ProfileFlowScreen(
                 },
                 onDeleteAccount = {
                     viewModel.clearFeedback()
-                    accountDeletionVisible = true
+                    activeSubScreen = ProfileSubScreen.DELETE_ACCOUNT
                 },
                 onBack = { activeSubScreen = null },
+            )
+            return
+        }
+        ProfileSubScreen.DELETE_ACCOUNT -> {
+            DeleteAccountScreen(
+                email = user.email,
+                state = authState,
+                onBack = { activeSubScreen = ProfileSubScreen.ACCOUNT_SECURITY },
+                onSubmit = viewModel::deleteAccount,
             )
             return
         }
@@ -156,7 +188,6 @@ fun ProfileFlowScreen(
     ReEventScaffold(selected = TopLevelDestination.ACCOUNT, onNavigate = onNavigate) { padding ->
         AccountScaffold(
             headerTitle = "Profile",
-            title = "Profile",
             subtitle = "Manage your personal details, preferences, and account security.",
             onBack = onBack,
             modifier = Modifier.padding(padding),
@@ -167,13 +198,26 @@ fun ProfileFlowScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    Avatar(user.displayName)
+                    val initials = userDisplayName.trim().split(" ").take(2).mapNotNull { it.firstOrNull()?.uppercase() }.joinToString("")
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(HomeMist),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = initials.ifBlank { "U" },
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = HomeForest,
+                        )
+                    }
                     Column(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         Text(
-                            text = user.displayName,
+                            text = userDisplayName,
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                             color = ReEventInk,
                         )
@@ -275,7 +319,6 @@ private fun ProfileSectionLabel(title: String) {
     )
 }
 
-
 @Composable
 private fun ProfileNavigationRow(
     title: String,
@@ -301,110 +344,4 @@ private fun ProfileNavigationRow(
             modifier = Modifier.size(20.dp),
         )
     }
-}
-
-@Composable
-private fun AccountDeletionDialog(
-    email: String,
-    state: AuthUiState,
-    onDismiss: () -> Unit,
-    onSubmit: (String) -> Unit,
-) {
-    var confirmationPhrase by remember { mutableStateOf("") }
-    var currentPassword by remember { mutableStateOf("") }
-    var passwordVisible by rememberSaveable { mutableStateOf(false) }
-    var submitted by rememberSaveable { mutableStateOf(false) }
-    val validation = AccountDeletionRules.validate(confirmationPhrase, currentPassword)
-
-    AlertDialog(
-        onDismissRequest = { if (!state.loading) onDismiss() },
-        title = { Text("Delete this account?") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    "This permanently removes the sign-in for $email and clears private media stored under this account. It cannot be undone.",
-                    color = ReEventTextSecondary,
-                )
-                Text(
-                    "Completed workflow history may be retained with your account identity de-identified. You cannot delete while you have active transactions, resources, listings, programmes, or unsettled holds.",
-                    color = ReEventTextSecondary,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                AccountTextField(
-                    value = confirmationPhrase,
-                    onValueChange = {
-                        confirmationPhrase = it
-                        submitted = false
-                    },
-                    label = "Type DELETE MY ACCOUNT",
-                    keyboardType = KeyboardType.Text,
-                    imeAction = ImeAction.Next,
-                    isError = submitted && validation.confirmationError != null,
-                    supportingText = if (submitted) validation.confirmationError else null,
-                )
-                AccountTextField(
-                    value = currentPassword,
-                    onValueChange = {
-                        currentPassword = it
-                        submitted = false
-                    },
-                    label = "Current password",
-                    keyboardType = KeyboardType.Password,
-                    imeAction = ImeAction.Done,
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(
-                                imageVector = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                                contentDescription = if (passwordVisible) "Hide password" else "Show password",
-                            )
-                        }
-                    },
-                    isError = submitted && validation.passwordError != null,
-                    supportingText = if (submitted) validation.passwordError else null,
-                )
-                state.accountDeletionBlocked?.let { blocked ->
-                    Text(blocked.userMessage, color = ReEventCoral, style = MaterialTheme.typography.bodySmall)
-                }
-                if (state.accountDeletionReauthenticationRequired) {
-                    Text(
-                        "That password did not re-authenticate this account.",
-                        color = ReEventCoral,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                if (state.passwordReauthenticationUnavailable) {
-                    Text(
-                        "Password re-authentication is unavailable for this sign-in provider. Contact the ReEvent project team for account removal.",
-                        color = ReEventCoral,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                if (state.error != null) {
-                    Text(errorText(state.error), color = ReEventCoral, style = MaterialTheme.typography.bodySmall)
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !state.loading) { Text("Cancel") }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    submitted = true
-                    if (validation.isValid) onSubmit(currentPassword)
-                },
-                enabled = !state.loading,
-                colors = ButtonDefaults.buttonColors(containerColor = ReEventCoral, contentColor = Color.White),
-            ) {
-                if (state.loading) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Deleting")
-                } else {
-                    Text("Delete account")
-                }
-            }
-        },
-    )
 }

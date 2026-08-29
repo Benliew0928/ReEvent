@@ -69,8 +69,8 @@ import com.reevent.app.ui.theme.ReEventTextSecondary
 
 @Composable
 internal fun AccountScaffold(
-    title: String,
-    subtitle: String,
+    title: String? = null,
+    subtitle: String? = null,
     eyebrow: String? = null,
     headerTitle: String = "Profile",
     modifier: Modifier = Modifier,
@@ -109,12 +109,18 @@ internal fun AccountScaffold(
                         color = ReEventInk,
                     )
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (!eyebrow.isNullOrBlank()) {
-                        Text(eyebrow, style = MaterialTheme.typography.labelLarge, color = ReEventGreen, fontWeight = FontWeight.Bold)
+                if (!eyebrow.isNullOrBlank() || (!title.isNullOrBlank() && title != headerTitle) || !subtitle.isNullOrBlank()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (!eyebrow.isNullOrBlank()) {
+                            Text(eyebrow, style = MaterialTheme.typography.labelLarge, color = ReEventGreen, fontWeight = FontWeight.Bold)
+                        }
+                        if (!title.isNullOrBlank() && title != headerTitle) {
+                            Text(title, style = MaterialTheme.typography.displaySmall, color = ReEventInk)
+                        }
+                        if (!subtitle.isNullOrBlank()) {
+                            Text(subtitle, style = MaterialTheme.typography.bodyLarge, color = ReEventTextSecondary)
+                        }
                     }
-                    Text(title, style = MaterialTheme.typography.displaySmall, color = ReEventInk)
-                    Text(subtitle, style = MaterialTheme.typography.bodyLarge, color = ReEventTextSecondary)
                 }
                 content()
                 Spacer(Modifier.height(8.dp))

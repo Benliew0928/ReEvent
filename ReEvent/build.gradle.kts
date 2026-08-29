@@ -6,3 +6,7 @@ plugins {
     id("com.google.dagger.hilt.android") version "2.60.1" apply false
     id("androidx.room") version "2.8.4" apply false
 }
+
+allprojects {
+    layout.buildDirectory.set(file("${System.getProperty("user.home")}/.gradle_builds/ReEvent/${if (project == rootProject) "root" else project.name}"))
+}

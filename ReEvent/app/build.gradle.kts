@@ -136,3 +136,15 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.room:room-testing:$roomVersion")
 }
+
+tasks.matching { it.name == "assembleDebug" || it.name == "packageDebug" }.configureEach {
+    doLast {
+        val buildDir = layout.buildDirectory.get().asFile
+        val sourceApk = File(buildDir, "outputs/apk/debug/app-debug.apk")
+        val targetApk = rootProject.file("app/build/outputs/apk/debug/app-debug.apk")
+        if (sourceApk.exists()) {
+            targetApk.parentFile.mkdirs()
+            sourceApk.copyTo(targetApk, overwrite = true)
+        }
+    }
+}
