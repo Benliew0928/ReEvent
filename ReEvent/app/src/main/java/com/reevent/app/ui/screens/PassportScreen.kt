@@ -544,8 +544,10 @@ private fun PassportVerifiedCard(
     onQrClick: () -> Unit,
 ) {
     Surface(
+        onClick = onQrClick,
         shape = RoundedCornerShape(20.dp),
         color = ReEventGreenDeep,
+        modifier = Modifier.testTag("passport_qr_expand"),
     ) {
         Row(
             modifier = Modifier.padding(18.dp),
@@ -573,14 +575,12 @@ private fun PassportVerifiedCard(
                     color = Color.White.copy(alpha = 0.72f),
                 )
             }
-            Surface(
-                onClick = onQrClick,
+            Box(
                 modifier =
                     Modifier
                         .size(132.dp)
-                        .testTag("passport_qr_expand"),
-                shape = RoundedCornerShape(16.dp),
-                color = Color.White,
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.White),
             ) {
                 QrCodePanel(payload = qrPayload, modifier = Modifier.fillMaxSize(), qrSize = 88.dp)
             }
@@ -591,6 +591,7 @@ private fun PassportVerifiedCard(
 @Composable
 private fun PassportPendingCard(message: String?) {
     Surface(
+        modifier = Modifier.testTag("passport_pending_card"),
         shape = RoundedCornerShape(20.dp),
         color = ReEventCoralSoft.copy(alpha = 0.34f),
         border = BorderStroke(1.dp, ReEventCoral),

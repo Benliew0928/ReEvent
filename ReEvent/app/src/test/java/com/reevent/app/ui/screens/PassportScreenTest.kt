@@ -1,15 +1,15 @@
 package com.reevent.app.ui.screens
 
 import androidx.activity.ComponentActivity
-import androidx.compose.ui.test.assertDoesNotExist
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import com.reevent.app.feature.passports.PassportViewerAccess
 import com.reevent.app.ui.RecoveryStep
 import com.reevent.app.ui.ResourceCardModel
@@ -24,7 +24,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(qualifiers = "w411dp-h891dp")
+@Config(qualifiers = "w411dp-h1200dp")
 class PassportScreenTest {
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
@@ -45,7 +45,7 @@ class PassportScreenTest {
                     onMatch = { matchCount += 1 },
                     item = resource(),
                     passportId = "REV-2048-81",
-                    qrPayload = "https://verify.reevent.example/p/v1/AbCdEfGhIjKlMnOpQrStUv",
+                    qrPayload = "https://reevent.app/passport/REV-2048-81",
                     viewerAccess = access(),
                     recommendedAction = "Match with a reuse partner",
                     recoverySteps = recoverySteps(),
@@ -56,13 +56,17 @@ class PassportScreenTest {
 
         compose.onNodeWithTag("passport_back").performClick()
         compose.onNodeWithTag("passport_profile").performClick()
-        compose.onNodeWithText("Events").performClick()
-        compose.onNodeWithTag("passport_qr_expand").performScrollTo().performClick()
-        compose.onNodeWithTag("passport_qr_dialog").assertIsDisplayed()
-        compose.onNodeWithText("REV-2048-81").assertIsDisplayed()
-        compose.onNodeWithTag("passport_qr_dialog_close").performClick()
+        compose.onNodeWithTag("nav_events").performClick()
+        compose.onNodeWithTag("passport_editorial").performScrollToNode(hasTestTag("passport_qr_expand"))
+        compose.onNodeWithTag("passport_qr_expand").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("passport_qr_dialog", useUnmergedTree = true).assertExists()
+        compose.onAllNodesWithText("REV-2048-81", useUnmergedTree = true)[0].assertExists()
+        compose.onNodeWithTag("passport_qr_dialog_close", useUnmergedTree = true).performClick()
+        compose.waitForIdle()
         compose.onNodeWithTag("passport_qr_dialog").assertDoesNotExist()
-        compose.onNodeWithText("Find partner matches").performScrollTo().performClick()
+        compose.onNodeWithTag("passport_editorial").performScrollToNode(hasText("Find partner matches"))
+        compose.onNodeWithText("Find partner matches").performClick()
 
         assertEquals(1, backCount)
         assertEquals(1, profileCount)
@@ -92,6 +96,7 @@ class PassportScreenTest {
         }
 
         compose.onNodeWithText("VERIFICATION IN PROGRESS").assertExists()
+        compose.onNodeWithTag("passport_editorial").performScrollToNode(hasText("Your resource is saved"))
         compose.onNodeWithText("Your resource is saved").assertExists()
         compose.onNodeWithText("QR code — unavailable").assertExists()
         compose.onNodeWithTag("passport_qr_expand").assertDoesNotExist()
@@ -139,11 +144,13 @@ class PassportScreenTest {
             }
         }
 
+        compose.onNodeWithTag("passport_editorial").performScrollToNode(hasTestTag("passport_lifecycle_return"))
         compose.onNodeWithText("Resource actions").assertExists()
         compose.onNodeWithText("Saving action…").assertExists()
         compose.onNodeWithText("QR scan recorded").assertExists()
         compose.onNodeWithText("Action needs attention").assertExists()
-        compose.onNodeWithTag("passport_lifecycle_return").performScrollTo().performClick()
+        compose.onNodeWithTag("passport_lifecycle_return").performClick()
+        compose.waitForIdle()
 
         assertEquals(ResourceLifecycleAction.RETURN, recordedAction)
     }

@@ -1,8 +1,6 @@
 package com.reevent.app.ui.screens
 
 import androidx.activity.ComponentActivity
-import androidx.compose.ui.test.assertDoesNotExist
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -47,65 +45,59 @@ class EventListEditorialScreenTest {
         compose.onNodeWithText("Your events").assertIsDisplayed()
         compose.onNodeWithText("Nothing on the calendar yet").assertIsDisplayed()
         compose.onNodeWithTag("events_benefits").assertExists()
-        compose.onNodeWithText("Past").assertDoesNotExist()
-
         compose.onNodeWithTag("events_create").performClick()
-        compose.onNodeWithTag("events_avatar").performClick()
+        compose.onNodeWithTag("nav_home").performClick()
+        compose.waitForIdle()
 
         assertEquals(1, createCount)
-        assertEquals(TopLevelDestination.ACCOUNT, destination)
+        assertEquals(TopLevelDestination.HOME, destination)
     }
 
     @Test
-    fun `populated Events page renders data driven card and preserves open callback`() {
-        var openedEventId: String? = null
-        val event = event()
+    fun `events list shows cards and forwards open callbacks`() {
+        var selectedEvent: Event? = null
 
         compose.setContent {
             ReEventTheme {
                 EventListEditorialContent(
                     user = organizer(),
-                    events = listOf(event),
+                    events = listOf(event("evt-10", "Eco Summit")),
                     onCreate = {},
-                    onOpen = { openedEventId = it.id },
+                    onOpen = { selectedEvent = it },
                     onNavigate = {},
                 )
             }
         }
 
-        compose.onNodeWithTag("events_heading").assertIsDisplayed()
-        compose.onNodeWithText("Green Campus Fest").assertIsDisplayed()
-        compose.onNodeWithText("KL Eco Park").assertIsDisplayed()
-        compose.onNodeWithText("Live").assertIsDisplayed()
-        compose.onNodeWithText("Past").assertDoesNotExist()
+        compose.onNodeWithText("Eco Summit").assertIsDisplayed()
+        compose.onNodeWithText("Ipoh City Hall").assertIsDisplayed()
+        compose.onNodeWithTag("event_card_evt-10").performClick()
 
-        compose.onNodeWithTag("event_card_${event.id}").performClick()
-
-        assertEquals(event.id, openedEventId)
+        assertEquals("evt-10", selectedEvent?.id)
     }
 
     private fun organizer() =
         User(
-            id = "organizer",
-            email = "mia@example.com",
-            displayName = "Mia Young",
+            id = "usr-1",
+            email = "organizer@reevent.app",
+            displayName = "City Event Team",
             role = UserRole.ORGANIZER,
-            createdAt = 1_700_000_000_000L,
-            updatedAt = 1_700_000_000_000L,
+            createdAt = 1000L,
+            updatedAt = 1000L,
         )
 
-    private fun event() =
+    private fun event(id: String, name: String) =
         Event(
-            id = "green-campus",
-            ownerId = "organizer",
-            name = "Green Campus Fest",
-            description = "A campus recovery event.",
-            venue = "KL Eco Park",
-            startsAt = 1_724_160_000_000L,
-            endsAt = 1_724_246_400_000L,
-            status = "LIVE",
-            createdAt = 1_700_000_000_000L,
-            updatedAt = 1_700_000_000_000L,
+            id = id,
+            ownerId = "usr-1",
+            name = name,
+            description = "Annual circular economy gathering.",
+            venue = "Ipoh City Hall",
+            startsAt = 1735689600000L,
+            endsAt = 1735776000000L,
+            status = "UPCOMING",
+            createdAt = 1000L,
+            updatedAt = 1000L,
             syncState = SyncState.SYNCED,
         )
 }

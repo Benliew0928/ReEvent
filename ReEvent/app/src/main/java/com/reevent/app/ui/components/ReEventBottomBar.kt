@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.reevent.app.core.model.UserRole
@@ -61,6 +62,7 @@ fun ReEventBottomBar(
                     icon = { Icon(item.icon, contentDescription = item.label) },
                     label = { Text(item.label) },
                     alwaysShowLabel = true,
+                    modifier = Modifier.testTag("nav_${item.destination.name.lowercase()}"),
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = HomeForest,
                         selectedTextColor = HomeForest,
@@ -94,6 +96,7 @@ fun ReEventNavigationRail(
                     icon = { Icon(item.icon, contentDescription = item.label) },
                     label = { Text(item.label) },
                     alwaysShowLabel = true,
+                    modifier = Modifier.testTag("nav_${item.destination.name.lowercase()}"),
                     colors = NavigationRailItemDefaults.colors(
                         selectedIconColor = HomeForest,
                         selectedTextColor = HomeForest,

@@ -16,8 +16,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.automirrored.outlined.Logout
-import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Visibility
@@ -63,10 +63,8 @@ import com.reevent.app.ui.components.ReEventScaffold
 import com.reevent.app.ui.components.SyncQueueCard
 import com.reevent.app.ui.theme.ReEventCoral
 import com.reevent.app.ui.theme.ReEventGreen
-import com.reevent.app.ui.theme.ReEventGreenDeep
 import com.reevent.app.ui.theme.ReEventInk
 import com.reevent.app.ui.theme.ReEventLine
-import com.reevent.app.ui.theme.ReEventMint
 import com.reevent.app.ui.theme.ReEventSurface
 import com.reevent.app.ui.theme.ReEventTextSecondary
 
@@ -80,9 +78,17 @@ fun ProfileFlowScreen(
 ) {
     var passwordResetMode by rememberSaveable { mutableStateOf(false) }
     var accountDeletionVisible by rememberSaveable { mutableStateOf(false) }
+
+    var showPersonalInfoDialog by rememberSaveable { mutableStateOf(false) }
+    var showAccountInfoDialog by rememberSaveable { mutableStateOf(false) }
+    var showSecurityDialog by rememberSaveable { mutableStateOf(false) }
+    var showPushDialog by rememberSaveable { mutableStateOf(false) }
+    var showEmailDialog by rememberSaveable { mutableStateOf(false) }
+    var showHelpDialog by rememberSaveable { mutableStateOf(false) }
+    var showAboutDialog by rememberSaveable { mutableStateOf(false) }
+
     val authState by viewModel.state.collectAsState()
     val syncCommands by syncViewModel.pendingSyncCommands().collectAsState(emptyList())
-    val syncAction by syncViewModel.action.collectAsState()
 
     if (passwordResetMode) {
         PasswordResetRequestFlow(
@@ -106,21 +112,65 @@ fun ProfileFlowScreen(
         )
     }
 
+    if (showPersonalInfoDialog) {
+        PersonalInfoDialog(user = user, onDismiss = { showPersonalInfoDialog = false })
+    }
+    if (showAccountInfoDialog) {
+        AccountInfoDialog(user = user, onDismiss = { showAccountInfoDialog = false })
+    }
+    if (showSecurityDialog) {
+        AccountSecurityDialog(
+            user = user,
+            onResetPassword = {
+                viewModel.clearFeedback()
+                passwordResetMode = true
+            },
+            onDeleteAccount = {
+                viewModel.clearFeedback()
+                accountDeletionVisible = true
+            },
+            onDismiss = { showSecurityDialog = false },
+        )
+    }
+    if (showPushDialog) {
+        PushNotificationDialog(onDismiss = { showPushDialog = false })
+    }
+    if (showEmailDialog) {
+        EmailNotificationDialog(onDismiss = { showEmailDialog = false })
+    }
+    if (showHelpDialog) {
+        HelpDialog(onDismiss = { showHelpDialog = false })
+    }
+    if (showAboutDialog) {
+        AboutDialog(onDismiss = { showAboutDialog = false })
+    }
+
     ReEventScaffold(selected = TopLevelDestination.ACCOUNT, onNavigate = onNavigate) { padding ->
         AccountScaffold(
-            eyebrow = "YOUR ACCOUNT",
-            title = "Account & workspace",
-            subtitle = "Review your protected workspace, support options and account security.",
+            eyebrow = "ACCOUNT SETTINGS",
+            title = "Profile",
+            subtitle = "Manage your personal details, preferences, and account security.",
             onBack = onBack,
             modifier = Modifier.padding(padding),
         ) {
+            // User Identity Header Card
             AccountCard {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
                     Avatar(user.displayName)
-                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(user.displayName, style = MaterialTheme.typography.titleLarge, color = ReEventInk)
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
                         Text(
-                            "Signed in as ${user.email}",
+                            text = user.displayName,
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            color = ReEventInk,
+                        )
+                        Text(
+                            text = user.email,
                             style = MaterialTheme.typography.bodyMedium,
                             color = ReEventTextSecondary,
                             maxLines = 1,
@@ -128,111 +178,82 @@ fun ProfileFlowScreen(
                         )
                     }
                 }
-                HorizontalDivider(color = ReEventLine)
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier.size(40.dp).clip(CircleShape).background(ReEventMint),
-                        contentAlignment = Alignment.Center,
-                    ) { Icon(Icons.Outlined.Lock, contentDescription = null, tint = ReEventGreenDeep) }
-                    Column {
-                        Text("Protected role", style = MaterialTheme.typography.labelLarge, color = ReEventTextSecondary)
-                        Text(
-                            "${roleLabel(requireNotNull(user.role))} workspace",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = ReEventInk,
-                        )
-                    }
-                }
             }
 
-            ProfileSectionLabel("Account data")
+            // Section 1: Account Settings
+            ProfileSectionLabel("Account Settings")
             AccountCard {
-                Text("What is stored", style = MaterialTheme.typography.titleMedium, color = ReEventInk)
-                Text(
-                    "Your name, email and selected role keep this workspace separated. Your events, resources, requests and authorised transaction history are stored for the circular-event workflow.",
-                    color = ReEventTextSecondary,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    "Passport QR codes do not show your email, account ID or private notes.",
-                    color = ReEventGreenDeep,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
-
-            ProfileSectionLabel("Security")
-            ProfileActionCard(
-                icon = { Icon(Icons.Outlined.Lock, contentDescription = null, tint = ReEventGreenDeep) },
-                title = "Reset password",
-                description = "Send a secure reset link to ${user.email}.",
-                onClick = {
-                    viewModel.clearFeedback()
-                    passwordResetMode = true
-                },
-            )
-
-            ProfileSectionLabel("Sync status")
-            SyncQueueCard(
-                commands = syncCommands,
-                retrying = syncAction.loading,
-                onRetry = syncViewModel::retryPendingSync,
-            )
-            if (syncAction.error != null) {
-                Text(
-                    "The retry could not be scheduled. Check your connection and try again.",
-                    color = ReEventCoral,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-
-            ProfileSectionLabel("Help & privacy")
-            AccountCard {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Email, contentDescription = null, tint = ReEventGreenDeep)
-                    Text("Need support?", style = MaterialTheme.typography.titleMedium, color = ReEventInk)
-                }
-                Text(
-                    "For this assignment build, contact the ReEvent project team through your course or team support channel. Include your account email, device details and a screenshot. Never send a password or reset link.",
-                    color = ReEventTextSecondary,
-                    style = MaterialTheme.typography.bodyMedium,
+                ProfileNavigationRow(
+                    title = "Personal Information",
+                    onClick = { showPersonalInfoDialog = true },
                 )
                 HorizontalDivider(color = ReEventLine)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Info, contentDescription = null, tint = ReEventGreenDeep)
-                    Text(
-                        "This demo stores only the account and workflow data described above. ReCoins are assignment-only points with no cash value.",
-                        color = ReEventTextSecondary,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
+                ProfileNavigationRow(
+                    title = "Account Information",
+                    onClick = { showAccountInfoDialog = true },
+                )
+                HorizontalDivider(color = ReEventLine)
+                ProfileNavigationRow(
+                    title = "Account Security",
+                    onClick = { showSecurityDialog = true },
+                )
             }
 
-            ProfileSectionLabel("Account removal")
-            ProfileActionCard(
-                icon = { Icon(Icons.Outlined.Info, contentDescription = null, tint = ReEventCoral) },
-                title = "Delete account",
-                description = "Re-authenticate, remove private media, then permanently sign out. Active work is protected.",
-                onClick = {
-                    viewModel.clearFeedback()
-                    accountDeletionVisible = true
-                },
-            )
+            // Section 2: Preferences
+            ProfileSectionLabel("Preferences")
+            AccountCard {
+                ProfileNavigationRow(
+                    title = "Push Notification",
+                    onClick = { showPushDialog = true },
+                )
+                HorizontalDivider(color = ReEventLine)
+                ProfileNavigationRow(
+                    title = "Email Notification",
+                    onClick = { showEmailDialog = true },
+                )
+            }
 
-            Text(
-                text = "For protection of people, events and partner data, role changes are handled by your organisation administrator.",
-                color = ReEventTextSecondary,
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            // Section 3: Support
+            ProfileSectionLabel("Support")
+            AccountCard {
+                ProfileNavigationRow(
+                    title = "Help",
+                    onClick = { showHelpDialog = true },
+                )
+                HorizontalDivider(color = ReEventLine)
+                ProfileNavigationRow(
+                    title = "About",
+                    onClick = { showAboutDialog = true },
+                )
+            }
+
+            if (syncCommands.isNotEmpty()) {
+                ProfileSectionLabel("Sync Queue")
+                SyncQueueCard(
+                    commands = syncCommands,
+                    retrying = syncViewModel.action.collectAsState().value.loading,
+                    onRetry = syncViewModel::retryPendingSync,
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Sign Out Button
             OutlinedButton(
                 onClick = viewModel::signOut,
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                border = BorderStroke(1.dp, ReEventCoral),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(26.dp),
+                border = BorderStroke(1.5.dp, ReEventCoral),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = ReEventCoral),
             ) {
                 Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text("Sign out")
+                Text(
+                    text = "Sign Out",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                )
             }
         }
     }
@@ -241,41 +262,37 @@ fun ProfileFlowScreen(
 @Composable
 private fun ProfileSectionLabel(text: String) {
     Text(
-        text = text.uppercase(),
-        style = MaterialTheme.typography.labelLarge,
-        color = ReEventGreen,
-        fontWeight = FontWeight.Bold,
+        text = text,
+        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+        color = ReEventInk,
+        modifier = Modifier.padding(top = 4.dp),
     )
 }
 
 @Composable
-private fun ProfileActionCard(
-    icon: @Composable () -> Unit,
+private fun ProfileNavigationRow(
     title: String,
-    description: String,
     onClick: () -> Unit,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = ReEventSurface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, ReEventLine),
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Row(
-            modifier = Modifier.padding(18.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier.size(42.dp).clip(CircleShape).background(ReEventMint),
-                contentAlignment = Alignment.Center,
-            ) { icon() }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(title, style = MaterialTheme.typography.titleSmall, color = ReEventInk)
-                Text(description, style = MaterialTheme.typography.bodySmall, color = ReEventTextSecondary)
-            }
-        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+            color = ReEventInk,
+        )
+        Icon(
+            imageVector = Icons.Outlined.ChevronRight,
+            contentDescription = null,
+            tint = ReEventTextSecondary,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 
@@ -286,8 +303,6 @@ private fun AccountDeletionDialog(
     onDismiss: () -> Unit,
     onSubmit: (String) -> Unit,
 ) {
-    // Do not use rememberSaveable for either input: the current password must never enter saved
-    // instance state, and the destructive confirmation should disappear when this dialog closes.
     var confirmationPhrase by remember { mutableStateOf("") }
     var currentPassword by remember { mutableStateOf("") }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
