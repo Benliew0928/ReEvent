@@ -574,10 +574,10 @@ private fun PassportVerifiedCard(
                 )
             }
             Surface(
+                onClick = onQrClick,
                 modifier =
                     Modifier
                         .size(132.dp)
-                        .clickable(onClick = onQrClick)
                         .testTag("passport_qr_expand"),
                 shape = RoundedCornerShape(16.dp),
                 color = Color.White,

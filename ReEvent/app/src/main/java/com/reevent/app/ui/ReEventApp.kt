@@ -432,7 +432,7 @@ private fun androidx.navigation.NavGraphBuilder.partnerGraph(
 
 /** Keeps rapid Account taps from adding duplicate profile destinations to the back stack. */
 private fun NavHostController.openProfile() {
-    openTopLevel(ProfileRoute)
+    openDetail(ProfileRoute)
 }
 
 private fun NavHostController.openOrganiserTopLevelDestination(destination: TopLevelDestination) {

@@ -33,6 +33,11 @@ import com.reevent.app.ui.theme.ReEventLine
 import com.reevent.app.ui.theme.ReEventSurface
 import com.reevent.app.ui.theme.ReEventTextSecondary
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+
 @Composable
 fun ScreenHeader(
     title: String,
@@ -41,7 +46,10 @@ fun ScreenHeader(
     onBack: (() -> Unit)? = null,
     onProfile: (() -> Unit)? = null,
     profileName: String = "",
+    onNotificationClick: (() -> Unit)? = null,
 ) {
+    var showNotificationDialog by remember { mutableStateOf(false) }
+
     Row(
         modifier =
             modifier
@@ -78,11 +86,21 @@ fun ScreenHeader(
             SoftIconButton(
                 icon = Icons.Outlined.Notifications,
                 contentDescription = "Notifications",
-                onClick = {},
+                onClick = {
+                    if (onNotificationClick != null) {
+                        onNotificationClick()
+                    } else {
+                        showNotificationDialog = true
+                    }
+                },
             )
             Spacer(Modifier.width(8.dp))
             ProfileAvatarButton(displayName = profileName, onClick = onProfile)
         }
+    }
+
+    if (showNotificationDialog) {
+        NotificationDialog(onDismiss = { showNotificationDialog = false })
     }
 }
 

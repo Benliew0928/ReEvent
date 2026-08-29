@@ -23,8 +23,10 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
+@Config(qualifiers = "w411dp-h891dp")
 class EventDetailEditorialScreenTest {
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()

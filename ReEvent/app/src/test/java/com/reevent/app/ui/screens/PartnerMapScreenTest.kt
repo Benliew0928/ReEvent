@@ -109,7 +109,7 @@ class PartnerMapScreenTest {
 
         compose.onNodeWithContentDescription("Repair Hub, Repair, 2.5 kilometres").performScrollTo().performClick()
         compose.onNodeWithText("• Accepts Wood").fetchSemanticsNode()
-        compose.onNodeWithText("Request recovery").performClick()
+        compose.onNodeWithText("Request recovery").performScrollTo().performClick()
         compose.onNodeWithText("Request recovery?").fetchSemanticsNode()
         compose.onNodeWithText("Send request").performClick()
         compose.runOnIdle { assertEquals(1, requests) }
