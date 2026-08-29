@@ -46,16 +46,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.reevent.app.core.auth.AuthUiState
 import com.reevent.app.core.auth.PasswordRules
 import com.reevent.app.core.data.FailureReason
 import com.reevent.app.core.model.UserRole
 import com.reevent.app.ui.components.LogoMark
+import com.reevent.app.ui.theme.HomeCanvas
+import com.reevent.app.ui.theme.HomeForest
+import com.reevent.app.ui.theme.HomeInk
+import com.reevent.app.ui.theme.HomeLine
+import com.reevent.app.ui.theme.HomeMist
+import com.reevent.app.ui.theme.HomePaper
+import com.reevent.app.ui.theme.HomeSage
 import com.reevent.app.ui.theme.ReEventBackground
 import com.reevent.app.ui.theme.ReEventCoral
 import com.reevent.app.ui.theme.ReEventCoralSoft
@@ -77,7 +87,7 @@ internal fun AccountScaffold(
     onBack: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Surface(color = ReEventBackground, modifier = modifier.fillMaxSize()) {
+    Surface(color = HomeCanvas, modifier = modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxSize()) {
             Box(
                 modifier =
@@ -86,7 +96,7 @@ internal fun AccountScaffold(
                         .offset(x = 44.dp, y = 52.dp)
                         .size(172.dp)
                         .clip(CircleShape)
-                        .background(ReEventMint.copy(alpha = 0.72f)),
+                        .background(HomeSage.copy(alpha = 0.5f)),
             )
             Column(
                 modifier =
@@ -98,27 +108,59 @@ internal fun AccountScaffold(
             ) {
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     if (onBack != null) {
-                        IconButton(onClick = onBack, modifier = Modifier.background(ReEventSurface, CircleShape)) {
-                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back", tint = ReEventInk)
+                        IconButton(
+                            onClick = onBack,
+                            modifier = Modifier
+                                .background(HomePaper, CircleShape)
+                                .size(42.dp),
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Outlined.ArrowBack,
+                                contentDescription = "Back",
+                                tint = HomeInk,
+                                modifier = Modifier.size(22.dp),
+                            )
                         }
-                        Spacer(Modifier.width(12.dp))
+                        Spacer(Modifier.width(14.dp))
                     }
                     Text(
                         text = headerTitle,
-                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                        color = ReEventInk,
+                        style = TextStyle(
+                            fontFamily = FontFamily.SansSerif,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 30.sp,
+                            lineHeight = 34.sp,
+                        ),
+                        color = HomeInk,
                     )
                 }
                 if (!eyebrow.isNullOrBlank() || (!title.isNullOrBlank() && title != headerTitle) || !subtitle.isNullOrBlank()) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (!eyebrow.isNullOrBlank()) {
-                            Text(eyebrow, style = MaterialTheme.typography.labelLarge, color = ReEventGreen, fontWeight = FontWeight.Bold)
+                            Text(
+                                eyebrow,
+                                style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 15.sp),
+                                color = HomeForest,
+                            )
                         }
                         if (!title.isNullOrBlank() && title != headerTitle) {
-                            Text(title, style = MaterialTheme.typography.displaySmall, color = ReEventInk)
+                            Text(
+                                title,
+                                style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 28.sp),
+                                color = HomeInk,
+                            )
                         }
                         if (!subtitle.isNullOrBlank()) {
-                            Text(subtitle, style = MaterialTheme.typography.bodyLarge, color = ReEventTextSecondary)
+                            Text(
+                                subtitle,
+                                style = TextStyle(
+                                    fontFamily = FontFamily.SansSerif,
+                                    fontWeight = FontWeight.Normal,
+                                    fontSize = 17.sp,
+                                    lineHeight = 23.sp,
+                                ),
+                                color = ReEventTextSecondary,
+                            )
                         }
                     }
                 }
@@ -133,10 +175,10 @@ internal fun AccountScaffold(
 internal fun AccountCard(content: @Composable ColumnScope.() -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = ReEventSurface),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = HomePaper),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, ReEventLine),
+        border = BorderStroke(1.dp, HomeLine),
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
@@ -163,20 +205,24 @@ internal fun AccountTextField(
         value = value,
         onValueChange = onValueChange,
         modifier = Modifier.fillMaxWidth(),
-        label = { Text(label) },
+        label = { Text(label, style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 16.sp)) },
+        textStyle = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 17.sp, color = HomeInk),
         leadingIcon = icon,
         trailingIcon = trailingIcon,
         singleLine = true,
         isError = isError,
         visualTransformation = visualTransformation,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
-        supportingText = supportingText?.let { { Text(it) } },
-        shape = RoundedCornerShape(16.dp),
+        supportingText = supportingText?.let { { Text(it, style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 14.sp)) } },
+        shape = RoundedCornerShape(14.dp),
         colors =
             OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = ReEventGreen,
-                focusedLabelColor = ReEventGreen,
-                cursorColor = ReEventGreen,
+                focusedContainerColor = HomePaper,
+                unfocusedContainerColor = HomePaper,
+                focusedBorderColor = HomeForest,
+                focusedLabelColor = HomeForest,
+                cursorColor = HomeForest,
+                unfocusedBorderColor = HomeLine,
             ),
     )
 }
@@ -191,15 +237,15 @@ internal fun PrimaryAccountButton(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().height(52.dp),
         enabled = !loading,
-        shape = RoundedCornerShape(16.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = ReEventGreen, contentColor = Color.White),
+        shape = RoundedCornerShape(14.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = HomeForest, contentColor = Color.White),
     ) {
         if (loading) {
             CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
             Spacer(Modifier.width(10.dp))
-            Text("Please wait")
+            Text("Please wait", style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 17.sp))
         } else {
-            Text(text)
+            Text(text, style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 17.sp))
         }
     }
 }
@@ -213,13 +259,13 @@ internal fun GoogleAccountButton(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().height(52.dp),
         enabled = !loading,
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, ReEventLine),
-        colors = ButtonDefaults.outlinedButtonColors(containerColor = ReEventSurface, contentColor = ReEventInk),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, HomeLine),
+        colors = ButtonDefaults.outlinedButtonColors(containerColor = HomePaper, contentColor = HomeInk),
     ) {
-        Text("G", style = MaterialTheme.typography.titleLarge, color = Color(0xFF4285F4), fontWeight = FontWeight.Bold)
+        Text("G", style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 20.sp), color = Color(0xFF4285F4))
         Spacer(Modifier.width(10.dp))
-        Text("Continue with Google")
+        Text("Continue with Google", style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 17.sp))
     }
 }
 
@@ -230,9 +276,9 @@ internal fun AuthDivider() {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        HorizontalDivider(modifier = Modifier.weight(1f), color = ReEventLine)
-        Text("or", color = ReEventTextSecondary, style = MaterialTheme.typography.bodyMedium)
-        HorizontalDivider(modifier = Modifier.weight(1f), color = ReEventLine)
+        HorizontalDivider(modifier = Modifier.weight(1f), color = HomeLine)
+        Text("or", color = ReEventTextSecondary, style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 15.sp))
+        HorizontalDivider(modifier = Modifier.weight(1f), color = HomeLine)
     }
 }
 
@@ -246,21 +292,22 @@ internal fun EmailConfirmationCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = ReEventMint),
+        colors = CardDefaults.cardColors(containerColor = HomeMist),
+        border = BorderStroke(1.dp, HomeLine),
     ) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Email, contentDescription = null, tint = ReEventGreenDeep)
-                Text("Check your inbox", style = MaterialTheme.typography.titleMedium, color = ReEventInk)
+                Text("Check your inbox", style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 20.sp), color = HomeInk)
             }
             Text(
                 "If this is a new address, confirm $email before signing in. If you already have a ReEvent account, sign in instead. For account security, we cannot disclose which case applies.",
                 color = ReEventTextSecondary,
-                style = MaterialTheme.typography.bodyMedium,
+                style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 16.sp),
             )
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(onClick = onSignIn, enabled = !loading) { Text("Go to sign in") }
-                TextButton(onClick = onResend, enabled = !loading) { Text("Resend email") }
+                TextButton(onClick = onSignIn, enabled = !loading) { Text("Go to sign in", color = HomeForest, style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 16.sp)) }
+                TextButton(onClick = onResend, enabled = !loading) { Text("Resend email", color = HomeForest, style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 16.sp)) }
             }
         }
     }
@@ -296,19 +343,19 @@ internal fun PasswordResetEmailSentCard(
                 )
                 Text(
                     text = "Check your inbox",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 20.sp),
                     color = Color(0xFF111827)
                 )
             }
             Text(
                 text = "We sent a password reset link to $email. Please check your inbox and follow the link to reset your password.",
                 color = Color(0xFF374151),
-                style = MaterialTheme.typography.bodyMedium,
+                style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 16.sp),
             )
             Text(
                 text = "If you don't see the email, check your spam or junk folder.",
                 color = Color(0xFF6B7280),
-                style = MaterialTheme.typography.bodySmall,
+                style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 14.sp),
             )
             Spacer(Modifier.height(4.dp))
             Button(
@@ -316,7 +363,7 @@ internal fun PasswordResetEmailSentCard(
                 enabled = !loading,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp),
+                    .height(50.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF00875A),
@@ -325,7 +372,7 @@ internal fun PasswordResetEmailSentCard(
             ) {
                 Text(
                     text = backLabel,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 17.sp),
                 )
             }
             Row(
@@ -333,10 +380,10 @@ internal fun PasswordResetEmailSentCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 TextButton(onClick = onUseDifferentEmail, enabled = !loading) {
-                    Text("Use another email", color = Color(0xFF00875A))
+                    Text("Use another email", color = Color(0xFF00875A), style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 16.sp))
                 }
                 TextButton(onClick = onResend, enabled = !loading) {
-                    Text("Resend link", color = Color(0xFF00875A))
+                    Text("Resend link", color = Color(0xFF00875A), style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 16.sp))
                 }
             }
         }
@@ -353,12 +400,12 @@ internal fun PasswordUpdatedCard(onContinue: () -> Unit) {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = ReEventGreenDeep)
-                Text("Password changed", style = MaterialTheme.typography.titleMedium, color = ReEventInk)
+                Text("Password changed", style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 20.sp), color = ReEventInk)
             }
             Text(
                 "Your new password is active. Continue to the workspace that belongs to this account.",
                 color = ReEventTextSecondary,
-                style = MaterialTheme.typography.bodyMedium,
+                style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 16.sp),
             )
             PrimaryAccountButton("Continue to ReEvent", loading = false, onClick = onContinue)
         }
@@ -379,7 +426,7 @@ internal fun PasswordRecoveryError(state: AuthUiState) {
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = ReEventCoralSoft),
     ) {
-        Text(message, Modifier.padding(16.dp), color = ReEventCoral, style = MaterialTheme.typography.bodyMedium)
+        Text(message, Modifier.padding(16.dp), color = ReEventCoral, style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 16.sp))
     }
 }
 
@@ -411,8 +458,8 @@ internal fun RoleOption(
                 icon()
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(title, style = MaterialTheme.typography.titleMedium, color = ReEventInk)
-                Text(description, style = MaterialTheme.typography.bodyMedium, color = ReEventTextSecondary)
+                Text(title, style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 18.sp), color = ReEventInk)
+                Text(description, style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 15.sp), color = ReEventTextSecondary)
             }
             Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = ReEventGreen.copy(alpha = 0.55f))
         }
@@ -430,10 +477,10 @@ internal fun CircularFeatureCard() {
             Box(modifier = Modifier.size(48.dp).clip(CircleShape).background(ReEventMint), contentAlignment = Alignment.Center) {
                 Icon(Icons.Outlined.AutoAwesome, contentDescription = null, tint = ReEventGreenDeep)
             }
-            Text("One resource can have many useful lives.", style = MaterialTheme.typography.titleLarge, color = Color.White)
+            Text("One resource can have many useful lives.", style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 22.sp), color = Color.White)
             Text(
                 "Coordinate resources, handovers and impact without crossing workspace boundaries.",
-                style = MaterialTheme.typography.bodyMedium,
+                style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 16.sp),
                 color = Color.White.copy(alpha = 0.78f),
             )
         }
@@ -453,7 +500,7 @@ internal fun Avatar(name: String) {
                     .take(2)
                     .joinToString("") { it.first().uppercase() }
                     .ifBlank { "R" },
-            style = MaterialTheme.typography.titleLarge,
+            style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 22.sp),
             color = Color.White,
         )
     }
@@ -479,7 +526,7 @@ internal fun AccountMessage(state: AuthUiState) {
             text = message,
             modifier = Modifier.padding(16.dp),
             color = if (isError) ReEventCoral else ReEventGreenDeep,
-            style = MaterialTheme.typography.bodyMedium,
+            style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 16.sp),
         )
     }
 }

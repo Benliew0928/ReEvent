@@ -42,19 +42,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.reevent.app.core.auth.AccountDeletionRules
 import com.reevent.app.core.auth.AuthUiState
 import com.reevent.app.core.model.User
 import com.reevent.app.ui.theme.HomeForest
+import com.reevent.app.ui.theme.HomeInk
+import com.reevent.app.ui.theme.HomeLine
+import com.reevent.app.ui.theme.HomePaper
 import com.reevent.app.ui.theme.ReEventCoral
-import com.reevent.app.ui.theme.ReEventInk
-import com.reevent.app.ui.theme.ReEventLine
 import com.reevent.app.ui.theme.ReEventTextSecondary
 
 @Composable
@@ -73,7 +77,7 @@ fun PersonalInfoScreen(
         onBack = onBack,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
-            HorizontalDivider(color = ReEventLine)
+            HorizontalDivider(color = HomeLine)
 
             PersonalInfoRow(
                 label = "Full Name",
@@ -82,7 +86,7 @@ fun PersonalInfoScreen(
                 onActionClick = onEditName,
             )
 
-            HorizontalDivider(color = ReEventLine)
+            HorizontalDivider(color = HomeLine)
 
             PersonalInfoRow(
                 label = "Phone Number",
@@ -91,7 +95,7 @@ fun PersonalInfoScreen(
                 onActionClick = onEditPhone,
             )
 
-            HorizontalDivider(color = ReEventLine)
+            HorizontalDivider(color = HomeLine)
 
             PersonalInfoRow(
                 label = "Gender",
@@ -120,12 +124,17 @@ fun EditNameScreen(
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Full Name") },
+                label = { Text("Full Name", style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 16.sp)) },
+                textStyle = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 18.sp, color = HomeInk),
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = HomePaper,
+                    unfocusedContainerColor = HomePaper,
                     focusedBorderColor = HomeForest,
                     focusedLabelColor = HomeForest,
+                    cursorColor = HomeForest,
+                    unfocusedBorderColor = HomeLine,
                 ),
             )
 
@@ -134,11 +143,11 @@ fun EditNameScreen(
             Button(
                 onClick = { onSave(name) },
                 enabled = name.isNotBlank(),
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = HomeForest, contentColor = Color.White),
             ) {
-                Text("Save Changes", fontWeight = FontWeight.Bold)
+                Text("Save Changes", style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 18.sp))
             }
         }
     }
@@ -162,13 +171,18 @@ fun EditPhoneScreen(
             OutlinedTextField(
                 value = phone,
                 onValueChange = { phone = it },
-                label = { Text("Phone Number") },
+                label = { Text("Phone Number", style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 16.sp)) },
+                textStyle = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 18.sp, color = HomeInk),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = HomePaper,
+                    unfocusedContainerColor = HomePaper,
                     focusedBorderColor = HomeForest,
                     focusedLabelColor = HomeForest,
+                    cursorColor = HomeForest,
+                    unfocusedBorderColor = HomeLine,
                 ),
             )
 
@@ -177,11 +191,11 @@ fun EditPhoneScreen(
             Button(
                 onClick = { onSave(phone) },
                 enabled = phone.isNotBlank(),
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = HomeForest, contentColor = Color.White),
             ) {
-                Text(if (isAdd) "Add Phone Number" else "Save Changes", fontWeight = FontWeight.Bold)
+                Text(if (isAdd) "Add Phone Number" else "Save Changes", style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 18.sp))
             }
         }
     }
@@ -208,16 +222,18 @@ fun EditGenderScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { selected = option }
-                        .padding(vertical = 12.dp),
+                        .padding(vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
                         text = option,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = if (selected == option) FontWeight.Bold else FontWeight.Normal
+                        style = TextStyle(
+                            fontFamily = FontFamily.SansSerif,
+                            fontWeight = FontWeight.Normal,
+                            fontSize = 17.5.sp,
                         ),
-                        color = ReEventInk,
+                        color = HomeInk,
                     )
                     RadioButton(
                         selected = selected == option,
@@ -226,7 +242,7 @@ fun EditGenderScreen(
                     )
                 }
                 if (index < options.size - 1) {
-                    HorizontalDivider(color = ReEventLine)
+                    HorizontalDivider(color = HomeLine)
                 }
             }
 
@@ -234,11 +250,11 @@ fun EditGenderScreen(
 
             Button(
                 onClick = { onSave(selected) },
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = HomeForest, contentColor = Color.White),
             ) {
-                Text("Save Selection", fontWeight = FontWeight.Bold)
+                Text("Save Selection", style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 18.sp))
             }
         }
     }
@@ -254,23 +270,27 @@ private fun PersonalInfoRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(label, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = ReEventInk)
-            Spacer(Modifier.height(2.dp))
+            Text(
+                label,
+                style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 17.5.sp),
+                color = HomeInk,
+            )
+            Spacer(Modifier.height(3.dp))
             Text(
                 text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (value == "Not added") ReEventTextSecondary else ReEventInk,
+                style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 16.sp),
+                color = if (value == "Not added") ReEventTextSecondary else HomeInk,
             )
         }
         TextButton(onClick = onActionClick) {
             Text(
                 text = actionText,
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 17.sp),
                 color = HomeForest,
             )
         }
@@ -289,11 +309,11 @@ fun AccountInfoScreen(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
             InfoRow(label = "Account Role", value = "${roleLabel(requireNotNull(user.role))} Workspace")
-            HorizontalDivider(color = ReEventLine)
+            HorizontalDivider(color = HomeLine)
             InfoRow(label = "Registered Email", value = user.email)
-            HorizontalDivider(color = ReEventLine)
+            HorizontalDivider(color = HomeLine)
             InfoRow(label = "Account ID", value = user.id)
-            HorizontalDivider(color = ReEventLine)
+            HorizontalDivider(color = HomeLine)
             InfoRow(label = "Status", value = "Verified Active")
         }
     }
@@ -312,7 +332,7 @@ fun AccountSecurityScreen(
         onBack = onBack,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
-            HorizontalDivider(color = ReEventLine)
+            HorizontalDivider(color = HomeLine)
 
             SecurityNavigationRow(
                 title = "Reset password",
@@ -320,7 +340,7 @@ fun AccountSecurityScreen(
                 onClick = onResetPassword,
             )
 
-            HorizontalDivider(color = ReEventLine)
+            HorizontalDivider(color = HomeLine)
 
             SecurityNavigationRow(
                 title = "Delete account",
@@ -353,7 +373,7 @@ fun DeleteAccountScreen(
             Text(
                 "Completed workflow history may be retained with your account identity de-identified. You cannot delete while you have active transactions, resources, listings, programmes, or unsettled holds.",
                 color = ReEventTextSecondary,
-                style = MaterialTheme.typography.bodySmall,
+                style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 15.sp, lineHeight = 21.sp),
             )
 
             AccountTextField(
@@ -384,6 +404,7 @@ fun DeleteAccountScreen(
                         Icon(
                             imageVector = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
                             contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                            tint = ReEventTextSecondary,
                         )
                     }
                 },
@@ -392,24 +413,24 @@ fun DeleteAccountScreen(
             )
 
             state.accountDeletionBlocked?.let { blocked ->
-                Text(blocked.userMessage, color = ReEventCoral, style = MaterialTheme.typography.bodySmall)
+                Text(blocked.userMessage, color = ReEventCoral, style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 16.sp))
             }
             if (state.accountDeletionReauthenticationRequired) {
                 Text(
                     "That password did not re-authenticate this account.",
                     color = ReEventCoral,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 16.sp),
                 )
             }
             if (state.passwordReauthenticationUnavailable) {
                 Text(
                     "Password re-authentication is unavailable for this sign-in provider. Contact the ReEvent project team for account removal.",
                     color = ReEventCoral,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 16.sp),
                 )
             }
             if (state.error != null) {
-                Text(errorText(state.error), color = ReEventCoral, style = MaterialTheme.typography.bodySmall)
+                Text(errorText(state.error), color = ReEventCoral, style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 16.sp))
             }
 
             Spacer(Modifier.height(8.dp))
@@ -420,16 +441,16 @@ fun DeleteAccountScreen(
                     if (validation.isValid) onSubmit(currentPassword)
                 },
                 enabled = !state.loading,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = ReEventCoral, contentColor = Color.White),
             ) {
                 if (state.loading) {
                     CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))
-                    Text("Deleting…")
+                    Text("Deleting…", style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 18.sp))
                 } else {
-                    Text("Delete Account", fontWeight = FontWeight.Bold)
+                    Text("Delete Account", style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 18.sp))
                 }
             }
         }
@@ -460,7 +481,7 @@ fun PushNotificationScreen(
                     if (it) allMuted = false
                 },
             )
-            HorizontalDivider(color = ReEventLine)
+            HorizontalDivider(color = HomeLine)
             ToggleRow(
                 title = "Resource handovers",
                 subtitle = "Alerts when items are scanned or handed over",
@@ -470,7 +491,7 @@ fun PushNotificationScreen(
                     if (it) allMuted = false
                 },
             )
-            HorizontalDivider(color = ReEventLine)
+            HorizontalDivider(color = HomeLine)
             ToggleRow(
                 title = "Match alerts",
                 subtitle = "Alerts when partner matches are found",
@@ -480,7 +501,7 @@ fun PushNotificationScreen(
                     if (it) allMuted = false
                 },
             )
-            HorizontalDivider(color = ReEventLine)
+            HorizontalDivider(color = HomeLine)
             ToggleRow(
                 title = "Do not receive any notifications",
                 subtitle = "Mute all push notification alerts and updates",
@@ -521,16 +542,16 @@ fun EmailNotificationScreen(
                 onCheckedChange = { receiveMarketing = it },
             )
 
-            HorizontalDivider(color = ReEventLine)
+            HorizontalDivider(color = HomeLine)
             Spacer(Modifier.height(8.dp))
 
             Button(
                 onClick = onBack,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = HomeForest, contentColor = Color.White),
             ) {
-                Text("Save Preference", fontWeight = FontWeight.Bold)
+                Text("Save Preference", style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 18.sp))
             }
         }
     }
@@ -546,16 +567,16 @@ fun HelpScreen(
         onBack = onBack,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
-            Text("Need support?", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = ReEventInk)
+            Text("Need support?", style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 22.sp), color = HomeInk)
             Text(
                 text = "For this assignment build, contact the ReEvent project team through your course or team support channel. Include your account email, device details and a screenshot. Never send a password or reset link.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = ReEventTextSecondary,
+                style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 23.sp),
+                color = HomeInk,
             )
-            HorizontalDivider(color = ReEventLine)
+            HorizontalDivider(color = HomeLine)
             Text(
                 text = "This demo stores only the account and workflow data required for circular event management. ReCoins are assignment-only points with no cash value.",
-                style = MaterialTheme.typography.bodySmall,
+                style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 15.sp, lineHeight = 21.sp),
                 color = ReEventTextSecondary,
             )
         }
@@ -572,13 +593,13 @@ fun AboutScreen(
         onBack = onBack,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
-            Text("ReEvent Platform", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = ReEventInk)
-            Text("Version 1.0.0 (Build 2026)", style = MaterialTheme.typography.labelMedium, color = ReEventTextSecondary)
-            HorizontalDivider(color = ReEventLine)
+            Text("ReEvent Platform", style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 24.sp), color = HomeInk)
+            Text("Version 1.0.0 (Build 2026)", style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 15.sp), color = ReEventTextSecondary)
+            HorizontalDivider(color = HomeLine)
             Text(
                 text = "ReEvent is a circular economy mobile solution designed for sustainable event management. It facilitates event resource passporting, material reuse, repair matching, and waste diversion proof.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = ReEventTextSecondary,
+                style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 23.sp),
+                color = HomeInk,
             )
         }
     }
@@ -594,29 +615,29 @@ private fun SecurityNavigationRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 4.dp),
+            .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = ReEventInk)
-            Spacer(Modifier.height(2.dp))
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = ReEventTextSecondary)
+            Text(title, style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 17.5.sp), color = HomeInk)
+            Spacer(Modifier.height(3.dp))
+            Text(subtitle, style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 15.sp), color = ReEventTextSecondary)
         }
         Icon(
             imageVector = Icons.Outlined.ChevronRight,
             contentDescription = null,
-            tint = ReEventTextSecondary,
-            modifier = Modifier.size(20.dp),
+            tint = HomeForest,
+            modifier = Modifier.size(22.dp),
         )
     }
 }
 
 @Composable
 private fun InfoRow(label: String, value: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = ReEventTextSecondary)
-        Text(value, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold), color = ReEventInk)
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(label, style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 15.sp), color = ReEventTextSecondary)
+        Text(value, style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 18.sp), color = HomeInk)
     }
 }
 
@@ -628,14 +649,14 @@ private fun ToggleRow(
     onCheckedChange: (Boolean) -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = ReEventInk)
-            Spacer(Modifier.height(2.dp))
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = ReEventTextSecondary)
+            Text(title, style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 17.5.sp), color = HomeInk)
+            Spacer(Modifier.height(3.dp))
+            Text(subtitle, style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 15.sp), color = ReEventTextSecondary)
         }
         Switch(
             checked = checked,
@@ -643,6 +664,7 @@ private fun ToggleRow(
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
                 checkedTrackColor = HomeForest,
+                uncheckedTrackColor = HomeLine,
             ),
         )
     }

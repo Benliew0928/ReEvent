@@ -31,9 +31,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.reevent.app.core.auth.AuthViewModel
 import com.reevent.app.core.model.User
@@ -41,10 +43,11 @@ import com.reevent.app.ui.TopLevelDestination
 import com.reevent.app.ui.components.ReEventScaffold
 import com.reevent.app.ui.components.SyncQueueCard
 import com.reevent.app.ui.theme.HomeForest
+import com.reevent.app.ui.theme.HomeInk
+import com.reevent.app.ui.theme.HomeLine
 import com.reevent.app.ui.theme.HomeMist
+import com.reevent.app.ui.theme.HomePaper
 import com.reevent.app.ui.theme.ReEventCoral
-import com.reevent.app.ui.theme.ReEventInk
-import com.reevent.app.ui.theme.ReEventLine
 import com.reevent.app.ui.theme.ReEventTextSecondary
 
 enum class ProfileSubScreen {
@@ -208,7 +211,10 @@ fun ProfileFlowScreen(
                     ) {
                         Text(
                             text = initials.ifBlank { "U" },
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontFamily = FontFamily.SansSerif,
+                                fontWeight = FontWeight.Bold,
+                            ),
                             color = HomeForest,
                         )
                     }
@@ -218,12 +224,19 @@ fun ProfileFlowScreen(
                     ) {
                         Text(
                             text = userDisplayName,
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                            color = ReEventInk,
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontFamily = FontFamily.SansSerif,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 22.sp,
+                            ),
+                            color = HomeInk,
                         )
                         Text(
                             text = user.email,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontFamily = FontFamily.SansSerif,
+                                fontWeight = FontWeight.SemiBold,
+                            ),
                             color = ReEventTextSecondary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -239,12 +252,12 @@ fun ProfileFlowScreen(
                     title = "Personal Information",
                     onClick = { activeSubScreen = ProfileSubScreen.PERSONAL_INFO },
                 )
-                HorizontalDivider(color = ReEventLine)
+                HorizontalDivider(color = HomeLine)
                 ProfileNavigationRow(
                     title = "Account Information",
                     onClick = { activeSubScreen = ProfileSubScreen.ACCOUNT_INFO },
                 )
-                HorizontalDivider(color = ReEventLine)
+                HorizontalDivider(color = HomeLine)
                 ProfileNavigationRow(
                     title = "Account Security",
                     onClick = { activeSubScreen = ProfileSubScreen.ACCOUNT_SECURITY },
@@ -258,7 +271,7 @@ fun ProfileFlowScreen(
                     title = "Push Notification",
                     onClick = { activeSubScreen = ProfileSubScreen.PUSH_NOTIFICATIONS },
                 )
-                HorizontalDivider(color = ReEventLine)
+                HorizontalDivider(color = HomeLine)
                 ProfileNavigationRow(
                     title = "Email Notification",
                     onClick = { activeSubScreen = ProfileSubScreen.EMAIL_NOTIFICATIONS },
@@ -272,7 +285,7 @@ fun ProfileFlowScreen(
                     title = "Help",
                     onClick = { activeSubScreen = ProfileSubScreen.HELP },
                 )
-                HorizontalDivider(color = ReEventLine)
+                HorizontalDivider(color = HomeLine)
                 ProfileNavigationRow(
                     title = "About",
                     onClick = { activeSubScreen = ProfileSubScreen.ABOUT },
@@ -295,14 +308,17 @@ fun ProfileFlowScreen(
                 onClick = viewModel::signOut,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(26.dp),
-                border = BorderStroke(1.5.dp, ReEventCoral),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = ReEventCoral),
+                    .height(50.dp),
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, ReEventCoral),
+                colors = ButtonDefaults.outlinedButtonColors(containerColor = HomePaper, contentColor = ReEventCoral),
             ) {
                 Text(
                     text = "Sign Out",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontFamily = FontFamily.SansSerif,
+                        fontWeight = FontWeight.Bold,
+                    ),
                 )
             }
         }
@@ -313,9 +329,13 @@ fun ProfileFlowScreen(
 private fun ProfileSectionLabel(title: String) {
     Text(
         text = title,
-        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-        color = ReEventInk,
-        modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
+        style = MaterialTheme.typography.titleMedium.copy(
+            fontFamily = FontFamily.SansSerif,
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+        ),
+        color = HomeInk,
+        modifier = Modifier.padding(top = 6.dp, bottom = 2.dp),
     )
 }
 
@@ -334,13 +354,16 @@ private fun ProfileNavigationRow(
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-            color = ReEventInk,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                fontFamily = FontFamily.SansSerif,
+                fontWeight = FontWeight.Bold,
+            ),
+            color = HomeInk,
         )
         Icon(
             imageVector = Icons.Outlined.ChevronRight,
             contentDescription = null,
-            tint = ReEventTextSecondary,
+            tint = HomeForest,
             modifier = Modifier.size(20.dp),
         )
     }
