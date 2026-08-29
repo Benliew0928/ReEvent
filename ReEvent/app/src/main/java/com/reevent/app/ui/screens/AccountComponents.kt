@@ -324,8 +324,9 @@ internal fun PasswordResetEmailSentCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = HomeMist),
+        border = BorderStroke(1.dp, HomeLine),
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
@@ -338,23 +339,23 @@ internal fun PasswordResetEmailSentCard(
                 Icon(
                     imageVector = Icons.Outlined.CheckCircle,
                     contentDescription = null,
-                    tint = Color(0xFF00875A),
+                    tint = HomeForest,
                     modifier = Modifier.size(24.dp)
                 )
                 Text(
                     text = "Check your inbox",
                     style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 20.sp),
-                    color = Color(0xFF111827)
+                    color = HomeInk
                 )
             }
             Text(
                 text = "We sent a password reset link to $email. Please check your inbox and follow the link to reset your password.",
-                color = Color(0xFF374151),
+                color = HomeInk,
                 style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 16.sp),
             )
             Text(
                 text = "If you don't see the email, check your spam or junk folder.",
-                color = Color(0xFF6B7280),
+                color = ReEventTextSecondary,
                 style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 14.sp),
             )
             Spacer(Modifier.height(4.dp))
@@ -363,10 +364,10 @@ internal fun PasswordResetEmailSentCard(
                 enabled = !loading,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(12.dp),
+                    .height(52.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF00875A),
+                    containerColor = HomeForest,
                     contentColor = Color.White,
                 ),
             ) {
@@ -380,10 +381,10 @@ internal fun PasswordResetEmailSentCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 TextButton(onClick = onUseDifferentEmail, enabled = !loading) {
-                    Text("Use another email", color = Color(0xFF00875A), style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 16.sp))
+                    Text("Use another email", color = HomeForest, style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 16.sp))
                 }
                 TextButton(onClick = onResend, enabled = !loading) {
-                    Text("Resend link", color = Color(0xFF00875A), style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 16.sp))
+                    Text("Resend link", color = HomeForest, style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 16.sp))
                 }
             }
         }

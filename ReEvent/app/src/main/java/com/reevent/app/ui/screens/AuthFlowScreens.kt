@@ -974,46 +974,12 @@ internal fun PasswordResetRequestFlow(
     val state by viewModel.state.collectAsState()
     val emailError = submitted && !email.isPlausibleEmail()
 
-    Surface(color = Color.White, modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 20.dp),
-        ) {
-            // Top Bar: Back button
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier.size(40.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color(0xFF111827),
-                )
-            }
-
-            Spacer(Modifier.height(24.dp))
-
-            // Title & Subtitle
-            Text(
-                text = "Forgot password?",
-                style = MaterialTheme.typography.headlineLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 28.sp,
-                    letterSpacing = (-0.5).sp,
-                ),
-                color = Color(0xFF111827),
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "Enter your email address and we'll send you a link to reset your password.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF4B5563),
-            )
-
-            Spacer(Modifier.height(24.dp))
-
+    AccountScaffold(
+        headerTitle = "Reset Password",
+        subtitle = "Enter your registered email address to receive a password reset link.",
+        onBack = onBack,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
             if (state.resetRequested) {
                 PasswordResetEmailSentCard(
                     email = email.trim(),
@@ -1028,66 +994,29 @@ internal fun PasswordResetRequestFlow(
                     backLabel = backLabel,
                 )
             } else {
-                Text(
-                    text = "Email Address",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                    color = Color(0xFF374151),
-                )
-                Spacer(Modifier.height(6.dp))
-
-                OutlinedTextField(
+                AccountTextField(
                     value = email,
                     onValueChange = {
                         email = it
                         if (submitted) submitted = false
                     },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Email,
-                        imeAction = ImeAction.Done,
-                    ),
+                    label = "Email Address",
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Done,
                     isError = emailError,
-                    supportingText = if (emailError) {
-                        { Text("Please enter a valid email address.", color = ReEventCoral) }
-                    } else null,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = EcoGreen,
-                        unfocusedBorderColor = Color(0xFFD1D5DB),
-                    ),
+                    supportingText = if (emailError) "Please enter a valid email address." else null,
                 )
 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(8.dp))
 
-                Button(
+                PrimaryAccountButton(
+                    text = "Send reset link",
+                    loading = state.loading,
                     onClick = {
                         submitted = true
                         if (email.isPlausibleEmail()) viewModel.requestPasswordReset(email)
                     },
-                    enabled = !state.loading,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = EcoGreen,
-                        contentColor = Color.White,
-                    ),
-                ) {
-                    if (state.loading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp,
-                        )
-                    } else {
-                        Text(
-                            text = "Send reset link",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        )
-                    }
-                }
+                )
 
                 AccountMessage(state)
             }
