@@ -102,7 +102,11 @@ internal fun AccountScaffold(
                         }
                         Spacer(Modifier.width(12.dp))
                     }
-                    LogoMark(size = 56.dp)
+                    Text(
+                        text = "Profile",
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                        color = ReEventInk,
+                    )
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(eyebrow, style = MaterialTheme.typography.labelLarge, color = ReEventGreen, fontWeight = FontWeight.Bold)
