@@ -7,6 +7,7 @@ plugins {
     id("androidx.room") version "2.8.4" apply false
 }
 
+// Keep generated build files out of OneDrive, which locks KSP/Hilt output on Windows.
 allprojects {
     layout.buildDirectory.set(file("${System.getProperty("user.home")}/.gradle_builds/ReEvent/${if (project == rootProject) "root" else project.name}"))
 }

@@ -37,6 +37,7 @@ import com.reevent.app.BuildConfig
 import com.reevent.app.core.data.AppResult
 import com.reevent.app.core.model.GeoLocation
 import com.reevent.app.core.model.PlaceSuggestion
+import com.reevent.app.core.network.MapRenderCompatibility
 import com.reevent.app.core.network.MapTilerHttpConfiguration
 import com.reevent.app.ui.theme.ReEventGreen
 import com.reevent.app.ui.theme.ReEventLine
@@ -185,6 +186,15 @@ private fun LocationPinMap(
     modifier: Modifier = Modifier,
 ) {
     val key = BuildConfig.MAPTILER_API_KEY
+    if (!MapRenderCompatibility.canRender()) {
+        Surface(modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(12.dp)) {
+            Text(
+                "Map preview is unavailable on this legacy emulator. Search and select an address to use its validated coordinates.",
+                Modifier.padding(12.dp),
+            )
+        }
+        return
+    }
     if (key.isBlank()) {
         Surface(modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(12.dp)) {
             Text("Map preview requires MAPTILER_API_KEY. Search results still provide validated coordinates.", Modifier.padding(12.dp))

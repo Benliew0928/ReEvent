@@ -106,7 +106,12 @@ dependencies {
     implementation("com.google.zxing:core:3.5.4")
     // Bundled model keeps QR recognition available when the device has no network connection.
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
-    implementation("org.maplibre.compose:maplibre-compose:0.13.0")
+    // MapLibre 13 defaults to Vulkan, which crashes on supported devices/emulators
+    // without a Vulkan-capable GPU. Use the OpenGL ES renderer for broad compatibility.
+    implementation("org.maplibre.compose:maplibre-compose:0.13.0") {
+        exclude(group = "org.maplibre.gl", module = "android-sdk")
+    }
+    implementation("org.maplibre.gl:android-sdk-opengl:13.0.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     val cameraXVersion = "1.5.3"
     implementation("androidx.camera:camera-core:$cameraXVersion")
@@ -135,16 +140,28 @@ dependencies {
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.room:room-testing:$roomVersion")
+    androidTestImplementation("androidx.navigation:navigation-testing:2.9.8")
 }
 
-tasks.matching { it.name == "assembleDebug" || it.name == "packageDebug" }.configureEach {
+// Android Studio still resolves the debug APK through app/build even though heavy build output
+// lives outside OneDrive. Mirror the small IDE locator and the files it references after AGP
+// creates them so Run/Debug can load the APK without moving KSP/Hilt output back into OneDrive.
+tasks.matching { it.name == "createDebugApkListingFileRedirect" }.configureEach {
     doLast {
-        val buildDir = layout.buildDirectory.get().asFile
-        val sourceApk = File(buildDir, "outputs/apk/debug/app-debug.apk")
-        val targetApk = rootProject.file("app/build/outputs/apk/debug/app-debug.apk")
-        if (sourceApk.exists()) {
-            targetApk.parentFile.mkdirs()
-            sourceApk.copyTo(targetApk, overwrite = true)
+        val externalBuildDir = layout.buildDirectory.get().asFile
+        val projectBuildDir = rootProject.file("app/build")
+        val artifacts = listOf(
+            "outputs/apk/debug/app-debug.apk",
+            "outputs/apk/debug/output-metadata.json",
+            "intermediates/apk_ide_redirect_file/debug/createDebugApkListingFileRedirect/redirect.txt",
+        )
+        artifacts.forEach { relativePath ->
+            val source = File(externalBuildDir, relativePath)
+            if (source.exists()) {
+                val target = File(projectBuildDir, relativePath)
+                target.parentFile.mkdirs()
+                source.copyTo(target, overwrite = true)
+            }
         }
     }
 }

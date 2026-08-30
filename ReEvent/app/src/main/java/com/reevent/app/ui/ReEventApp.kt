@@ -75,17 +75,17 @@ import kotlinx.serialization.Serializable
 
 @Serializable private data object PartnerPassportListRoute
 
-@Serializable private data class OrganizerAddRoute(
+@Serializable internal data class OrganizerAddRoute(
     val eventId: String,
 )
 
-@Serializable private data object EventListRoute
+@Serializable internal data object EventListRoute
 
-@Serializable private data class EventEditorRoute(
+@Serializable internal data class EventEditorRoute(
     val eventId: String? = null,
 )
 
-@Serializable private data class EventDetailRoute(
+@Serializable internal data class EventDetailRoute(
     val eventId: String,
 )
 
@@ -221,7 +221,7 @@ private fun androidx.navigation.NavGraphBuilder.organiserGraph(
         AddResourceLiveScreen(
             user = user,
             eventId = eventId,
-            onSaved = { nav.openDetail(EventDetailRoute(eventId)) },
+            onSaved = { nav.openEventAfterResourceSave(eventId) },
             onBack = {
                 navigationTapGuard.blockBriefly()
                 nav.popBackStack()
@@ -244,7 +244,7 @@ private fun androidx.navigation.NavGraphBuilder.organiserGraph(
         EventEditorLiveScreen(
             user = user,
             eventId = eventId,
-            onSaved = { nav.openDetail(EventDetailRoute(it)) },
+            onSaved = nav::openEventAfterSave,
             onBack = nav::popBackStack,
             onNavigate = nav::openOrganiserTopLevelDestination,
         )
@@ -516,6 +516,18 @@ private inline fun <reified T : Any> NavHostController.openDetail(
     navigate(route) {
         launchSingleTop = true
         builder()
+    }
+}
+
+internal fun NavHostController.openEventAfterSave(eventId: String) {
+    openDetail(EventDetailRoute(eventId)) {
+        popUpTo<EventEditorRoute> { inclusive = true }
+    }
+}
+
+internal fun NavHostController.openEventAfterResourceSave(eventId: String) {
+    openDetail(EventDetailRoute(eventId)) {
+        popUpTo<OrganizerAddRoute> { inclusive = true }
     }
 }
 

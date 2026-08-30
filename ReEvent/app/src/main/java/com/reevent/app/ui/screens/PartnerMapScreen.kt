@@ -87,6 +87,7 @@ import com.reevent.app.core.model.ResourceItem
 import com.reevent.app.core.model.ResourceStatus
 import com.reevent.app.core.model.User
 import com.reevent.app.core.model.UserRole
+import com.reevent.app.core.network.MapRenderCompatibility
 import com.reevent.app.core.network.MapTilerHttpConfiguration
 import com.reevent.app.ui.TopLevelDestination
 import com.reevent.app.ui.components.ProfileAvatarButton
@@ -859,6 +860,14 @@ private fun PartnerMapPane(
     modifier: Modifier = Modifier,
 ) {
     val key = BuildConfig.MAPTILER_API_KEY
+    if (!MapRenderCompatibility.canRender()) {
+        MapFallbackPanel(
+            "Interactive maps are unavailable on this legacy emulator. Programme discovery remains available in the list.",
+            modifier,
+        )
+        LaunchedEffect(Unit) { onFailed("Map rendering is unavailable on this emulator.") }
+        return
+    }
     if (key.isBlank()) {
         MapFallbackPanel(
             "Map tiles are not configured. Add MAPTILER_API_KEY to supabase.local.properties; the programme list remains available.",
