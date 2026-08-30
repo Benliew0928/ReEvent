@@ -144,9 +144,11 @@ dependencies {
 }
 
 // Android Studio still resolves the debug APK through app/build even though heavy build output
-// lives outside OneDrive. Mirror the small IDE locator and the files it references after AGP
-// creates them so Run/Debug can load the APK without moving KSP/Hilt output back into OneDrive.
-tasks.matching { it.name == "createDebugApkListingFileRedirect" }.configureEach {
+// lives outside OneDrive. Mirror the small IDE locator and the files it references after every
+// assembleDebug run. A doLast action on AGP's redirect task is not sufficient: Gradle may mark
+// that task up-to-date while OneDrive has removed the small in-project artifact mirror.
+val syncDebugIdeArtifacts = tasks.register("syncDebugIdeArtifacts") {
+    dependsOn("createDebugApkListingFileRedirect")
     doLast {
         val externalBuildDir = layout.buildDirectory.get().asFile
         val projectBuildDir = rootProject.file("app/build")
@@ -164,4 +166,8 @@ tasks.matching { it.name == "createDebugApkListingFileRedirect" }.configureEach 
             }
         }
     }
+}
+
+tasks.matching { it.name == "assembleDebug" }.configureEach {
+    finalizedBy(syncDebugIdeArtifacts)
 }

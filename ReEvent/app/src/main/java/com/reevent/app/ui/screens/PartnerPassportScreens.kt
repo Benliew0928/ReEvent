@@ -9,21 +9,38 @@ import android.content.pm.PackageManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -36,8 +53,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -64,6 +86,18 @@ import com.reevent.app.ui.components.ScreenHeader
 import com.reevent.app.ui.components.SecondaryActionButton
 import com.reevent.app.ui.components.StatusChip
 import com.reevent.app.ui.materials.MaterialFamilyMultiSelectField
+import com.reevent.app.ui.theme.HomeBodyStyle
+import com.reevent.app.ui.theme.HomeCanvas
+import com.reevent.app.ui.theme.HomeCardTitleStyle
+import com.reevent.app.ui.theme.HomeForest
+import com.reevent.app.ui.theme.HomeGreetingStyle
+import com.reevent.app.ui.theme.HomeInk
+import com.reevent.app.ui.theme.HomeLabelStyle
+import com.reevent.app.ui.theme.HomeLine
+import com.reevent.app.ui.theme.HomePaper
+import com.reevent.app.ui.theme.HomeSage
+import com.reevent.app.ui.theme.HomeSupportingInk
+import com.reevent.app.ui.theme.HomeSupportingTextStyle
 import com.reevent.app.ui.theme.ReEventGreen
 import com.reevent.app.ui.theme.ReEventInk
 import com.reevent.app.ui.theme.ReEventTextSecondary
@@ -454,18 +488,18 @@ private fun ProgrammeEditorDialog(
         )
     }
     var categories by rememberSaveable(editorKey) { mutableStateOf(programme?.acceptedCategories?.joinToString(", ").orEmpty()) }
-    var conditions by remember(programme?.id) { mutableStateOf(programme?.acceptedConditions ?: ResourceCondition.entries.toSet()) }
-    var minimum by rememberSaveable(programme?.id) { mutableStateOf(programme?.minimumQuantity?.toString().orEmpty()) }
-    var maximum by rememberSaveable(programme?.id) { mutableStateOf(programme?.maximumQuantity?.toString().orEmpty()) }
-    var unit by rememberSaveable(programme?.id) { mutableStateOf(programme?.unit.orEmpty()) }
-    var capacity by rememberSaveable(programme?.id) { mutableStateOf(programme?.remainingCapacity?.toString().orEmpty()) }
-    var pickup by rememberSaveable(programme?.id) { mutableStateOf(programme?.pickupAvailable ?: false) }
-    var coinDirection by rememberSaveable(programme?.id) { mutableStateOf(programme?.coinDirection ?: CoinDirection.FREE) }
-    var coinAmount by rememberSaveable(programme?.id) { mutableStateOf(programme?.unitCoinAmount?.toString().orEmpty()) }
-    var geoLocation by remember(programme?.id) { mutableStateOf(programme?.geoLocation) }
-    var processing by rememberSaveable(programme?.id) { mutableStateOf(programme?.processingMethod.orEmpty()) }
-    var terms by rememberSaveable(programme?.id) { mutableStateOf(programme?.terms.orEmpty()) }
-    var active by rememberSaveable(programme?.id) { mutableStateOf(programme?.active ?: false) }
+    var conditions by remember(editorKey) { mutableStateOf(programme?.acceptedConditions ?: ResourceCondition.entries.toSet()) }
+    var minimum by rememberSaveable(editorKey) { mutableStateOf(programme?.minimumQuantity?.toString().orEmpty()) }
+    var maximum by rememberSaveable(editorKey) { mutableStateOf(programme?.maximumQuantity?.toString().orEmpty()) }
+    var unit by rememberSaveable(editorKey) { mutableStateOf(programme?.unit.orEmpty()) }
+    var capacity by rememberSaveable(editorKey) { mutableStateOf(programme?.remainingCapacity?.toString().orEmpty()) }
+    var pickup by rememberSaveable(editorKey) { mutableStateOf(programme?.pickupAvailable ?: false) }
+    var coinDirection by rememberSaveable(editorKey) { mutableStateOf(programme?.coinDirection ?: CoinDirection.FREE) }
+    var coinAmount by rememberSaveable(editorKey) { mutableStateOf(programme?.unitCoinAmount?.toString().orEmpty()) }
+    var geoLocation by remember(editorKey) { mutableStateOf(programme?.geoLocation) }
+    var processing by rememberSaveable(editorKey) { mutableStateOf(programme?.processingMethod.orEmpty()) }
+    var terms by rememberSaveable(editorKey) { mutableStateOf(programme?.terms.orEmpty()) }
+    var active by rememberSaveable(editorKey) { mutableStateOf(programme?.active ?: false) }
     var choosingLocation by remember { mutableStateOf(false) }
 
     fun decimalOrNull(value: String): Double? = value.trim().takeIf(String::isNotBlank)?.toDoubleOrNull()
@@ -484,167 +518,518 @@ private fun ProgrammeEditorDialog(
         ProgrammeType.REPAIR -> coinDirection in setOf(CoinDirection.FREE, CoinDirection.OWNER_PAYS_PARTNER)
         ProgrammeType.RECYCLE, ProgrammeType.BUY_BACK -> coinDirection in setOf(CoinDirection.FREE, CoinDirection.PARTNER_PAYS_OWNER)
     }
+    val validCoinDirections = when (type) {
+        ProgrammeType.REPAIR -> listOf(CoinDirection.FREE, CoinDirection.OWNER_PAYS_PARTNER)
+        ProgrammeType.RECYCLE, ProgrammeType.BUY_BACK -> listOf(CoinDirection.FREE, CoinDirection.PARTNER_PAYS_OWNER)
+    }
     val activationReady = name.trim().isNotBlank() && conditions.isNotEmpty() && geoLocation != null &&
         processing.isNotBlank() && terms.isNotBlank() && numericValuesValid && rangeValid && unitRequired && coinValid && directionValid
     val canSave = name.trim().isNotBlank() && name.length <= 120 && numericValuesValid && rangeValid && unitRequired &&
         coinValid && directionValid && (!active || activationReady)
+    val activationMissing = buildList {
+        if (name.isBlank()) add("programme name")
+        if (conditions.isEmpty()) add("accepted condition")
+        if (geoLocation == null) add("business location")
+        if (processing.isBlank()) add("processing method")
+        if (terms.isBlank()) add("programme terms")
+        if (!numericValuesValid || !rangeValid) add("valid quantities")
+        if (!unitRequired) add("quantity unit")
+        if (!coinValid || !directionValid) add("valid ReCoin terms")
+    }
+    val fieldColors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = HomeForest,
+        unfocusedBorderColor = HomeLine,
+        focusedLabelColor = HomeForest,
+        unfocusedLabelColor = HomeSupportingInk,
+        cursorColor = HomeForest,
+        focusedContainerColor = HomePaper,
+        unfocusedContainerColor = HomePaper,
+        errorContainerColor = HomePaper,
+    )
 
-    AlertDialog(
-        modifier = modifier,
+    Dialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (programme == null) "Create programme" else "Edit programme") },
-        text = {
+        properties = DialogProperties(
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false,
+        ),
+    ) {
+        Surface(
+            modifier = modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.96f)
+                .padding(horizontal = 16.dp, vertical = 10.dp)
+                .imePadding()
+                .testTag("programme_editor_dialog"),
+            shape = RoundedCornerShape(30.dp),
+            color = HomeCanvas,
+            border = BorderStroke(1.dp, HomeLine),
+            shadowElevation = 14.dp,
+        ) {
             Column(
-                Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(
-                    "Inactive drafts may be incomplete. Active programmes require every marked field and a validated business point.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = ReEventTextSecondary,
-                )
-                if (legacy != null) {
-                    Text(
-                        "Prefilled from the legacy input at ${legacy.location.ifBlank { "an unspecified location" }}. This replacement is forced inactive.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = ReEventTextSecondary,
-                    )
-                }
-                OutlinedTextField(
-                    name,
-                    { name = it },
-                    Modifier.fillMaxWidth(),
-                    label = { Text("Programme name *") },
-                    isError = name.length > 120 || active && name.isBlank(),
-                )
-                ChoiceField("Type", type.displayLabel(), ProgrammeType.entries.map(ProgrammeType::displayLabel)) { selected ->
-                    type = ProgrammeType.entries.first { it.displayLabel() == selected }
-                }
-                MaterialFamilyMultiSelectField(materialFamilies, { materialFamilies = it }, Modifier.fillMaxWidth())
-                OutlinedTextField(
-                    categories,
-                    { categories = it },
-                    Modifier.fillMaxWidth(),
-                    label = { Text("Accepted categories") },
-                    placeholder = { Text("Decor, Furniture; blank means any") },
-                )
-                Text("Accepted conditions *", style = MaterialTheme.typography.labelLarge)
                 Row(
-                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 22.dp, top = 20.dp, end = 14.dp, bottom = 16.dp),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    ResourceCondition.entries.forEach { condition ->
-                        FilterChip(
-                            selected = condition in conditions,
-                            onClick = {
-                                conditions = if (condition in conditions) conditions - condition else conditions + condition
-                            },
-                            label = { Text(condition.name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)) },
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text("PARTNER PROGRAMME", style = HomeLabelStyle, color = HomeForest)
+                        Text(
+                            if (programme == null) "Create a programme" else "Edit programme",
+                            style = HomeGreetingStyle,
+                            color = HomeInk,
+                        )
+                        Text(
+                            "Set clear eligibility, capacity and handover terms for organisers.",
+                            style = HomeSupportingTextStyle,
+                            color = HomeSupportingInk,
                         )
                     }
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(minimum, { minimum = it }, Modifier.weight(1f), label = { Text("Minimum") })
-                    OutlinedTextField(maximum, { maximum = it }, Modifier.weight(1f), label = { Text("Maximum") })
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(unit, { unit = it }, Modifier.weight(1f), label = { Text("Unit") }, placeholder = { Text("pieces") })
-                    OutlinedTextField(capacity, { capacity = it }, Modifier.weight(1f), label = { Text("Capacity") })
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = pickup, onCheckedChange = { pickup = it })
-                    Text("Partner pickup available")
-                }
-                ChoiceField(
-                    "ReCoin direction",
-                    coinDirection.name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase),
-                    CoinDirection.entries.map { it.name.lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase) },
-                ) { selected ->
-                    coinDirection = CoinDirection.entries.first { it.name.equals(selected.replace(' ', '_'), ignoreCase = true) }
-                    if (coinDirection == CoinDirection.FREE) coinAmount = ""
-                }
-                if (coinDirection != CoinDirection.FREE) {
-                    OutlinedTextField(
-                        coinAmount,
-                        { coinAmount = it },
-                        Modifier.fillMaxWidth(),
-                        label = { Text("ReCoin per $unit *") },
-                    )
-                }
-                SecondaryActionButton(
-                    text = if (geoLocation == null) "Choose exact business location *" else "Adjust business pin",
-                    onClick = { choosingLocation = true },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                geoLocation?.let {
-                    Text("${it.displayAddress}\n${"%.6f".format(it.latitude)}, ${"%.6f".format(it.longitude)}", color = ReEventTextSecondary)
-                }
-                OutlinedTextField(
-                    processing,
-                    { processing = it },
-                    Modifier.fillMaxWidth(),
-                    label = { Text("Processing method *") },
-                    minLines = 2,
-                )
-                OutlinedTextField(
-                    terms,
-                    { terms = it },
-                    Modifier.fillMaxWidth(),
-                    label = { Text("Terms *") },
-                    minLines = 2,
-                )
-                if (legacy == null) {
-                    ChoiceField("Status", if (active) "Active" else "Inactive draft", listOf("Active", "Inactive draft")) {
-                        active = it == "Active"
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Outlined.Close, contentDescription = "Close programme editor", tint = HomeForest)
                     }
-                } else {
-                    Text("Status: Inactive replacement", color = ReEventTextSecondary)
                 }
-                if (active && !activationReady) {
-                    Text(
-                        "Complete name, condition, exact location, processing, terms, quantity/unit and ReCoin rules before activation.",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+
+                HorizontalDivider(color = HomeLine)
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 18.dp, vertical = 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = HomePaper,
+                        border = BorderStroke(1.dp, HomeLine),
+                    ) {
+                        Text(
+                            if (active) {
+                                "Publishing is on. Complete every required field before the programme can go live."
+                            } else {
+                                "Saving as a draft. Add a name now, then complete the remaining details before publishing."
+                            },
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                            style = HomeSupportingTextStyle,
+                            color = HomeInk,
+                        )
+                    }
+
+                    if (legacy != null) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            color = HomePaper,
+                            border = BorderStroke(1.dp, HomeLine),
+                        ) {
+                            Text(
+                                "Prefilled from the legacy input at ${legacy.location.ifBlank { "an unspecified location" }}. This replacement remains inactive until reviewed.",
+                                modifier = Modifier.padding(14.dp),
+                                style = HomeSupportingTextStyle,
+                                color = HomeSupportingInk,
+                            )
+                        }
+                    }
+
+                    ProgrammeFormSection(
+                        step = "01",
+                        title = "Programme basics",
+                        helper = "Give organisers a recognisable name and choose the service you provide.",
+                    ) {
+                        OutlinedTextField(
+                            value = name,
+                            onValueChange = { name = it.take(120) },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Programme name *") },
+                            placeholder = { Text("e.g. Community textile repair") },
+                            supportingText = { Text("${name.length}/120") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = fieldColors,
+                            isError = active && name.isBlank(),
+                        )
+                        ProgrammeChoiceLabel("Programme type *")
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            ProgrammeType.entries.forEach { option ->
+                                EditorialChoiceChip(
+                                    label = option.displayLabel(),
+                                    selected = type == option,
+                                    onClick = {
+                                        type = option
+                                        val allowed = when (option) {
+                                            ProgrammeType.REPAIR -> setOf(CoinDirection.FREE, CoinDirection.OWNER_PAYS_PARTNER)
+                                            ProgrammeType.RECYCLE, ProgrammeType.BUY_BACK -> setOf(CoinDirection.FREE, CoinDirection.PARTNER_PAYS_OWNER)
+                                        }
+                                        if (coinDirection !in allowed) {
+                                            coinDirection = CoinDirection.FREE
+                                            coinAmount = ""
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                    }
+
+                    ProgrammeFormSection(
+                        step = "02",
+                        title = "Accepted resources",
+                        helper = "Leave materials or categories blank when the programme accepts any suitable item.",
+                    ) {
+                        MaterialFamilyMultiSelectField(materialFamilies, { materialFamilies = it }, Modifier.fillMaxWidth())
+                        OutlinedTextField(
+                            value = categories,
+                            onValueChange = { categories = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Accepted categories") },
+                            placeholder = { Text("Decor, furniture, signage") },
+                            supportingText = { Text("Separate categories with commas; blank means any category.") },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = fieldColors,
+                        )
+                        ProgrammeChoiceLabel("Accepted conditions *")
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            ResourceCondition.entries.forEach { condition ->
+                                EditorialChoiceChip(
+                                    label = condition.displayLabel(),
+                                    selected = condition in conditions,
+                                    onClick = {
+                                        conditions = if (condition in conditions) conditions - condition else conditions + condition
+                                    },
+                                )
+                            }
+                        }
+                        if (conditions.isEmpty()) {
+                            Text(
+                                "Select at least one condition before publishing.",
+                                style = HomeSupportingTextStyle,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
+
+                    ProgrammeFormSection(
+                        step = "03",
+                        title = "Quantity and pickup",
+                        helper = "Set optional intake limits. If any quantity is entered, its unit becomes required.",
+                    ) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedTextField(
+                                value = minimum,
+                                onValueChange = { minimum = it },
+                                modifier = Modifier.weight(1f),
+                                label = { Text("Minimum") },
+                                placeholder = { Text("Optional") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                singleLine = true,
+                                shape = RoundedCornerShape(16.dp),
+                                colors = fieldColors,
+                                isError = minimum.isNotBlank() && parsedMinimum?.let { it <= 0 } != false,
+                            )
+                            OutlinedTextField(
+                                value = maximum,
+                                onValueChange = { maximum = it },
+                                modifier = Modifier.weight(1f),
+                                label = { Text("Maximum") },
+                                placeholder = { Text("Optional") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                singleLine = true,
+                                shape = RoundedCornerShape(16.dp),
+                                colors = fieldColors,
+                                isError = maximum.isNotBlank() && (parsedMaximum?.let { it <= 0 } != false || !rangeValid),
+                            )
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedTextField(
+                                value = unit,
+                                onValueChange = { unit = it },
+                                modifier = Modifier.weight(1f),
+                                label = { Text("Unit${if (unitRequired) "" else " *"}") },
+                                placeholder = { Text("items, kg") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(16.dp),
+                                colors = fieldColors,
+                                isError = !unitRequired,
+                            )
+                            OutlinedTextField(
+                                value = capacity,
+                                onValueChange = { capacity = it },
+                                modifier = Modifier.weight(1f),
+                                label = { Text("Capacity") },
+                                placeholder = { Text("Optional") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                singleLine = true,
+                                shape = RoundedCornerShape(16.dp),
+                                colors = fieldColors,
+                                isError = capacity.isNotBlank() && parsedCapacity?.let { it < 0 } != false,
+                            )
+                        }
+                        if (!numericValuesValid || !rangeValid || !unitRequired) {
+                            Text(
+                                when {
+                                    !rangeValid -> "Maximum quantity must be greater than or equal to minimum quantity."
+                                    !unitRequired -> "Add a unit for the quantity or ReCoin values entered."
+                                    else -> "Minimum and maximum must be above 0; capacity must be 0 or more."
+                                },
+                                style = HomeSupportingTextStyle,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = { pickup = !pickup },
+                            shape = RoundedCornerShape(16.dp),
+                            color = HomePaper,
+                            border = BorderStroke(1.dp, HomeLine),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Text("Partner pickup available", style = HomeBodyStyle, color = HomeInk)
+                                    Text("Turn on when your team can collect resources from the organiser.", style = HomeSupportingTextStyle, color = HomeSupportingInk)
+                                }
+                                Switch(checked = pickup, onCheckedChange = { pickup = it })
+                            }
+                        }
+                    }
+
+                    ProgrammeFormSection(
+                        step = "04",
+                        title = "ReCoin arrangement",
+                        helper = "Choose who pays whom. Available options change with the programme type.",
+                    ) {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            validCoinDirections.forEach { option ->
+                                EditorialChoiceChip(
+                                    label = option.displayLabel(),
+                                    selected = coinDirection == option,
+                                    onClick = {
+                                        coinDirection = option
+                                        if (option == CoinDirection.FREE) coinAmount = ""
+                                    },
+                                )
+                            }
+                        }
+                        Text(coinDirection.explanation(), style = HomeSupportingTextStyle, color = HomeSupportingInk)
+                        if (coinDirection != CoinDirection.FREE) {
+                            OutlinedTextField(
+                                value = coinAmount,
+                                onValueChange = { coinAmount = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("ReCoin per ${unit.ifBlank { "unit" }} *") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                shape = RoundedCornerShape(16.dp),
+                                colors = fieldColors,
+                                isError = !coinValid,
+                                supportingText = {
+                                    if (!coinValid) Text("Enter a whole number above 0.")
+                                },
+                            )
+                        }
+                    }
+
+                    ProgrammeFormSection(
+                        step = "05",
+                        title = "Location and service details",
+                        helper = "These details help organisers understand the handover before requesting it.",
+                    ) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = { choosingLocation = true },
+                            shape = RoundedCornerShape(16.dp),
+                            color = HomePaper,
+                            border = BorderStroke(1.dp, if (active && geoLocation == null) MaterialTheme.colorScheme.error else HomeLine),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = HomeForest, modifier = Modifier.size(24.dp))
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Text(
+                                        if (geoLocation == null) "Choose business location *" else "Business location",
+                                        style = HomeBodyStyle,
+                                        color = HomeInk,
+                                    )
+                                    Text(
+                                        geoLocation?.displayAddress ?: "Set the exact point organisers should use.",
+                                        style = HomeSupportingTextStyle,
+                                        color = HomeSupportingInk,
+                                    )
+                                }
+                                Text(if (geoLocation == null) "Choose" else "Change", style = HomeSupportingTextStyle, color = HomeForest)
+                            }
+                        }
+                        geoLocation?.let {
+                            Text(
+                                "${"%.6f".format(it.latitude)}, ${"%.6f".format(it.longitude)}",
+                                style = HomeSupportingTextStyle,
+                                color = HomeSupportingInk,
+                            )
+                        }
+                        OutlinedTextField(
+                            value = processing,
+                            onValueChange = { processing = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Processing method *") },
+                            placeholder = { Text("Explain how resources are repaired, recycled or bought back") },
+                            minLines = 3,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = fieldColors,
+                            isError = active && processing.isBlank(),
+                        )
+                        OutlinedTextField(
+                            value = terms,
+                            onValueChange = { terms = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Programme terms *") },
+                            placeholder = { Text("Collection hours, preparation rules and handover requirements") },
+                            minLines = 3,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = fieldColors,
+                            isError = active && terms.isBlank(),
+                        )
+                    }
+
+                    ProgrammeFormSection(
+                        step = "06",
+                        title = "Publishing status",
+                        helper = "Drafts stay private. Published programmes can appear in matching and partner discovery.",
+                    ) {
+                        if (legacy == null) {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = { active = !active },
+                                shape = RoundedCornerShape(16.dp),
+                                color = HomePaper,
+                                border = BorderStroke(1.dp, if (active) HomeForest else HomeLine),
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Text("Publish programme now", style = HomeBodyStyle, color = HomeInk)
+                                        Text(
+                                            if (active) "The programme will be visible after saving." else "Keep this off to save an incomplete draft.",
+                                            style = HomeSupportingTextStyle,
+                                            color = HomeSupportingInk,
+                                        )
+                                    }
+                                    Switch(checked = active, onCheckedChange = { active = it })
+                                }
+                            }
+                        } else {
+                            Text("This legacy replacement will be saved as an inactive draft.", style = HomeSupportingTextStyle, color = HomeSupportingInk)
+                        }
+                        if (active && activationMissing.isNotEmpty()) {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                color = MaterialTheme.colorScheme.errorContainer,
+                            ) {
+                                Text(
+                                    "Before publishing, complete: ${activationMissing.joinToString()}.",
+                                    modifier = Modifier.padding(12.dp),
+                                    style = HomeSupportingTextStyle,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                )
+                            }
+                        }
+                    }
                 }
-                if (!numericValuesValid || !rangeValid || !unitRequired || !coinValid || !directionValid) {
-                    Text(
-                        "Minimum/maximum must be positive, capacity non-negative, quantified values require a unit, and ReCoin direction must suit the programme type.",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+
+                HorizontalDivider(color = HomeLine)
+                Surface(color = HomePaper) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        TextButton(onClick = onDismiss) {
+                            Text("Cancel", color = HomeForest, style = HomeBodyStyle)
+                        }
+                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                            if (!canSave) {
+                                Text(
+                                    when {
+                                        name.isBlank() -> "Add a programme name to continue."
+                                        active && !activationReady -> "Complete the publishing requirements above."
+                                        else -> "Review the highlighted fields."
+                                    },
+                                    style = HomeSupportingTextStyle,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
+                        Button(
+                            enabled = canSave,
+                            onClick = {
+                                onSave(
+                                    ProgrammeForm(
+                                        name = name,
+                                        type = type,
+                                        materialFamilies = materialFamilies,
+                                        categories = categories.split(","),
+                                        conditions = conditions,
+                                        minimumQuantity = parsedMinimum,
+                                        maximumQuantity = parsedMaximum,
+                                        unit = unit.takeIf(String::isNotBlank),
+                                        remainingCapacity = parsedCapacity,
+                                        pickupAvailable = pickup,
+                                        coinDirection = coinDirection,
+                                        unitCoinAmount = amount,
+                                        geoLocation = geoLocation,
+                                        processingMethod = processing,
+                                        terms = terms,
+                                        active = active,
+                                    ),
+                                )
+                            },
+                            modifier = Modifier.testTag("programme_editor_save"),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = HomeForest,
+                                contentColor = Color.White,
+                                disabledContainerColor = HomeLine,
+                                disabledContentColor = HomeSupportingInk,
+                            ),
+                        ) {
+                            Text(if (active) "Publish" else "Save draft", style = HomeBodyStyle)
+                        }
+                    }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = canSave,
-                onClick = {
-                    onSave(
-                        ProgrammeForm(
-                            name = name,
-                            type = type,
-                            materialFamilies = materialFamilies,
-                            categories = categories.split(","),
-                            conditions = conditions,
-                            minimumQuantity = parsedMinimum,
-                            maximumQuantity = parsedMaximum,
-                            unit = unit.takeIf(String::isNotBlank),
-                            remainingCapacity = parsedCapacity,
-                            pickupAvailable = pickup,
-                            coinDirection = coinDirection,
-                            unitCoinAmount = amount,
-                            geoLocation = geoLocation,
-                            processingMethod = processing,
-                            terms = terms,
-                            active = active,
-                        ),
-                    )
-                },
-            ) { Text("Save") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
+        }
+    }
 
     if (choosingLocation) {
         LocationPickerDialog(
@@ -659,4 +1044,89 @@ private fun ProgrammeEditorDialog(
             initialQuery = legacy?.location.orEmpty(),
         )
     }
+}
+
+@Composable
+private fun ProgrammeFormSection(
+    step: String,
+    title: String,
+    helper: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = HomeSage.copy(alpha = 0.82f),
+        border = BorderStroke(1.dp, HomeLine),
+        tonalElevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = HomeForest,
+                ) {
+                    Text(
+                        step,
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                        style = HomeLabelStyle,
+                        color = Color.White,
+                    )
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(title, style = HomeCardTitleStyle, color = HomeInk)
+                    Text(helper, style = HomeSupportingTextStyle, color = HomeSupportingInk)
+                }
+            }
+            content()
+        }
+    }
+}
+
+@Composable
+private fun ProgrammeChoiceLabel(text: String) {
+    Text(text, style = HomeLabelStyle, color = HomeForest)
+}
+
+@Composable
+private fun EditorialChoiceChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label, style = HomeSupportingTextStyle) },
+        colors = FilterChipDefaults.filterChipColors(
+            containerColor = HomePaper,
+            labelColor = HomeInk,
+            selectedContainerColor = HomeForest,
+            selectedLabelColor = Color.White,
+        ),
+    )
+}
+
+private fun ResourceCondition.displayLabel(): String = name
+    .lowercase()
+    .replace('_', ' ')
+    .replaceFirstChar(Char::titlecase)
+
+private fun CoinDirection.displayLabel(): String = when (this) {
+    CoinDirection.FREE -> "Free"
+    CoinDirection.OWNER_PAYS_PARTNER -> "Owner pays partner"
+    CoinDirection.PARTNER_PAYS_OWNER -> "Partner pays owner"
+}
+
+private fun CoinDirection.explanation(): String = when (this) {
+    CoinDirection.FREE -> "No ReCoins are exchanged for this service."
+    CoinDirection.OWNER_PAYS_PARTNER -> "The resource owner pays the partner for each accepted unit."
+    CoinDirection.PARTNER_PAYS_OWNER -> "The partner rewards the resource owner for each accepted unit."
 }
