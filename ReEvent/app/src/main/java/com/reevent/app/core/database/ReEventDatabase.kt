@@ -17,8 +17,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SyncOperationEntity::class,
         LifecycleCommandEntity::class,
         LegacyProgrammeDraftEntity::class,
+        DiscoverableEventEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true
 )
 abstract class ReEventDatabase : RoomDatabase() {
@@ -463,6 +464,32 @@ abstract class ReEventDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE INDEX index_circular_programmes_accountId_partnerId " +
                         "ON circular_programmes(accountId, partnerId)",
+                )
+            }
+        }
+
+        /** Adds the account-scoped, privacy-safe Active-event discovery cache. */
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE events ADD COLUMN eventType TEXT")
+                db.execSQL("ALTER TABLE events ADD COLUMN timezoneId TEXT")
+                db.execSQL("ALTER TABLE events ADD COLUMN expectedAttendance INTEGER")
+                db.execSQL("ALTER TABLE events ADD COLUMN recoveryTargetPercent REAL NOT NULL DEFAULT 0.0")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS discoverable_events (
+                        id TEXT NOT NULL, accountId TEXT NOT NULL, name TEXT NOT NULL,
+                        description TEXT NOT NULL, eventType TEXT NOT NULL,
+                        startsAt INTEGER NOT NULL, endsAt INTEGER NOT NULL,
+                        timezoneId TEXT NOT NULL, venue TEXT NOT NULL,
+                        recoveryTargetPercent REAL NOT NULL, updatedAt INTEGER NOT NULL,
+                        PRIMARY KEY(accountId, id)
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_discoverable_events_accountId_startsAt " +
+                        "ON discoverable_events(accountId, startsAt)",
                 )
             }
         }

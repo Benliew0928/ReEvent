@@ -34,6 +34,7 @@ class ReEventDatabaseMigrationTest {
         context.deleteDatabase(V6_DATABASE)
         context.deleteDatabase(V7_DATABASE)
         context.deleteDatabase(V8_DATABASE)
+        context.deleteDatabase(V9_DATABASE)
     }
 
     @Test
@@ -439,6 +440,46 @@ class ReEventDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrate9To10_preservesEventsAndCreatesDiscoveryCache() {
+        helper.createDatabase(V9_DATABASE, 9).use { database ->
+            database.execSQL(
+                """
+                INSERT INTO events (
+                    id, accountId, ownerId, name, description, venue, startsAt, endsAt,
+                    status, createdAt, updatedAt, syncState, archived, latitude, longitude
+                ) VALUES (
+                    'event-v9', '$ACCOUNT_A', 'owner-a', 'Saved draft', 'description', 'venue',
+                    10, 20, 'DRAFT', 10, 20, 'PENDING', 0, NULL, NULL
+                )
+                """.trimIndent(),
+            )
+        }
+
+        helper.runMigrationsAndValidate(
+            V9_DATABASE,
+            10,
+            true,
+            ReEventDatabase.MIGRATION_9_10,
+        ).use { database ->
+            assertEquals(1L, database.count("events"))
+            assertEquals(
+                listOf(null, null, null, "0.0"),
+                database.nullableRow(
+                    "SELECT eventType, timezoneId, expectedAttendance, recoveryTargetPercent FROM events WHERE id = 'event-v9'",
+                ),
+            )
+            assertEquals(0L, database.count("discoverable_events"))
+            assertEquals(
+                1L,
+                database.query("SELECT COUNT(*) FROM pragma_table_info('discoverable_events') WHERE name = 'accountId'").use { cursor ->
+                    assertTrue(cursor.moveToFirst())
+                    cursor.getLong(0)
+                },
+            )
+        }
+    }
+
     private fun createVersion1Database(): SupportSQLiteDatabase {
         context.deleteDatabase(V1_DATABASE)
         val callback = object : SupportSQLiteOpenHelper.Callback(1) {
@@ -491,6 +532,7 @@ class ReEventDatabaseMigrationTest {
         const val V6_DATABASE = "reevent-migration-v6"
         const val V7_DATABASE = "reevent-migration-v7"
         const val V8_DATABASE = "reevent-migration-v8"
+        const val V9_DATABASE = "reevent-migration-v9"
 
         val ACCOUNT_SCOPED_TABLES = listOf(
             "events",

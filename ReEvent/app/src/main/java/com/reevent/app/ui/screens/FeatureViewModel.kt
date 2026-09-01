@@ -24,6 +24,7 @@ import com.reevent.app.core.model.GeoLocation
 import com.reevent.app.core.model.PlaceSuggestion
 import com.reevent.app.core.model.CircularProgramme
 import com.reevent.app.core.model.CircularTransaction
+import com.reevent.app.core.model.DiscoverableEvent
 import com.reevent.app.core.model.Event
 import com.reevent.app.core.model.ImpactRecord
 import com.reevent.app.core.model.MarketplaceListingDraft
@@ -106,6 +107,12 @@ class FeatureViewModel
         fun events(ownerId: String): Flow<List<Event>> = events.observeOwnedEvents(ownerId)
 
         fun event(id: String): Flow<Event?> = events.observeEvent(id)
+
+        fun discoverableEvents(): Flow<List<DiscoverableEvent>> = events.observeDiscoverableEvents()
+
+        fun discoverableEvent(id: String): Flow<DiscoverableEvent?> = events.observeDiscoverableEvent(id)
+
+        fun refreshDiscoverableEvents() = launchAction("Events refreshed") { events.refreshDiscoverableEvents() }
 
         fun resources(eventId: String): Flow<List<ResourceItem>> = resources.observeEventResources(eventId)
 
@@ -196,6 +203,32 @@ class FeatureViewModel
                 is AppResult.Failure -> {
                     result
                 }
+            }
+        }
+
+        fun publishEvent(
+            eventId: String,
+            onPublished: (Event) -> Unit = {},
+        ) = launchAction("Event published") {
+            when (val result = events.publishEvent(eventId)) {
+                is AppResult.Success -> {
+                    onPublished(result.value)
+                    result
+                }
+                is AppResult.Failure -> result
+            }
+        }
+
+        fun completeEvent(
+            eventId: String,
+            onCompleted: (Event) -> Unit = {},
+        ) = launchAction("Event completed") {
+            when (val result = events.completeEvent(eventId)) {
+                is AppResult.Success -> {
+                    onCompleted(result.value)
+                    result
+                }
+                is AppResult.Failure -> result
             }
         }
 

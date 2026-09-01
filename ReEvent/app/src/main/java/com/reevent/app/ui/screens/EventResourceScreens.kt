@@ -34,6 +34,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -101,6 +103,7 @@ import com.reevent.app.R
 import com.reevent.app.core.data.ResourcePresentationRules
 import com.reevent.app.core.data.blocksResourceArchive
 import com.reevent.app.core.model.CircularTransaction
+import com.reevent.app.core.model.DEFAULT_EVENT_TIMEZONE_ID
 import com.reevent.app.core.model.Event
 import com.reevent.app.core.model.GeoLocation
 import com.reevent.app.core.model.MaterialCatalog
@@ -110,6 +113,7 @@ import com.reevent.app.core.model.ResourceItem
 import com.reevent.app.core.model.ResourceStatus
 import com.reevent.app.core.model.SyncState
 import com.reevent.app.core.model.User
+import com.reevent.app.core.model.withPublicationDefaults
 import com.reevent.app.feature.events.EventFormValidation
 import com.reevent.app.ui.TopLevelDestination
 import com.reevent.app.ui.components.LogoMark
@@ -955,6 +959,7 @@ fun EventListLiveScreen(
     EventListEditorialContent(
         user = user,
         events = events,
+        activeEventCount = events.count { it.status.equals("ACTIVE", ignoreCase = true) },
         error = action.error,
         notice = action.notice,
         loading = action.loading,
@@ -976,13 +981,14 @@ fun EventListLiveScreen(
 internal fun EventListEditorialContent(
     user: User,
     events: List<Event>,
+    modifier: Modifier = Modifier,
+    activeEventCount: Int = events.count { it.status.equals("ACTIVE", ignoreCase = true) },
     error: String? = null,
     notice: String? = null,
     loading: Boolean = false,
     onCreate: () -> Unit,
     onOpen: (Event) -> Unit,
     onNavigate: (TopLevelDestination) -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     ReEventScaffold(
         selected = TopLevelDestination.EVENTS,
@@ -1021,6 +1027,7 @@ internal fun EventListEditorialContent(
                         user = user,
                         hasEvents = events.isNotEmpty(),
                         eventCount = events.size,
+                        activeEventCount = activeEventCount,
                         onProfile = { onNavigate(TopLevelDestination.ACCOUNT) },
                     )
                 }
@@ -1064,6 +1071,7 @@ private fun EventEditorialHeader(
     user: User,
     hasEvents: Boolean,
     eventCount: Int,
+    activeEventCount: Int,
     onProfile: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -1086,10 +1094,10 @@ private fun EventEditorialHeader(
                         .background(HomeForest, RoundedCornerShape(4.dp)),
                 )
                 Text(
-                    text = if (hasEvents) {
-                        "$eventCount ACTIVE EVENT${if (eventCount == 1) "" else "S"}"
-                    } else {
-                        "EVENTS OVERVIEW"
+                    text = when {
+                        activeEventCount > 0 -> "$activeEventCount ACTIVE EVENT${if (activeEventCount == 1) "" else "S"}"
+                        hasEvents -> "$eventCount EVENT DRAFT${if (eventCount == 1) "" else "S"}"
+                        else -> "EVENTS OVERVIEW"
                     },
                     style = HomeSupportingTextStyle.copy(
                         fontSize = 12.sp,
@@ -1340,8 +1348,8 @@ private fun EventStatusPill(label: String, featured: Boolean) {
 private fun EventCreateButton(
     label: String,
     onClick: () -> Unit,
-    outlined: Boolean = false,
     modifier: Modifier = Modifier,
+    outlined: Boolean = false,
 ) {
     Surface(
         onClick = onClick,
@@ -1393,7 +1401,9 @@ private data class EditorialEventDate(
 )
 
 private fun Event.editorialDate(): EditorialEventDate {
-    val date = Instant.ofEpochMilli(startsAt).atZone(ZoneId.systemDefault())
+    val zone = runCatching { ZoneId.of(timezoneId ?: "Asia/Kuala_Lumpur") }
+        .getOrElse { ZoneId.of("Asia/Kuala_Lumpur") }
+    val date = Instant.ofEpochMilli(startsAt).atZone(zone)
     return EditorialEventDate(
         day = EVENT_DAY_FORMAT.format(date),
         month = EVENT_MONTH_FORMAT.format(date).uppercase(Locale.US),
@@ -1408,6 +1418,37 @@ private val EVENT_MONTH_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern(
 private val EventEmptyCardSurface = Color(0xFFF2F1E8)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+private fun EventNumberField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    isError: Boolean = false,
+    supportingText: String? = null,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+        label = { Text(label) },
+        isError = isError,
+        supportingText = supportingText?.let { message -> { Text(message) } },
+        singleLine = true,
+        shape = RoundedCornerShape(16.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = HomeForest,
+            unfocusedBorderColor = HomeLine,
+            focusedLabelColor = HomeForest,
+            unfocusedLabelColor = HomeSupportingInk,
+            cursorColor = HomeForest,
+            focusedContainerColor = HomePaper,
+            unfocusedContainerColor = HomePaper,
+        ),
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 fun EventEditorLiveScreen(
     user: User,
     eventId: String?,
@@ -1420,6 +1461,7 @@ fun EventEditorLiveScreen(
     var name by rememberSaveable(eventId) { mutableStateOf("") }
     var description by rememberSaveable(eventId) { mutableStateOf("") }
     var venue by rememberSaveable(eventId) { mutableStateOf("") }
+    var expectedAttendance by rememberSaveable(eventId) { mutableStateOf("") }
     var geoLocation by remember(eventId) { mutableStateOf<GeoLocation?>(null) }
     var choosingEventLocation by remember { mutableStateOf(false) }
     var startDate by rememberSaveable(eventId) { mutableStateOf("") }
@@ -1431,12 +1473,25 @@ fun EventEditorLiveScreen(
             name = it.name
             description = it.description
             venue = it.venue
+            expectedAttendance = it.expectedAttendance?.toString().orEmpty()
             geoLocation = it.geoLocation
-            startDate = EventFormValidation.dateText(it.startsAt)
-            endDate = EventFormValidation.dateText(it.endsAt)
+            val storedZone = runCatching { ZoneId.of(it.timezoneId ?: DEFAULT_EVENT_TIMEZONE_ID) }
+                .getOrElse { ZoneId.of(DEFAULT_EVENT_TIMEZONE_ID) }
+            startDate = EventFormValidation.dateText(it.startsAt, storedZone)
+            endDate = EventFormValidation.dateText(it.endsAt, storedZone)
         }
     }
     val validation = EventFormValidation.validate(name, venue, startDate, endDate)
+    val publicationValidation = EventFormValidation.validateForPublication(
+        name = name,
+        description = description,
+        venue = venue,
+        startText = startDate,
+        endText = endDate,
+        expectedAttendance = expectedAttendance,
+        hasLocation = geoLocation != null,
+    )
+    val editingActiveEvent = existing?.status?.uppercase() == "ACTIVE"
     val action by viewModel.action.collectAsState()
     val editorTitle = if (eventId == null) "Create an event" else "Edit event"
     val editorSubtitle = if (eventId == null) {
@@ -1506,8 +1561,10 @@ fun EventEditorLiveScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                     Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
                         Surface(
                             onClick = onBack,
@@ -1614,8 +1671,20 @@ fun EventEditorLiveScreen(
                                         .fillMaxWidth()
                                         .height(104.dp),
                                     label = { Text("Description") },
+                                    isError = submitted && publicationValidation.descriptionError != null,
+                                    supportingText = if (submitted) {
+                                        publicationValidation.descriptionError?.let { message -> { Text(message) } }
+                                    } else null,
                                     shape = RoundedCornerShape(16.dp),
                                     colors = editorialFieldColors,
+                                )
+                                EventNumberField(
+                                    value = expectedAttendance,
+                                    onValueChange = { expectedAttendance = it.filter(Char::isDigit) },
+                                    label = "Expected attendance *",
+                                    isError = submitted && editingActiveEvent && publicationValidation.expectedAttendanceError != null,
+                                    supportingText = if (submitted && editingActiveEvent) publicationValidation.expectedAttendanceError else null,
+                                    modifier = Modifier.fillMaxWidth(),
                                 )
                                 Surface(
                                     onClick = { choosingEventLocation = true },
@@ -1709,32 +1778,46 @@ fun EventEditorLiveScreen(
                         Button(
                             onClick = saveEvent@{
                                 submitted = true
-                                if (!validation.isValid || geoLocation == null) return@saveEvent
+                                val canSave = if (editingActiveEvent) {
+                                    publicationValidation.isValid
+                                } else {
+                                    validation.isValid && geoLocation != null && publicationValidation.descriptionError == null
+                                }
+                                if (!canSave) return@saveEvent
                                 val now = System.currentTimeMillis()
                                 val start = checkNotNull(EventFormValidation.parseDate(startDate))
                                 val end = checkNotNull(EventFormValidation.parseDate(endDate))
-                                val event =
-                                    existing?.copy(
+                                val normalizedExisting = existing?.withPublicationDefaults()
+                                val selectedZone = runCatching {
+                                    ZoneId.of(normalizedExisting?.timezoneId ?: DEFAULT_EVENT_TIMEZONE_ID)
+                                }.getOrElse { ZoneId.of(DEFAULT_EVENT_TIMEZONE_ID) }
+                                val selectedLocation = geoLocation
+                                val selectedVenue = selectedLocation?.displayAddress ?: venue.trim()
+                                val event = (
+                                    normalizedExisting?.copy(
                                         name = name.trim(),
                                         description = description.trim(),
-                                        venue = venue.trim(),
-                                        geoLocation = geoLocation,
-                                        startsAt = EventFormValidation.startOfDayMillis(start),
-                                        endsAt = EventFormValidation.endOfDayMillis(end),
+                                        venue = selectedVenue,
+                                        geoLocation = selectedLocation,
+                                        startsAt = EventFormValidation.startOfDayMillis(start, selectedZone),
+                                        endsAt = EventFormValidation.endOfDayMillis(end, selectedZone),
+                                        expectedAttendance = expectedAttendance.trim().toIntOrNull(),
                                         updatedAt = now,
                                     ) ?: Event(
                                         UUID.randomUUID().toString(),
                                         user.id,
                                         name.trim(),
                                         description.trim(),
-                                        venue.trim(),
-                                        EventFormValidation.startOfDayMillis(start),
-                                        EventFormValidation.endOfDayMillis(end),
+                                        selectedVenue,
+                                        EventFormValidation.startOfDayMillis(start, selectedZone),
+                                        EventFormValidation.endOfDayMillis(end, selectedZone),
                                         "DRAFT",
                                         now,
                                         now,
-                                        geoLocation = geoLocation,
+                                        geoLocation = selectedLocation,
+                                        expectedAttendance = expectedAttendance.trim().toIntOrNull(),
                                     )
+                                ).withPublicationDefaults()
                                 viewModel.saveEvent(event, if (existing == null) "Event created" else "Event updated") { onSaved(it.id) }
                             },
                             modifier = Modifier
@@ -1772,7 +1855,7 @@ fun EventEditorLiveScreen(
                                 }
                             }
                             Text(
-                                text = "All fields marked * are required before the event can be saved.",
+                                text = "Save keeps this event private as a Draft. Publish requires the complete public-details checklist.",
                                 modifier = Modifier.weight(1f),
                                 style = HomeSupportingTextStyle,
                                 color = HomeSupportingInk,
@@ -1922,6 +2005,8 @@ fun EventDetailLiveScreen(
     val action by viewModel.action.collectAsState()
     var archiveResourceId by rememberSaveable(eventId) { mutableStateOf<String?>(null) }
     var archiveEventConfirmation by rememberSaveable(eventId) { mutableStateOf(false) }
+    var publishEventConfirmation by rememberSaveable(eventId) { mutableStateOf(false) }
+    var completeEventConfirmation by rememberSaveable(eventId) { mutableStateOf(false) }
     EventDetailEditorialContent(
         event = event,
         resources = resources,
@@ -1937,6 +2022,8 @@ fun EventDetailLiveScreen(
         onOpenPassport = onOpenPassport,
         onArchiveResource = { archiveResourceId = it },
         onArchiveEvent = { archiveEventConfirmation = true },
+        onPublishEvent = { publishEventConfirmation = true },
+        onCompleteEvent = { completeEventConfirmation = true },
         onNavigate = onNavigate,
         loadPhoto = viewModel::resourcePhoto,
     )
@@ -1994,6 +2081,40 @@ fun EventDetailLiveScreen(
             },
         )
     }
+
+    if (publishEventConfirmation && event != null) {
+        AlertDialog(
+            onDismissRequest = { publishEventConfirmation = false },
+            title = { Text("Publish this event?") },
+            text = {
+                Text(
+                    "This makes the event name, description, dates and venue visible to authenticated Participants and Partners. Expected attendance, resources, QR data and transactions remain private.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    publishEventConfirmation = false
+                    viewModel.publishEvent(eventId)
+                }) { Text("Publish event") }
+            },
+            dismissButton = { TextButton(onClick = { publishEventConfirmation = false }) { Text("Cancel") } },
+        )
+    }
+
+    if (completeEventConfirmation && event != null) {
+        AlertDialog(
+            onDismissRequest = { completeEventConfirmation = false },
+            title = { Text("Complete this event?") },
+            text = { Text("Completed events leave current stakeholder discovery. Any open recovery transactions must be completed, rejected or cancelled first.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    completeEventConfirmation = false
+                    viewModel.completeEvent(eventId)
+                }) { Text("Complete event") }
+            },
+            dismissButton = { TextButton(onClick = { completeEventConfirmation = false }) { Text("Cancel") } },
+        )
+    }
 }
 
 private enum class EventInventoryFilter {
@@ -2030,6 +2151,7 @@ internal fun EventDetailEditorialContent(
     event: Event?,
     resources: List<ResourceItem>,
     transactions: List<CircularTransaction>,
+    modifier: Modifier = Modifier,
     error: String? = null,
     notice: String? = null,
     loading: Boolean = false,
@@ -2043,7 +2165,8 @@ internal fun EventDetailEditorialContent(
     onArchiveEvent: () -> Unit,
     onNavigate: (TopLevelDestination) -> Unit,
     loadPhoto: suspend (String) -> ByteArray?,
-    modifier: Modifier = Modifier,
+    onPublishEvent: () -> Unit = {},
+    onCompleteEvent: () -> Unit = {},
 ) {
     val eventKey = event?.id ?: "event-detail"
     var searchQuery by rememberSaveable(eventKey) { mutableStateOf("") }
@@ -2122,6 +2245,23 @@ internal fun EventDetailEditorialContent(
                         event = event,
                         modifier = Modifier.padding(horizontal = 20.dp),
                     )
+                }
+                if (event?.status?.uppercase() == "DRAFT") {
+                    item {
+                        EventDraftPublicationPanel(
+                            event = event,
+                            onPublish = onPublishEvent,
+                            onEdit = onEditEvent,
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                        )
+                    }
+                } else if (event?.status?.uppercase() == "ACTIVE") {
+                    item {
+                        EventActiveLifecyclePanel(
+                            onComplete = onCompleteEvent,
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                        )
+                    }
                 }
                 error?.let { message ->
                     item {
@@ -2271,7 +2411,9 @@ private fun EventDetailHeader(
     val venue = event?.venue?.ifBlank { "Venue to be confirmed" } ?: "Loading venue…"
     val dateRange =
         event?.let {
-            "${EventFormValidation.dateText(it.startsAt)}–${EventFormValidation.dateText(it.endsAt)}"
+            val zone = runCatching { ZoneId.of(it.timezoneId ?: "Asia/Kuala_Lumpur") }
+                .getOrElse { ZoneId.of("Asia/Kuala_Lumpur") }
+            "${EventFormValidation.dateText(it.startsAt, zone)}–${EventFormValidation.dateText(it.endsAt, zone)}"
         } ?: "Loading dates…"
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text(
@@ -2355,6 +2497,131 @@ private fun EventMetadataLine(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+    }
+}
+
+@Composable
+private fun EventDraftPublicationPanel(
+    event: Event?,
+    onPublish: () -> Unit,
+    onEdit: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val currentEvent = event ?: return
+    val timezone = runCatching { ZoneId.of(currentEvent.timezoneId ?: DEFAULT_EVENT_TIMEZONE_ID) }
+        .getOrElse { ZoneId.of(DEFAULT_EVENT_TIMEZONE_ID) }
+    val readiness = EventFormValidation.validateForPublication(
+        name = currentEvent.name,
+        description = currentEvent.description,
+        venue = currentEvent.venue,
+        startText = EventFormValidation.dateText(currentEvent.startsAt, timezone),
+        endText = EventFormValidation.dateText(currentEvent.endsAt, timezone),
+        expectedAttendance = currentEvent.expectedAttendance?.toString().orEmpty(),
+        hasLocation = currentEvent.geoLocation != null,
+    )
+    val checklist = listOf(
+        "Event name" to (readiness.nameError == null),
+        "Dates" to (readiness.startDateError == null && readiness.endDateError == null),
+        "Public venue" to (readiness.venueError == null),
+        "Exact location" to (readiness.locationError == null),
+        "Expected attendance" to (readiness.expectedAttendanceError == null),
+    )
+    val canPublish = readiness.isValid
+    Surface(
+        modifier = modifier.fillMaxWidth().testTag("event_detail_publish_panel"),
+        shape = RoundedCornerShape(20.dp),
+        color = HomeSage,
+        border = BorderStroke(1.dp, HomeLine),
+        tonalElevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text("PRIVATE DRAFT", style = HomeSupportingTextStyle.copy(letterSpacing = 1.2.sp), color = HomeForest)
+            Text(
+                "Resources can be prepared while this event is private. Publish when the public event details are complete.",
+                style = HomeSupportingTextStyle,
+                color = HomeSupportingInk,
+            )
+            Text("Publication checklist", style = HomeSupportingTextStyle.copy(fontWeight = FontWeight.SemiBold), color = HomeForest)
+            checklist.forEach { (label, complete) ->
+                EventPublicationChecklistRow(label = label, complete = complete)
+            }
+            Text(
+                if (canPublish) {
+                    "Ready to publish. Resources remain private and are not listed automatically."
+                } else {
+                    "Complete the missing details in Edit event before publishing."
+                },
+                style = HomeSupportingTextStyle,
+                color = HomeSupportingInk,
+            )
+            if (!canPublish) {
+                TextButton(onClick = onEdit, modifier = Modifier.testTag("event_detail_edit_for_publish")) {
+                    Text("Edit event details", color = HomeForest)
+                }
+            }
+            Button(
+                onClick = onPublish,
+                enabled = canPublish,
+                modifier = Modifier.fillMaxWidth().height(52.dp).testTag("event_detail_publish"),
+                shape = RoundedCornerShape(15.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = HomeForest, contentColor = Color.White),
+            ) {
+                Text("Publish event", style = HomeBodyStyle.copy(fontSize = 16.sp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun EventPublicationChecklistRow(
+    label: String,
+    complete: Boolean,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            imageVector = if (complete) Icons.Outlined.CheckCircle else Icons.Outlined.Clear,
+            contentDescription = if (complete) "$label complete" else "$label incomplete",
+            tint = if (complete) HomeForest else ReEventCoral,
+            modifier = Modifier.size(18.dp),
+        )
+        Text(label, style = HomeSupportingTextStyle, color = HomeInk)
+    }
+}
+
+@Composable
+private fun EventActiveLifecyclePanel(
+    onComplete: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth().testTag("event_detail_active_panel"),
+        shape = RoundedCornerShape(20.dp),
+        color = HomePaper.copy(alpha = 0.92f),
+        border = BorderStroke(1.dp, HomeLine),
+        tonalElevation = 0.dp,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text("ACTIVE EVENT", style = HomeSupportingTextStyle.copy(letterSpacing = 1.1.sp), color = HomeForest)
+                Text("Stakeholders can see the approved public details.", style = HomeSupportingTextStyle, color = HomeSupportingInk)
+            }
+            OutlinedButton(
+                onClick = onComplete,
+                modifier = Modifier.testTag("event_detail_complete"),
+                border = BorderStroke(1.dp, HomeForest),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = HomeForest),
+            ) { Text("Complete") }
+        }
     }
 }
 

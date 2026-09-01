@@ -11,6 +11,8 @@ enum class UserRole {
 
 enum class ResourceCondition { NEW, GOOD, FAIR, NEEDS_REPAIR, END_OF_LIFE }
 enum class ResourceStatus { DRAFT, ACTIVE, RECOVERY_IN_PROGRESS, RECOVERED, ARCHIVED }
+enum class EventStatus { DRAFT, ACTIVE, COMPLETED, ARCHIVED }
+enum class EventType { CONFERENCE, EXHIBITION, FESTIVAL, WORKSHOP, COMMUNITY, OTHER }
 enum class TransactionType { BORROW, RENT, BUY, DONATE, EXCHANGE, REPAIR, RECYCLE, BUY_BACK }
 enum class TransactionStatus {
     REQUESTED,
@@ -65,6 +67,24 @@ data class Event(
     val syncState: SyncState = SyncState.PENDING,
     val archived: Boolean = false,
     val geoLocation: GeoLocation? = null,
+    /** Server lifecycle contract fields. Drafts may leave these values incomplete. */
+    val eventType: String? = null,
+    val timezoneId: String? = null,
+    val expectedAttendance: Int? = null,
+    val recoveryTargetPercent: Double = 0.0,
+)
+
+/** Privacy-safe event projection returned by the authenticated discovery RPC. */
+data class DiscoverableEvent(
+    val id: String,
+    val name: String,
+    val description: String,
+    val eventType: String,
+    val startsAt: Long,
+    val endsAt: Long,
+    val timezoneId: String,
+    val venue: String,
+    val recoveryTargetPercent: Double,
 )
 
 data class ResourceItem(

@@ -29,6 +29,7 @@ internal fun topLevelDestinations(role: UserRole): List<TopLevelDestination> =
             listOf(
                 TopLevelDestination.HOME,
                 TopLevelDestination.MARKETPLACE,
+                TopLevelDestination.EVENTS,
                 TopLevelDestination.PARTNERS,
                 TopLevelDestination.ACCOUNT,
             )
@@ -38,6 +39,7 @@ internal fun topLevelDestinations(role: UserRole): List<TopLevelDestination> =
             listOf(
                 TopLevelDestination.HOME,
                 TopLevelDestination.MARKETPLACE,
+                TopLevelDestination.EVENTS,
                 TopLevelDestination.PROGRAMMES,
                 TopLevelDestination.ACCOUNT,
             )

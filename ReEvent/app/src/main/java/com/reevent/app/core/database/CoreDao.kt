@@ -21,6 +21,13 @@ interface CoreDao {
     @Query("UPDATE events SET archived = 1, syncState = 'PENDING', updatedAt = :updatedAt WHERE accountId = :accountId AND id = :id") suspend fun archiveEvent(accountId: String, id: String, updatedAt: Long)
     @Query("UPDATE events SET syncState = :state WHERE accountId = :accountId AND id = :id") suspend fun setEventSyncState(accountId: String, id: String, state: String)
 
+    @Upsert suspend fun upsertDiscoverableEvent(event: DiscoverableEventEntity)
+    @Query("SELECT * FROM discoverable_events WHERE accountId = :accountId ORDER BY startsAt ASC, id ASC")
+    fun observeDiscoverableEvents(accountId: String): Flow<List<DiscoverableEventEntity>>
+    @Query("SELECT * FROM discoverable_events WHERE accountId = :accountId AND id = :id")
+    fun observeDiscoverableEvent(accountId: String, id: String): Flow<DiscoverableEventEntity?>
+    @Query("DELETE FROM discoverable_events WHERE accountId = :accountId") suspend fun clearDiscoverableEvents(accountId: String)
+
     @Upsert suspend fun upsertResource(resource: ResourceEntity)
     @Query("SELECT * FROM resource_items WHERE accountId = :accountId AND eventId = :eventId AND archived = 0 ORDER BY updatedAt DESC") fun observeResources(accountId: String, eventId: String): Flow<List<ResourceEntity>>
     @Query("SELECT * FROM resource_items WHERE accountId = :accountId AND ownerId = :ownerId AND status = 'ACTIVE' AND archived = 0 ORDER BY updatedAt DESC") fun observeOwnedResources(accountId: String, ownerId: String): Flow<List<ResourceEntity>>
@@ -65,6 +72,8 @@ interface CoreDao {
     @Query("SELECT * FROM sync_outbox WHERE environment = :environment AND accountId = :accountId ORDER BY id LIMIT :limit") suspend fun pendingOperations(environment: String, accountId: String, limit: Int): List<SyncOperationEntity>
     @Query("SELECT * FROM sync_outbox WHERE environment = :environment AND accountId = :accountId ORDER BY id") fun observePendingOperations(environment: String, accountId: String): Flow<List<SyncOperationEntity>>
     @Query("DELETE FROM sync_outbox WHERE environment = :environment AND accountId = :accountId AND id = :id") suspend fun deleteOutbox(environment: String, accountId: String, id: Long)
+    @Query("DELETE FROM sync_outbox WHERE environment = :environment AND accountId = :accountId AND tableName = :tableName AND recordId = :recordId")
+    suspend fun deleteOutboxForRecord(environment: String, accountId: String, tableName: String, recordId: String)
     @Query("UPDATE sync_outbox SET attempts = attempts + 1, lastError = :error, updatedAt = :updatedAt WHERE environment = :environment AND accountId = :accountId AND id = :id") suspend fun markOutboxFailed(environment: String, accountId: String, id: Long, error: String, updatedAt: Long)
 
     @Insert(onConflict = OnConflictStrategy.ABORT)

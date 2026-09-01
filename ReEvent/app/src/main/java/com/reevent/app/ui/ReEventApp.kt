@@ -33,6 +33,8 @@ import com.reevent.app.ui.screens.AccountDeletionPendingFlowScreen
 import com.reevent.app.ui.screens.AddResourceLiveScreen
 import com.reevent.app.ui.screens.CompleteRoleFlowScreen
 import com.reevent.app.ui.screens.EventDetailLiveScreen
+import com.reevent.app.ui.screens.DiscoverableEventDetailLiveScreen
+import com.reevent.app.ui.screens.DiscoverableEventListLiveScreen
 import com.reevent.app.ui.screens.EventEditorLiveScreen
 import com.reevent.app.ui.screens.EventListLiveScreen
 import com.reevent.app.ui.screens.FeatureViewModel
@@ -86,6 +88,12 @@ import kotlinx.serialization.Serializable
 )
 
 @Serializable internal data class EventDetailRoute(
+    val eventId: String,
+)
+
+@Serializable private data object DiscoverableEventListRoute
+
+@Serializable private data class DiscoverableEventDetailRoute(
     val eventId: String,
 )
 
@@ -340,6 +348,22 @@ private fun androidx.navigation.NavGraphBuilder.participantGraph(
             onProfile = nav::openProfile,
         )
     }
+    composable<DiscoverableEventListRoute> {
+        DiscoverableEventListLiveScreen(
+            user = user,
+            onOpen = { nav.openDetail(DiscoverableEventDetailRoute(it)) },
+            onBack = nav::popBackStack,
+            onNavigate = nav::openParticipantTopLevelDestination,
+        )
+    }
+    composable<DiscoverableEventDetailRoute> { entry ->
+        DiscoverableEventDetailLiveScreen(
+            user = user,
+            eventId = entry.toRoute<DiscoverableEventDetailRoute>().eventId,
+            onBack = nav::popBackStack,
+            onNavigate = nav::openParticipantTopLevelDestination,
+        )
+    }
     composable<MarketplaceRoute> {
         MarketplaceVisualScreen(user, { nav.openDetail(PassportRoute(it)) }, nav::openParticipantTopLevelDestination)
     }
@@ -376,6 +400,22 @@ private fun androidx.navigation.NavGraphBuilder.partnerGraph(
             user = user,
             onTarget = nav::openPartnerHomeTarget,
             onProfile = nav::openProfile,
+        )
+    }
+    composable<DiscoverableEventListRoute> {
+        DiscoverableEventListLiveScreen(
+            user = user,
+            onOpen = { nav.openDetail(DiscoverableEventDetailRoute(it)) },
+            onBack = nav::popBackStack,
+            onNavigate = nav::openPartnerTopLevelDestination,
+        )
+    }
+    composable<DiscoverableEventDetailRoute> { entry ->
+        DiscoverableEventDetailLiveScreen(
+            user = user,
+            eventId = entry.toRoute<DiscoverableEventDetailRoute>().eventId,
+            onBack = nav::popBackStack,
+            onNavigate = nav::openPartnerTopLevelDestination,
         )
     }
     composable<PartnerProgrammesRoute> {
@@ -451,6 +491,7 @@ private fun NavHostController.openParticipantTopLevelDestination(destination: To
     when (destination) {
         TopLevelDestination.HOME -> openTopLevel(ParticipantHomeRoute)
         TopLevelDestination.MARKETPLACE -> openTopLevel(MarketplaceRoute)
+        TopLevelDestination.EVENTS -> openTopLevel(DiscoverableEventListRoute)
         TopLevelDestination.PARTNERS -> openTopLevel(PartnerMapRoute())
         TopLevelDestination.ACCOUNT -> openProfile()
         else -> Unit
@@ -461,6 +502,7 @@ private fun NavHostController.openPartnerTopLevelDestination(destination: TopLev
     when (destination) {
         TopLevelDestination.HOME -> openTopLevel(PartnerHomeRoute)
         TopLevelDestination.MARKETPLACE -> openTopLevel(MarketplaceRoute)
+        TopLevelDestination.EVENTS -> openTopLevel(DiscoverableEventListRoute)
         TopLevelDestination.PROGRAMMES -> openTopLevel(PartnerProgrammesRoute)
         TopLevelDestination.ACCOUNT -> openProfile()
         else -> Unit

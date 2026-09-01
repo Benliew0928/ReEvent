@@ -109,9 +109,17 @@ async function createMarketplaceFixture(database) {
         latitude, longitude, expected_attendance, status
       ) values (
         $1, 'Circular operations', 'COMMUNITY', now() + interval '1 day', now() + interval '2 days',
-        'Asia/Kuala_Lumpur', 'Kuala Lumpur', 3.139000, 101.686900, 50, 'ACTIVE'
+        'Asia/Kuala_Lumpur', 'Kuala Lumpur', 3.139000, 101.686900, 50, 'DRAFT'
       ) returning id
     `, [organizerId])
+    await database.query(`
+      select public.publish_event(
+        $1, 'Circular operations', '', 'COMMUNITY'::public.event_type,
+        now() + interval '1 day', now() + interval '2 days',
+        'Asia/Kuala_Lumpur', 'Kuala Lumpur', 3.139000, 101.686900, 50, 0,
+        '10000000-0000-4000-8000-000000000091'::uuid
+      )
+    `, [event.rows[0].id])
     const resource = await database.query(`
       insert into public.resource_items(
         origin_event_id, created_by, current_owner_id, title, category, material_family,
@@ -346,9 +354,17 @@ test('role onboarding grants one wallet and root resources receive one passport'
       latitude, longitude, expected_attendance, status
     ) values (
       $1, 'Release event', 'COMMUNITY', now() + interval '1 day', now() + interval '2 days',
-      'Asia/Kuala_Lumpur', 'Kuala Lumpur', 3.139000, 101.686900, 50, 'ACTIVE'
+      'Asia/Kuala_Lumpur', 'Kuala Lumpur', 3.139000, 101.686900, 50, 'DRAFT'
     ) returning id
   `, [organizerId])
+  await database.query(`
+    select public.publish_event(
+      $1, 'Release event', '', 'COMMUNITY'::public.event_type,
+      now() + interval '1 day', now() + interval '2 days',
+      'Asia/Kuala_Lumpur', 'Kuala Lumpur', 3.139000, 101.686900, 50, 0,
+      '10000000-0000-4000-8000-000000000092'::uuid
+    )
+  `, [event.rows[0].id])
   const authority = await database.query(`
     select auth.uid() as actor_id, public.has_role('ORGANIZER') as has_role,
       public.is_event_owner($1::uuid) as owns_event
@@ -420,9 +436,17 @@ test('an organizer can replay a root-resource upsert without bypassing lifecycle
       latitude, longitude, expected_attendance, status
     ) values (
       $1, 'Upsert replay event', 'COMMUNITY', now() + interval '1 day', now() + interval '2 days',
-      'Asia/Kuala_Lumpur', 'Kuala Lumpur', 3.139000, 101.686900, 50, 'ACTIVE'
+      'Asia/Kuala_Lumpur', 'Kuala Lumpur', 3.139000, 101.686900, 50, 'DRAFT'
     ) returning id
   `, [organizerId]))
+  await runAs(database, organizerId, () => database.query(`
+    select public.publish_event(
+      $1, 'Upsert replay event', '', 'COMMUNITY'::public.event_type,
+      now() + interval '1 day', now() + interval '2 days',
+      'Asia/Kuala_Lumpur', 'Kuala Lumpur', 3.139000, 101.686900, 50, 0,
+      '10000000-0000-4000-8000-000000000093'::uuid
+    )
+  `, [event.rows[0].id]))
   const resourceId = '20000000-0000-4000-8000-000000000031'
 
   const replay = await runAs(database, organizerId, () => database.query(`
@@ -739,7 +763,7 @@ test('an incomplete draft event can be archived without becoming actionable', as
     runAs(database, organizerId, () => database.query(`
       update public.events set status = 'ACTIVE' where id = $1
     `, [eventId])),
-    /events_active_fields_check/
+    /EVENT_LIFECYCLE_SERVER_ONLY|events_active_fields_check/
   )
   await runAs(database, organizerId, () => database.query(`
     update public.events set status = 'ARCHIVED', archived_at = now() where id = $1
@@ -1354,5 +1378,117 @@ test('partner coordinates are bounded and geocoding quota is atomic per user win
     [fixture.organizerId]
   ))
   assert.equal(denied.rows[0].allowed, false)
+  await database.close()
+})
+
+test('event publication is owner-authorised and discovery exposes only active safe fields', async () => {
+  const database = await createDatabase()
+  const organizerId = '10000000-0000-4000-8000-000000000071'
+  const participantId = '10000000-0000-4000-8000-000000000072'
+  const partnerId = '10000000-0000-4000-8000-000000000073'
+  const eventId = '20000000-0000-4000-8000-000000000071'
+  const commandKey = '30000000-0000-4000-8000-000000000071'
+  await createActor(database, organizerId, 'ORGANIZER')
+  await createActor(database, participantId, 'PARTICIPANT')
+  await createActor(database, partnerId, 'PARTNER')
+
+  const rpcCreatedEventId = '20000000-0000-4000-8000-000000000070'
+  const rpcCreated = await runAs(database, organizerId, () => database.query(`
+    select public.publish_event(
+      $1::uuid, 'RPC-created event', '', 'COMMUNITY'::public.event_type,
+      now() + interval '3 days', now() + interval '4 days', 'Asia/Kuala_Lumpur',
+      'Kampar, Malaysia', 4.300000, 101.150000, 10, 10, '30000000-0000-4000-8000-000000000070'::uuid
+    ) as result
+  `, [rpcCreatedEventId]))
+  assert.equal(rpcCreated.rows[0].result.event.status, 'ACTIVE')
+  await runAs(database, organizerId, () => database.query(
+    `select public.archive_event($1::uuid, $2::uuid)`,
+    [rpcCreatedEventId, '30000000-0000-4000-8000-000000000074'],
+  ))
+
+  await runAs(database, organizerId, () => database.query(`
+    insert into public.events(id, owner_id, name, description, starts_at, ends_at, status)
+    values ($1, $2, 'Blood donation', 'Community donation drive', now() + interval '1 day',
+      now() + interval '2 days', 'DRAFT')
+  `, [eventId, organizerId]))
+
+  const rawBeforePublish = await runAs(database, participantId, () => database.query(
+    `select id from public.events where id = $1`, [eventId]
+  ))
+  assert.deepEqual(rawBeforePublish.rows, [])
+  const discoveryBeforePublish = await runAs(database, participantId, () => database.query(
+    `select * from public.list_discoverable_events()`
+  ))
+  assert.deepEqual(discoveryBeforePublish.rows, [])
+
+  await assert.rejects(
+    runAs(database, participantId, () => database.query(`
+      select public.publish_event(
+        $1::uuid, 'Blood donation', 'Community donation drive', 'COMMUNITY'::public.event_type,
+        now() + interval '1 day', now() + interval '2 days', 'Asia/Kuala_Lumpur',
+        'Kampar, Malaysia', 4.300000, 101.150000, 100, 80, $2::uuid
+      )
+    `, [eventId, commandKey])),
+    /EVENT_OWNER_REQUIRED|ORGANIZER_ROLE_REQUIRED|permission denied/
+  )
+
+  await assert.rejects(
+    runAs(database, organizerId, () => database.query(`
+      select public.publish_event(
+        $1::uuid, 'Blood donation', 'Community donation drive', 'COMMUNITY'::public.event_type,
+        now() + interval '1 day', now() + interval '2 days', 'Not/AZone',
+        'Kampar, Malaysia', 4.300000, 101.150000, 100, 80, $2::uuid
+      )
+    `, [eventId, '30000000-0000-4000-8000-000000000075'])),
+    /EVENT_TIMEZONE_INVALID/
+  )
+
+  const published = await runAs(database, organizerId, () => database.query(`
+    select public.publish_event(
+      $1::uuid, 'Blood donation', 'Community donation drive', 'COMMUNITY'::public.event_type,
+      now() + interval '1 day', now() + interval '2 days', 'Asia/Kuala_Lumpur',
+      'Kampar, Malaysia', 4.300000, 101.150000, 100, 80, $2::uuid
+    ) as result
+  `, [eventId, commandKey]))
+  assert.equal(published.rows[0].result.event.status, 'ACTIVE')
+
+  const discoveryForParticipant = await runAs(database, participantId, () => database.query(
+    `select * from public.list_discoverable_events()`
+  ))
+  assert.deepEqual(discoveryForParticipant.rows, [{
+    id: eventId,
+    name: 'Blood donation',
+    description: 'Community donation drive',
+    event_type: 'COMMUNITY',
+    timezone_id: 'Asia/Kuala_Lumpur',
+    address_text: 'Kampar, Malaysia',
+      recovery_target_percent: '80.00',
+  }].map((expected) => ({
+    ...expected,
+    starts_at: discoveryForParticipant.rows[0].starts_at,
+    ends_at: discoveryForParticipant.rows[0].ends_at,
+  })))
+  assert.equal(Object.hasOwn(discoveryForParticipant.rows[0], 'owner_id'), false)
+  assert.equal(Object.hasOwn(discoveryForParticipant.rows[0], 'expected_attendance'), false)
+
+  const discoveryForPartner = await runAs(database, partnerId, () => database.query(
+    `select id, name from public.list_discoverable_events()`
+  ))
+  assert.deepEqual(discoveryForPartner.rows, [{ id: eventId, name: 'Blood donation' }])
+
+  await assert.rejects(
+    runAs(database, organizerId, () => database.query(`
+      update public.events set status = 'DRAFT' where id = $1
+    `, [eventId])),
+    /EVENT_LIFECYCLE_SERVER_ONLY/
+  )
+
+  await runAs(database, organizerId, () => database.query(
+    `select public.complete_event($1::uuid, $2::uuid)`, [eventId, '30000000-0000-4000-8000-000000000072']
+  ))
+  const discoveryAfterComplete = await runAs(database, participantId, () => database.query(
+    `select * from public.list_discoverable_events()`
+  ))
+  assert.deepEqual(discoveryAfterComplete.rows, [])
   await database.close()
 })

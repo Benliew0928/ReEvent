@@ -4,6 +4,7 @@ import com.reevent.app.core.model.CircularProgramme
 import com.reevent.app.core.model.CircularTransaction
 import com.reevent.app.core.model.CoinDirection
 import com.reevent.app.core.model.Event
+import com.reevent.app.core.model.DiscoverableEvent
 import com.reevent.app.core.model.GeoLocation
 import com.reevent.app.core.model.ImpactRecord
 import com.reevent.app.core.model.LegacyProgrammeDraft
@@ -28,11 +29,22 @@ fun User.toEntity() = UserEntity(id, email, displayName, role?.name, avatarUrl, 
 
 fun EventEntity.toDomain() = Event(
     id, ownerId, name, description, venue, startsAt, endsAt, status, createdAt, updatedAt,
-    SyncState.valueOf(syncState), archived, geoLocation(venue, latitude, longitude),
+    SyncState.valueOf(syncState), archived, geoLocation(venue, latitude, longitude), eventType,
+    timezoneId, expectedAttendance, recoveryTargetPercent,
 )
 fun Event.toEntity(accountId: String) = EventEntity(
     id, accountId, ownerId, name, description, venue, startsAt, endsAt, status, createdAt, updatedAt,
-    syncState.name, archived, geoLocation?.latitude, geoLocation?.longitude,
+    syncState.name, archived, geoLocation?.latitude, geoLocation?.longitude, eventType, timezoneId,
+    expectedAttendance, recoveryTargetPercent,
+)
+
+fun DiscoverableEventEntity.toDomain() = DiscoverableEvent(
+    id, name, description, eventType, startsAt, endsAt, timezoneId, venue, recoveryTargetPercent,
+)
+
+fun DiscoverableEvent.toEntity(accountId: String) = DiscoverableEventEntity(
+    id, accountId, name, description, eventType, startsAt, endsAt, timezoneId, venue,
+    recoveryTargetPercent, updatedAt = System.currentTimeMillis(),
 )
 
 fun ResourceEntity.toDomain() = ResourceItem(

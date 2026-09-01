@@ -22,6 +22,8 @@ import com.reevent.app.core.config.AppEnvironment
 import com.reevent.app.core.network.SupabaseAuthGateway
 import com.reevent.app.core.network.LifecycleCommandGateway
 import com.reevent.app.core.network.SupabaseLifecycleCommandGateway
+import com.reevent.app.core.network.EventLifecycleGateway
+import com.reevent.app.core.network.SupabaseEventLifecycleGateway
 import com.reevent.app.core.network.SupabaseGeocodingRepository
 import com.reevent.app.core.sync.SyncGateway
 import com.reevent.app.core.sync.AccountSyncScheduler
@@ -49,6 +51,7 @@ object CoreModule {
                 ReEventDatabase.MIGRATION_6_7,
                 ReEventDatabase.MIGRATION_7_8,
                 ReEventDatabase.MIGRATION_8_9,
+                ReEventDatabase.MIGRATION_9_10,
             )
             .build()
 
@@ -64,6 +67,9 @@ object CoreModule {
 
     @Provides
     fun provideLifecycleCommandGateway(gateway: SupabaseLifecycleCommandGateway): LifecycleCommandGateway = gateway
+
+    @Provides
+    fun provideEventLifecycleGateway(gateway: SupabaseEventLifecycleGateway): EventLifecycleGateway = gateway
 
     @Provides
     fun provideAccountSyncScheduler(scheduler: SyncScheduler): AccountSyncScheduler = scheduler

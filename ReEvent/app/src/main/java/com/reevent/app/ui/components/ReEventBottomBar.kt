@@ -122,6 +122,7 @@ private fun navigationDestinations(role: UserRole): List<NavigationDestination> 
     UserRole.PARTICIPANT -> listOf(
         NavigationDestination(TopLevelDestination.HOME, "Home", Icons.Outlined.Home),
         NavigationDestination(TopLevelDestination.MARKETPLACE, "Resources", Icons.Outlined.Search),
+        NavigationDestination(TopLevelDestination.EVENTS, "Events", Icons.Outlined.CalendarMonth),
         NavigationDestination(TopLevelDestination.PARTNERS, "Partners", Icons.Outlined.Map),
         NavigationDestination(TopLevelDestination.ACCOUNT, "Account", Icons.Outlined.Person),
     )
@@ -129,6 +130,7 @@ private fun navigationDestinations(role: UserRole): List<NavigationDestination> 
     UserRole.PARTNER -> listOf(
         NavigationDestination(TopLevelDestination.HOME, "Home", Icons.Outlined.Home),
         NavigationDestination(TopLevelDestination.MARKETPLACE, "Resources", Icons.Outlined.Search),
+        NavigationDestination(TopLevelDestination.EVENTS, "Events", Icons.Outlined.CalendarMonth),
         NavigationDestination(TopLevelDestination.PROGRAMMES, "Programmes", Icons.Outlined.Dashboard),
         NavigationDestination(TopLevelDestination.ACCOUNT, "Account", Icons.Outlined.Person),
     )

@@ -25,6 +25,7 @@ class TopLevelDestinationTest {
             listOf(
                 TopLevelDestination.HOME,
                 TopLevelDestination.MARKETPLACE,
+                TopLevelDestination.EVENTS,
                 TopLevelDestination.PARTNERS,
                 TopLevelDestination.ACCOUNT,
             ),
@@ -34,6 +35,7 @@ class TopLevelDestinationTest {
             listOf(
                 TopLevelDestination.HOME,
                 TopLevelDestination.MARKETPLACE,
+                TopLevelDestination.EVENTS,
                 TopLevelDestination.PROGRAMMES,
                 TopLevelDestination.ACCOUNT,
             ),

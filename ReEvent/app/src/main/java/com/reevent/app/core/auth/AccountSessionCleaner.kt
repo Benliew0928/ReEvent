@@ -35,6 +35,7 @@ class AccountSessionCleaner @Inject constructor(
 
         dao.deleteUser(accountId)
         dao.clearAccountEvents(accountId)
+        dao.clearDiscoverableEvents(accountId)
         dao.clearAccountResources(accountId)
         dao.clearAccountPassports(accountId)
         dao.clearAccountProgrammes(accountId)

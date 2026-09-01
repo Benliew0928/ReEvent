@@ -105,6 +105,16 @@ class SyncCoordinator @Inject constructor(
 ) {
     private val syncMutex = Mutex()
 
+    /** Serialise protected lifecycle commands with the generic outbox worker. */
+    suspend fun <T> withExclusive(block: suspend () -> T): T {
+        syncMutex.lock()
+        return try {
+            block()
+        } finally {
+            syncMutex.unlock()
+        }
+    }
+
     suspend fun syncPending(identity: SyncWorkIdentity): SyncOutcome = syncMutex.withLock {
         if (!gateway.isConfigured()) return SyncOutcome.NOT_CONFIGURED
         if (!matchesCurrentIdentity(identity)) return SyncOutcome.STALE_IDENTITY
@@ -220,6 +230,8 @@ private fun JsonElement.safeJson() = this
 private fun EventEntity.toJson() = buildJsonObject {
     put("id", id); put("owner_id", ownerId); put("name", name); put("description", description); put("address_text", venue)
     put("latitude", latitude); put("longitude", longitude)
+    put("event_type", eventType); put("timezone_id", timezoneId); put("expected_attendance", expectedAttendance)
+    put("recovery_target_percent", recoveryTargetPercent); put("status", status)
     put("starts_at", time(startsAt)); put("ends_at", time(endsAt)); put("updated_at", time(updatedAt))
 }
 private fun ResourceEntity.toJson() = buildJsonObject {

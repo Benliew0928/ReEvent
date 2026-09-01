@@ -36,8 +36,33 @@ data class EventEntity(
     val archived: Boolean,
     val latitude: Double? = null,
     val longitude: Double? = null,
+    val eventType: String? = null,
+    val timezoneId: String? = null,
+    val expectedAttendance: Int? = null,
+    val recoveryTargetPercent: Double = 0.0,
 ) {
     init { require(accountId.isNotBlank()) { "Event cache rows require an accountId" } }
+}
+
+@Entity(
+    tableName = "discoverable_events",
+    primaryKeys = ["accountId", "id"],
+    indices = [Index(value = ["accountId", "startsAt"])]
+)
+data class DiscoverableEventEntity(
+    val id: String,
+    val accountId: String,
+    val name: String,
+    val description: String,
+    val eventType: String,
+    val startsAt: Long,
+    val endsAt: Long,
+    val timezoneId: String,
+    val venue: String,
+    val recoveryTargetPercent: Double,
+    val updatedAt: Long,
+) {
+    init { require(accountId.isNotBlank()) { "Discoverable event cache rows require an accountId" } }
 }
 
 @Entity(

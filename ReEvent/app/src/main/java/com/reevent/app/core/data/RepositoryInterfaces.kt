@@ -3,6 +3,7 @@ package com.reevent.app.core.data
 import com.reevent.app.core.model.CircularProgramme
 import com.reevent.app.core.model.CircularTransaction
 import com.reevent.app.core.model.Event
+import com.reevent.app.core.model.DiscoverableEvent
 import com.reevent.app.core.model.ImpactRecord
 import com.reevent.app.core.model.GeoLocation
 import com.reevent.app.core.model.LegacyProgrammeDraft
@@ -44,8 +45,13 @@ interface AuthRepository {
 interface EventRepository {
     fun observeOwnedEvents(ownerId: String): Flow<List<Event>>
     fun observeEvent(eventId: String): Flow<Event?>
+    fun observeDiscoverableEvents(): Flow<List<DiscoverableEvent>>
+    fun observeDiscoverableEvent(eventId: String): Flow<DiscoverableEvent?>
     suspend fun saveEvent(event: Event): AppResult<Event>
+    suspend fun publishEvent(eventId: String): AppResult<Event>
+    suspend fun completeEvent(eventId: String): AppResult<Event>
     suspend fun archiveEvent(eventId: String): AppResult<Unit>
+    suspend fun refreshDiscoverableEvents(): AppResult<Unit>
 }
 
 interface ResourceRepository {

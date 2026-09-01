@@ -3,6 +3,7 @@ package com.reevent.app.core.data
 import android.util.Log
 import com.reevent.app.core.database.CoreDao
 import com.reevent.app.core.config.AppEnvironment
+import com.reevent.app.core.database.DiscoverableEventEntity
 import com.reevent.app.core.database.EventEntity
 import com.reevent.app.core.database.ImpactEntity
 import com.reevent.app.core.database.LifecycleCommandEntity
@@ -16,6 +17,7 @@ import com.reevent.app.core.database.toDomain
 import com.reevent.app.core.database.toEntity
 import com.reevent.app.core.model.CircularProgramme
 import com.reevent.app.core.model.CircularTransaction
+import com.reevent.app.core.model.DiscoverableEvent
 import com.reevent.app.core.model.Event
 import com.reevent.app.core.model.ImpactRecord
 import com.reevent.app.core.model.MarketplaceListingDraft
@@ -27,6 +29,7 @@ import com.reevent.app.core.model.ResourcePassport
 import com.reevent.app.core.model.AllocationSide
 import com.reevent.app.core.model.SyncState
 import com.reevent.app.core.model.TransactionType
+import com.reevent.app.core.model.withPublicationDefaults
 import com.reevent.app.core.sync.AccountSyncScheduler
 import com.reevent.app.core.sync.SyncCoordinator
 import com.reevent.app.core.sync.SyncOutcome
@@ -34,9 +37,11 @@ import com.reevent.app.core.sync.SyncWorkIdentity
 import com.reevent.app.core.network.LifecycleCommandGateway
 import com.reevent.app.core.network.LifecycleCommandPayload
 import com.reevent.app.core.network.LifecycleCommandType
+import com.reevent.app.core.network.EventLifecycleGateway
 import com.reevent.app.core.network.SupabaseCoreGateway
 import com.reevent.app.core.network.SupabaseMarketplaceListingGateway
 import com.reevent.app.core.network.SupabasePartnerGateway
+import com.reevent.app.core.network.eventLifecycleFailureReason
 import com.reevent.app.feature.matching.PartnerDiscoveryEngine
 import com.reevent.app.core.network.isTerminalLifecycleFailure
 import com.reevent.app.core.network.lifecycleFailureReason
@@ -65,6 +70,7 @@ class LocalFirstCoreRepository @Inject constructor(
     private val environment: AppEnvironment,
     private val remote: SupabaseCoreGateway,
     private val lifecycle: LifecycleCommandGateway,
+    private val eventLifecycle: EventLifecycleGateway,
     private val marketplaceListings: SupabaseMarketplaceListingGateway,
     private val partnerGateway: SupabasePartnerGateway,
     private val syncCoordinator: SyncCoordinator
@@ -74,13 +80,132 @@ class LocalFirstCoreRepository @Inject constructor(
 
     override fun observeOwnedEvents(ownerId: String): Flow<List<Event>> = dao.observeEvents(accountScope.requireId(), ownerId).map(List<EventEntity>::toEvents)
     override fun observeEvent(eventId: String): Flow<Event?> = dao.observeEvent(accountScope.requireId(), eventId).map { it?.toDomain() }
+    override fun observeDiscoverableEvents(): Flow<List<DiscoverableEvent>> =
+        dao.observeDiscoverableEvents(accountScope.requireId()).map { rows -> rows.map(DiscoverableEventEntity::toDomain) }
+    override fun observeDiscoverableEvent(eventId: String): Flow<DiscoverableEvent?> =
+        dao.observeDiscoverableEvent(accountScope.requireId(), eventId).map { it?.toDomain() }
 
-    override suspend fun saveEvent(event: Event): AppResult<Event> = persist(event, "events", event.id) { accountId ->
-        dao.upsertEvent(event.copy(syncState = com.reevent.app.core.model.SyncState.PENDING).toEntity(accountId))
+    override suspend fun saveEvent(event: Event): AppResult<Event> {
+        val compatibleEvent = event.withPublicationDefaults()
+        return when (compatibleEvent.status.uppercase()) {
+            "DRAFT" -> persist(compatibleEvent, "events", compatibleEvent.id) { accountId ->
+                dao.upsertEvent(compatibleEvent.copy(syncState = SyncState.PENDING).toEntity(accountId))
+            }
+            "ACTIVE" -> updateActiveEvent(compatibleEvent)
+            else -> AppResult.Failure(FailureReason.CONFLICT)
+        }
     }
 
-    override suspend fun archiveEvent(eventId: String): AppResult<Unit> = persistUnit("events", eventId, "archive") { accountId ->
-        dao.archiveEvent(accountId, eventId, System.currentTimeMillis())
+    override suspend fun publishEvent(eventId: String): AppResult<Event> {
+        val accountId = runCatching { accountScope.requireId() }.getOrElse {
+            return AppResult.Failure(FailureReason.UNAUTHENTICATED, it)
+        }
+        val cached = dao.event(accountId, eventId)?.toDomain()
+            ?: return AppResult.Failure(FailureReason.CONFLICT)
+        if (cached.ownerId != accountId || cached.status.uppercase() != "DRAFT") {
+            return AppResult.Failure(FailureReason.CONFLICT)
+        }
+        if (!eventLifecycle.isConfigured()) return AppResult.Failure(FailureReason.CONFIGURATION)
+        return syncCoordinator.withExclusive {
+            try {
+                // The RPC carries the complete draft. Remove the stale generic upsert while the
+                // sync mutex is held so a worker cannot overwrite or block this transition.
+                dao.deleteOutboxForRecord(environment.wireValue, accountId, "events", eventId)
+                val published = eventLifecycle.publish(cached.withPublicationDefaults())
+                check(accountScope.accountId.value == accountId) { "The active account changed during event publication" }
+                dao.upsertEvent(published.toEntity(accountId))
+                AppResult.Success(published)
+            } catch (error: Throwable) {
+                AppResult.Failure(error.eventLifecycleFailureReason(), error)
+            }
+        }
+    }
+
+    override suspend fun completeEvent(eventId: String): AppResult<Event> = executeEventLifecycle(eventId) {
+        eventLifecycle.complete(eventId)
+    }
+
+    override suspend fun archiveEvent(eventId: String): AppResult<Unit> {
+        val accountId = runCatching { accountScope.requireId() }.getOrElse {
+            return AppResult.Failure(FailureReason.UNAUTHENTICATED, it)
+        }
+        val cached = dao.event(accountId, eventId)?.toDomain()
+            ?: return AppResult.Failure(FailureReason.CONFLICT)
+        // An incomplete Draft is private and may still be discarded offline. Published or
+        // completed events require the protected server command and its authoritative response.
+        if (cached.status.uppercase() == "DRAFT") {
+            return persistUnit("events", eventId, "archive") { id ->
+                dao.archiveEvent(id, eventId, System.currentTimeMillis())
+            }
+        }
+        return when (val result = executeEventLifecycle(eventId) { eventLifecycle.archive(eventId) }) {
+            is AppResult.Success -> AppResult.Success(Unit)
+            is AppResult.Failure -> AppResult.Failure(result.reason, result.cause)
+        }
+    }
+
+    override suspend fun refreshDiscoverableEvents(): AppResult<Unit> = refreshMutex.withLock {
+        syncCoordinator.withExclusive {
+            try {
+                val accountId = accountScope.requireId()
+                val rows = remote.fetchDiscoverableEvents()
+                check(accountScope.accountId.value == accountId) { "The active account changed during event discovery refresh" }
+                dao.clearDiscoverableEvents(accountId)
+                rows.forEach { dao.upsertDiscoverableEvent(it.toEntity(accountId)) }
+                AppResult.Success(Unit)
+            } catch (error: Throwable) {
+                AppResult.Failure(FailureReason.SERVER, error)
+            }
+        }
+    }
+
+    /** Updates an already Active event through the same protected full-payload RPC as publish. */
+    private suspend fun updateActiveEvent(event: Event): AppResult<Event> {
+        val accountId = runCatching { accountScope.requireId() }.getOrElse {
+            return AppResult.Failure(FailureReason.UNAUTHENTICATED, it)
+        }
+        if (event.ownerId != accountId || event.status.uppercase() != "ACTIVE") {
+            return AppResult.Failure(FailureReason.CONFLICT)
+        }
+        if (!eventLifecycle.isConfigured()) return AppResult.Failure(FailureReason.CONFIGURATION)
+        return syncCoordinator.withExclusive {
+            try {
+                dao.deleteOutboxForRecord(environment.wireValue, accountId, "events", event.id)
+                val authoritative = eventLifecycle.updateActive(event)
+                check(accountScope.accountId.value == accountId) { "The active account changed during event update" }
+                dao.upsertEvent(authoritative.toEntity(accountId))
+                AppResult.Success(authoritative)
+            } catch (error: Throwable) {
+                AppResult.Failure(error.eventLifecycleFailureReason(), error)
+            }
+        }
+    }
+
+    /** Runs a shared event lifecycle command and caches only the server response. */
+    private suspend fun executeEventLifecycle(
+        eventId: String,
+        action: suspend () -> Event,
+    ): AppResult<Event> {
+        val accountId = runCatching { accountScope.requireId() }.getOrElse {
+            return AppResult.Failure(FailureReason.UNAUTHENTICATED, it)
+        }
+        if (!eventLifecycle.isConfigured()) return AppResult.Failure(FailureReason.CONFIGURATION)
+        return syncCoordinator.withExclusive {
+            try {
+                val cached = dao.event(accountId, eventId)?.toDomain()
+                    ?: return@withExclusive AppResult.Failure(FailureReason.CONFLICT)
+                if (cached.ownerId != accountId) return@withExclusive AppResult.Failure(FailureReason.CONFLICT)
+                // A queued Draft upsert must not run after a protected transition.
+                dao.deleteOutboxForRecord(environment.wireValue, accountId, "events", eventId)
+                val authoritative = action()
+                check(accountScope.accountId.value == accountId) { "The active account changed during event lifecycle" }
+                if (authoritative.ownerId != accountId) return@withExclusive AppResult.Failure(FailureReason.CONFLICT)
+                dao.upsertEvent(authoritative.toEntity(accountId))
+                AppResult.Success(authoritative)
+            } catch (error: Throwable) {
+                AppResult.Failure(error.eventLifecycleFailureReason(), error)
+            }
+        }
     }
 
     override fun observeEventResources(eventId: String): Flow<List<ResourceItem>> = dao.observeResources(accountScope.requireId(), eventId).map(List<ResourceEntity>::toResources)
@@ -220,31 +345,35 @@ class LocalFirstCoreRepository @Inject constructor(
     override fun observeImpact(eventId: String): Flow<List<ImpactRecord>> = dao.observeImpact(accountScope.requireId(), eventId).map(List<ImpactEntity>::toImpact)
 
     override suspend fun refreshAuthorisedData(): AppResult<Unit> = refreshMutex.withLock {
-        try {
-            val accountId = accountScope.requireId()
-            // Retry only work already partitioned to this authenticated account and environment.
-            syncScheduler.requestSync(accountId)
-            val snapshot = remote.fetchAuthorisedSnapshot()
-            // A sign-out or account switch can happen while a request is in flight. Never write
-            // the response into a different account's cache.
-            check(accountScope.accountId.value == accountId) { "The active account changed during refresh" }
-            dao.applyAuthorisedSnapshot(
-                accountId = accountId,
-                events = snapshot.events.map { it.toEntity(accountId) },
-                resources = snapshot.resources.map { it.toEntity(accountId) },
-                passports = snapshot.passports.map { it.toEntity(accountId) },
-                programmes = snapshot.programmes.map { it.toEntity(accountId) },
-                transactions = snapshot.transactions.map { it.toEntity(accountId) },
-                impact = snapshot.impact.map { it.toEntity(accountId) }
-            )
-            Log.i(
-                TAG,
-                "Authorised refresh complete: events=${snapshot.events.size}, resources=${snapshot.resources.size}, passports=${snapshot.passports.size}"
-            )
-            AppResult.Success(Unit)
-        } catch (error: Throwable) {
-            Log.e(TAG, "Authorised refresh failed", error)
-            AppResult.Failure(FailureReason.SERVER, error)
+        // Serialise the read/apply window with publication so an in-flight Draft snapshot cannot
+        // overwrite the server-confirmed Active row in Room.
+        syncCoordinator.withExclusive {
+            try {
+                val accountId = accountScope.requireId()
+                // Retry only work already partitioned to this authenticated account and environment.
+                syncScheduler.requestSync(accountId)
+                val snapshot = remote.fetchAuthorisedSnapshot()
+                // A sign-out or account switch can happen while a request is in flight. Never write
+                // the response into a different account's cache.
+                check(accountScope.accountId.value == accountId) { "The active account changed during refresh" }
+                dao.applyAuthorisedSnapshot(
+                    accountId = accountId,
+                    events = snapshot.events.map { it.toEntity(accountId) },
+                    resources = snapshot.resources.map { it.toEntity(accountId) },
+                    passports = snapshot.passports.map { it.toEntity(accountId) },
+                    programmes = snapshot.programmes.map { it.toEntity(accountId) },
+                    transactions = snapshot.transactions.map { it.toEntity(accountId) },
+                    impact = snapshot.impact.map { it.toEntity(accountId) }
+                )
+                Log.i(
+                    TAG,
+                    "Authorised refresh complete: events=${snapshot.events.size}, resources=${snapshot.resources.size}, passports=${snapshot.passports.size}"
+                )
+                AppResult.Success(Unit)
+            } catch (error: Throwable) {
+                Log.e(TAG, "Authorised refresh failed", error)
+                AppResult.Failure(FailureReason.SERVER, error)
+            }
         }
     }
 

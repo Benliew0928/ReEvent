@@ -6,6 +6,7 @@ import com.reevent.app.core.model.CircularProgramme
 import com.reevent.app.core.model.CircularTransaction
 import com.reevent.app.core.model.CoinDirection
 import com.reevent.app.core.model.Event
+import com.reevent.app.core.model.DiscoverableEvent
 import com.reevent.app.core.model.GeoLocation
 import com.reevent.app.core.model.ImpactRecord
 import com.reevent.app.core.model.MarketplaceListing
@@ -21,6 +22,7 @@ import com.reevent.app.core.model.TransactionStatus
 import com.reevent.app.core.model.TransactionType
 import com.reevent.app.feature.passports.PassportQrPayload
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.async
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.supervisorScope
@@ -44,6 +46,24 @@ data class RemoteCoreSnapshot(
 /** All reads run with the signed-in user's JWT, so Supabase RLS remains authoritative. */
 @Singleton
 class SupabaseCoreGateway @Inject constructor(private val authGateway: SupabaseAuthGateway) {
+    suspend fun fetchDiscoverableEvents(): List<DiscoverableEvent> = authGateway.withConfiguredClient { client ->
+        client.postgrest.rpc("list_discoverable_events")
+            .decodeList<DiscoverableEventRow>()
+            .map { row ->
+                DiscoverableEvent(
+                    id = row.id,
+                    name = row.name,
+                    description = row.description,
+                    eventType = row.eventType,
+                    startsAt = millis(row.startsAt),
+                    endsAt = millis(row.endsAt),
+                    timezoneId = row.timezoneId,
+                    venue = row.addressText,
+                    recoveryTargetPercent = row.recoveryTargetPercent,
+                )
+            }
+    }
+
     suspend fun fetchAuthorisedSnapshot(): RemoteCoreSnapshot = authGateway.withConfiguredClient { client ->
         // Resource listings are the marketplace's required data. Other tables have narrower
         // RLS rules, so a denied or malformed optional row must never discard public resources.
@@ -91,9 +111,25 @@ class SupabaseCoreGateway @Inject constructor(private val authGateway: SupabaseA
         val id: String, @SerialName("owner_id") val ownerId: String? = null, val name: String, val description: String,
         @SerialName("address_text") val addressText: String, @SerialName("starts_at") val startsAt: String, @SerialName("ends_at") val endsAt: String,
         val latitude: Double? = null, val longitude: Double? = null,
+        @SerialName("event_type") val eventType: String? = null,
+        @SerialName("timezone_id") val timezoneId: String? = null,
+        @SerialName("expected_attendance") val expectedAttendance: Int? = null,
+        @SerialName("recovery_target_percent") val recoveryTargetPercent: Double = 0.0,
         val status: String, @SerialName("archived_at") val archivedAt: String? = null,
         @SerialName("created_at") val createdAt: String, @SerialName("updated_at") val updatedAt: String
-    ) { fun toDomainOrNull() = runCatching { Event(id, requireNotNull(ownerId), name, description, addressText, millis(startsAt), millis(endsAt), status, millis(createdAt), millis(updatedAt), SyncState.SYNCED, archivedAt != null, geoLocation(addressText, latitude, longitude)) }.getOrNull() }
+    ) { fun toDomainOrNull() = runCatching { Event(id, requireNotNull(ownerId), name, description, addressText, millis(startsAt), millis(endsAt), status, millis(createdAt), millis(updatedAt), SyncState.SYNCED, archivedAt != null, geoLocation(addressText, latitude, longitude), eventType, timezoneId, expectedAttendance, recoveryTargetPercent) }.getOrNull() }
+
+    @Serializable private data class DiscoverableEventRow(
+        val id: String,
+        val name: String,
+        val description: String,
+        @SerialName("event_type") val eventType: String,
+        @SerialName("starts_at") val startsAt: String,
+        @SerialName("ends_at") val endsAt: String,
+        @SerialName("timezone_id") val timezoneId: String,
+        @SerialName("address_text") val addressText: String,
+        @SerialName("recovery_target_percent") val recoveryTargetPercent: Double,
+    )
 
     @Serializable private data class ResourceRow(
         val id: String, @SerialName("origin_event_id") val eventId: String, @SerialName("current_owner_id") val ownerId: String? = null,
