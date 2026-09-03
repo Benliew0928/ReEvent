@@ -3,6 +3,7 @@
 build/
 local.properties
 supabase.local.properties
+e2e.test-accounts.properties
 captures/
 .externalNativeBuild/
 .cxx/

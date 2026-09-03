@@ -1148,7 +1148,13 @@ fun PartnerRecoveryConfirmationDialog(
     AlertDialog(
         modifier = modifier,
         onDismissRequest = onDismiss,
-        title = { Text("Request recovery?") },
+        title = {
+            Text(
+                "Request recovery?",
+                style = HomeCardTitleStyle.copy(fontSize = 28.sp),
+                color = HomeInk,
+            )
+        },
         text = {
             Text(
                 "Send ${ResourcePresentationRules.quantityLabel(resource.quantity, resource.unit)} of ${resource.title} to ${candidate.programme.name}. " +
@@ -1157,6 +1163,8 @@ fun PartnerRecoveryConfirmationDialog(
         },
         confirmButton = { TextButton(onClick = onConfirm) { Text("Send request") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        containerColor = HomePaper,
+        shape = RoundedCornerShape(24.dp),
     )
 }
 

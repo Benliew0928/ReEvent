@@ -73,6 +73,7 @@ import com.google.mlkit.vision.common.InputImage
 import com.reevent.app.core.model.User
 import com.reevent.app.ui.components.LogoMark
 import com.reevent.app.ui.components.SecondaryActionButton
+import com.reevent.app.ui.theme.HomeCardTitleStyle
 import com.reevent.app.ui.theme.HomeForest
 import com.reevent.app.ui.theme.HomeInk
 import com.reevent.app.ui.theme.HomeLine
@@ -451,7 +452,7 @@ private fun ManualCodeDialog(
         containerColor = HomePaper,
         titleContentColor = HomeInk,
         textContentColor = ReEventTextSecondary,
-        title = { Text("Enter passport code") },
+        title = { Text("Enter passport code", style = HomeCardTitleStyle, color = HomeInk) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Use a ReEvent passport QR payload when camera scanning is unavailable.")
@@ -477,6 +478,7 @@ private fun ManualCodeDialog(
                 Text("Cancel", color = HomeForest)
             }
         },
+        shape = RoundedCornerShape(24.dp),
     )
 }
 

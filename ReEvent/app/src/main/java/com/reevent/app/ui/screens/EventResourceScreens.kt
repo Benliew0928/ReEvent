@@ -116,10 +116,14 @@ import com.reevent.app.core.model.User
 import com.reevent.app.core.model.withPublicationDefaults
 import com.reevent.app.feature.events.EventFormValidation
 import com.reevent.app.ui.TopLevelDestination
-import com.reevent.app.ui.components.LogoMark
+import com.reevent.app.ui.components.EditorialDetailHeader
+import com.reevent.app.ui.components.EditorialDetailScaffold
+import com.reevent.app.ui.components.EditorialEmptyState
+import com.reevent.app.ui.components.EditorialConfirmationDialog
 import com.reevent.app.ui.components.PrimaryActionButton
 import com.reevent.app.ui.components.ProfileAvatarButton
 import com.reevent.app.ui.components.ReEventScaffold
+import com.reevent.app.ui.components.ReEventLazyColumn
 import com.reevent.app.ui.components.SecondaryActionButton
 import com.reevent.app.ui.components.StatusChip
 import com.reevent.app.ui.components.SyncStateChip
@@ -929,15 +933,33 @@ fun ResourceEditorLiveScreen(
 ) {
     val resource by viewModel.resource(resourceId).collectAsState(null)
     if (resource == null) {
-        FeatureScaffold(
-            title = "Edit resource",
-            actionLabel = "Back",
-            onAction = onBack,
-            viewModel = viewModel,
+        EditorialDetailScaffold(
             selected = TopLevelDestination.EVENTS,
             onNavigate = onNavigate,
-        ) {
-            item { EmptyPanel("Resource unavailable", "This item is not available in the current workspace.") {} }
+            showNavigation = false,
+        ) { padding ->
+            ReEventLazyColumn(paddingValues = padding) {
+                item {
+                    EditorialDetailHeader(
+                        eyebrow = "Resource editor",
+                        title = "Resource unavailable",
+                        subtitle = "This item is no longer available in the current workspace.",
+                        onBack = onBack,
+                        profileName = user.displayName,
+                        onProfile = { onNavigate(TopLevelDestination.ACCOUNT) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                item {
+                    EditorialEmptyState(
+                        title = "Nothing to edit",
+                        detail = "Return to the event and choose a current resource.",
+                        actionLabel = "Back to event",
+                        onAction = onBack,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
         }
     } else {
         AddResourceLiveScreen(user, eventId, { onSaved() }, onBack, onNavigate, resource, viewModel)
@@ -2031,88 +2053,61 @@ fun EventDetailLiveScreen(
     val archiveCandidate = resources.firstOrNull { it.id == archiveResourceId }
     archiveCandidate?.let { resource ->
         val blockingTransactions = transactions.filter { it.blocksResourceArchive(resource.id) }
-        AlertDialog(
-            onDismissRequest = { archiveResourceId = null },
-            title = { Text(if (blockingTransactions.isEmpty()) "Archive resource?" else "Archive unavailable") },
-            text = {
-                Text(
-                    if (blockingTransactions.isEmpty()) {
-                        "${resource.title} will be removed from the active event inventory and marketplace. Its passport history stays as an archived record."
-                    } else {
-                        "This resource now has ${blockingTransactions.size} active transaction${if (blockingTransactions.size == 1) "" else "s"}. Complete, reject, or cancel ${if (blockingTransactions.size == 1) "it" else "them"} before archiving."
-                    },
-                )
+        EditorialConfirmationDialog(
+            title = if (blockingTransactions.isEmpty()) "Archive resource?" else "Archive unavailable",
+            detail = if (blockingTransactions.isEmpty()) {
+                "${resource.title} will leave the active event inventory and marketplace. Its passport history stays as an archived record."
+            } else {
+                "This resource has ${blockingTransactions.size} active transaction${if (blockingTransactions.size == 1) "" else "s"}. Complete, reject, or cancel ${if (blockingTransactions.size == 1) "it" else "them"} before archiving."
             },
-            confirmButton = {
-                if (blockingTransactions.isEmpty()) {
-                    TextButton(onClick = {
-                        archiveResourceId = null
-                        viewModel.archiveResource(resource.id, transactions) { }
-                    }) { Text("Archive") }
-                } else {
-                    TextButton(onClick = { archiveResourceId = null }) { Text("Back") }
-                }
+            confirmLabel = if (blockingTransactions.isEmpty()) "Archive" else "Back",
+            onConfirm = {
+                archiveResourceId = null
+                if (blockingTransactions.isEmpty()) viewModel.archiveResource(resource.id, transactions) { }
             },
-            dismissButton = {
-                if (blockingTransactions.isEmpty()) {
-                    TextButton(onClick = { archiveResourceId = null }) { Text("Cancel") }
-                }
-            },
+            onDismiss = { archiveResourceId = null },
+            destructive = blockingTransactions.isEmpty(),
+            showDismiss = blockingTransactions.isEmpty(),
         )
     }
 
     if (archiveEventConfirmation) {
-        AlertDialog(
-            onDismissRequest = { archiveEventConfirmation = false },
-            title = { Text("Archive this event?") },
-            text = {
-                Text(
-                    "${event?.name ?: "This event"} will be removed from active organiser views. Marketplace visibility is controlled per resource, so review and archive any linked resources shown on this page before continuing. Existing passport history and completed transactions remain as records.",
-                )
+        EditorialConfirmationDialog(
+            title = "Archive this event?",
+            detail = "${event?.name ?: "This event"} will leave active organiser views. Review linked marketplace resources first. Passport history and completed transactions remain as records.",
+            confirmLabel = "Archive event",
+            onConfirm = {
+                archiveEventConfirmation = false
+                viewModel.archiveEvent(eventId, onArchiveEvent)
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    archiveEventConfirmation = false
-                    viewModel.archiveEvent(eventId, onArchiveEvent)
-                }) { Text("Archive event") }
-            },
-            dismissButton = {
-                TextButton(onClick = { archiveEventConfirmation = false }) { Text("Cancel") }
-            },
+            onDismiss = { archiveEventConfirmation = false },
+            destructive = true,
         )
     }
 
     if (publishEventConfirmation && event != null) {
-        AlertDialog(
-            onDismissRequest = { publishEventConfirmation = false },
-            title = { Text("Publish this event?") },
-            text = {
-                Text(
-                    "This makes the event name, description, dates and venue visible to authenticated Participants and Partners. Expected attendance, resources, QR data and transactions remain private.",
-                )
+        EditorialConfirmationDialog(
+            title = "Publish this event?",
+            detail = "The event name, description, dates and venue become visible to authenticated Participants and Partners. Attendance, resources, QR data and transactions remain private.",
+            confirmLabel = "Publish event",
+            onConfirm = {
+                publishEventConfirmation = false
+                viewModel.publishEvent(eventId)
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    publishEventConfirmation = false
-                    viewModel.publishEvent(eventId)
-                }) { Text("Publish event") }
-            },
-            dismissButton = { TextButton(onClick = { publishEventConfirmation = false }) { Text("Cancel") } },
+            onDismiss = { publishEventConfirmation = false },
         )
     }
 
     if (completeEventConfirmation && event != null) {
-        AlertDialog(
-            onDismissRequest = { completeEventConfirmation = false },
-            title = { Text("Complete this event?") },
-            text = { Text("Completed events leave current stakeholder discovery. Any open recovery transactions must be completed, rejected or cancelled first.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    completeEventConfirmation = false
-                    viewModel.completeEvent(eventId)
-                }) { Text("Complete event") }
+        EditorialConfirmationDialog(
+            title = "Complete this event?",
+            detail = "Completed events leave current stakeholder discovery. Open recovery transactions must be completed, rejected or cancelled first.",
+            confirmLabel = "Complete event",
+            onConfirm = {
+                completeEventConfirmation = false
+                viewModel.completeEvent(eventId)
             },
-            dismissButton = { TextButton(onClick = { completeEventConfirmation = false }) { Text("Cancel") } },
+            onDismiss = { completeEventConfirmation = false },
         )
     }
 }
@@ -3150,87 +3145,3 @@ private fun String.toCentsOrNull(): Long? {
     return runCatching { amount.movePointRight(2).longValueExact() }.getOrNull()
 }
 
-@Composable internal fun FeatureScaffold(
-    title: String,
-    actionLabel: String,
-    onAction: () -> Unit,
-    viewModel: FeatureViewModel,
-    selected: TopLevelDestination? = null,
-    onNavigate: (TopLevelDestination) -> Unit = {},
-    content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit,
-) {
-    val action by viewModel.action.collectAsState()
-    ReEventScaffold(selected = selected, onNavigate = onNavigate) { innerPadding ->
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-            Column(
-                Modifier
-                    .widthIn(max = 760.dp)
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    LogoMark(size = 42.dp)
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(title, style = MaterialTheme.typography.headlineMedium)
-                        Text("Live workspace", style = MaterialTheme.typography.labelLarge)
-                    }
-                    OutlinedButton(onClick = onAction) { Text(actionLabel) }
-                }
-                action.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 8.dp)) }
-                action.notice?.let { Text(it, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(vertical = 8.dp)) }
-                LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
-                if (action.loading) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                        CircularProgressIndicator(Modifier.height(24.dp))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable private fun EventCard(
-    event: Event,
-    onAddResource: (String) -> Unit,
-    onImpact: (String) -> Unit,
-) = Card(Modifier.fillMaxWidth()) {
-    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(event.name, style = MaterialTheme.typography.titleLarge)
-        Text(event.venue.ifBlank { "Venue to be confirmed" })
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { onAddResource(event.id) }) { Text("Add resource") }
-            OutlinedButton(onClick = { onImpact(event.id) }) { Text("Impact") }
-        }
-    }
-}
-
-@Composable private fun ResourceLine(
-    resource: ResourceItem,
-    onClick: () -> Unit,
-) = Card(Modifier.fillMaxWidth()) {
-    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(resource.title, style = MaterialTheme.typography.titleMedium)
-            Text("${ResourcePresentationRules.quantityLabel(resource.quantity, resource.unit)} • ${resource.status.name.lowercase()}")
-        }
-        OutlinedButton(onClick = onClick) { Text("View") }
-    }
-}
-
-@Composable
-internal fun EmptyPanel(
-    title: String,
-    detail: String,
-    actionLabel: String? = null,
-    onAction: () -> Unit = {},
-) = Card(Modifier.fillMaxWidth()) {
-    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium)
-        Text(detail)
-        actionLabel?.let { label ->
-            Button(onClick = onAction, modifier = Modifier.fillMaxWidth()) { Text(label) }
-        }
-    }
-}

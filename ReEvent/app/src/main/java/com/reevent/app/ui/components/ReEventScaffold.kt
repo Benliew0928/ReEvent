@@ -16,7 +16,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.reevent.app.ui.TopLevelDestination
-import com.reevent.app.ui.theme.ReEventBackground
+import com.reevent.app.ui.theme.HomeCanvas
+
+enum class ReEventNavigationMode {
+    TOP_LEVEL,
+    LARGE_SCREEN_ONLY,
+    HIDDEN,
+}
 
 @Composable
 fun ReEventScaffold(
@@ -24,10 +30,15 @@ fun ReEventScaffold(
     onNavigate: (TopLevelDestination) -> Unit,
     modifier: Modifier = Modifier,
     showBottomNavigation: Boolean = true,
+    navigationMode: ReEventNavigationMode =
+        if (showBottomNavigation) ReEventNavigationMode.TOP_LEVEL else ReEventNavigationMode.HIDDEN,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val usesRail = showBottomNavigation && selected != null && maxWidth >= 600.dp
+        val usesRail =
+            navigationMode != ReEventNavigationMode.HIDDEN &&
+                selected != null &&
+                maxWidth >= 600.dp
         Row(Modifier.fillMaxSize()) {
             if (usesRail) {
                 ReEventNavigationRail(
@@ -37,9 +48,9 @@ fun ReEventScaffold(
             }
             Scaffold(
                 modifier = Modifier.weight(1f),
-                containerColor = ReEventBackground,
+                containerColor = HomeCanvas,
                 bottomBar = {
-                    if (showBottomNavigation && !usesRail) {
+                    if (navigationMode == ReEventNavigationMode.TOP_LEVEL && !usesRail) {
                         selected?.let { ReEventBottomBar(selected = it, onNavigate = onNavigate) }
                     }
                 },
@@ -47,7 +58,7 @@ fun ReEventScaffold(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(ReEventBackground),
+                        .background(HomeCanvas),
                     contentAlignment = Alignment.TopCenter,
                 ) {
                     content(innerPadding)

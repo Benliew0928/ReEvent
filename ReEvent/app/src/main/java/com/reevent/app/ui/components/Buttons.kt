@@ -24,6 +24,10 @@ import com.reevent.app.ui.theme.ReEventGreen
 import com.reevent.app.ui.theme.ReEventGreenDeep
 import com.reevent.app.ui.theme.ReEventLine
 import com.reevent.app.ui.theme.ReEventSurface
+import com.reevent.app.ui.theme.HomeBodyStyle
+import com.reevent.app.ui.theme.HomeForest
+import com.reevent.app.ui.theme.HomeLine
+import com.reevent.app.ui.theme.HomePaper
 
 @Composable
 fun PrimaryActionButton(
@@ -38,7 +42,7 @@ fun PrimaryActionButton(
         shape = RoundedCornerShape(16.dp),
         colors =
             ButtonDefaults.buttonColors(
-                containerColor = ReEventGreen,
+                containerColor = HomeForest,
                 contentColor = Color.White,
             ),
         contentPadding = PaddingValues(horizontal = 18.dp),
@@ -47,7 +51,7 @@ fun PrimaryActionButton(
             Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(19.dp))
             Spacer(Modifier.width(8.dp))
         }
-        Text(text = text, style = MaterialTheme.typography.labelLarge)
+        Text(text = text, style = HomeBodyStyle)
     }
 }
 
@@ -62,11 +66,11 @@ fun SecondaryActionButton(
         onClick = onClick,
         modifier = modifier.height(52.dp),
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, ReEventLine),
+        border = BorderStroke(1.dp, HomeLine),
         colors =
             ButtonDefaults.outlinedButtonColors(
-                containerColor = ReEventSurface,
-                contentColor = ReEventGreenDeep,
+                containerColor = HomePaper,
+                contentColor = HomeForest,
             ),
         contentPadding = PaddingValues(horizontal = 16.dp),
     ) {
@@ -74,6 +78,6 @@ fun SecondaryActionButton(
             Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
         }
-        Text(text = text, style = MaterialTheme.typography.labelLarge)
+        Text(text = text, style = HomeBodyStyle)
     }
 }

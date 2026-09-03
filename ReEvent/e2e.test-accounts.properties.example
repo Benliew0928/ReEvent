@@ -1,0 +1,16 @@
+# Copy this file to e2e.test-accounts.properties before real-device acceptance.
+# The copied file is ignored by Git. Fill passwords only in the copied file.
+# Use only against the staging/test Supabase project, never production.
+
+ORGANIZER_EMAIL=your-inbox+reevent-organizer@gmail.com
+ORGANIZER_PASSWORD=
+
+PARTICIPANT_EMAIL=your-inbox+reevent-participant@gmail.com
+PARTICIPANT_PASSWORD=
+
+PARTNER_EMAIL=your-inbox+reevent-partner@gmail.com
+PARTNER_PASSWORD=
+
+# This account is reserved for password-reset and account-deletion scenarios.
+DELETION_EMAIL=your-inbox+reevent-deletion@gmail.com
+DELETION_PASSWORD=

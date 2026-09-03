@@ -1,6 +1,7 @@
 package com.reevent.app.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -10,12 +11,14 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,7 +48,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -54,18 +60,24 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.reevent.app.R
 import com.reevent.app.core.auth.AuthUiState
 import com.reevent.app.core.auth.PasswordRules
 import com.reevent.app.core.data.FailureReason
 import com.reevent.app.core.model.UserRole
 import com.reevent.app.ui.components.LogoMark
 import com.reevent.app.ui.theme.HomeCanvas
+import com.reevent.app.ui.theme.HomeBodyFont
+import com.reevent.app.ui.theme.HomeBodyStyle
+import com.reevent.app.ui.theme.HomeCardTitleStyle
+import com.reevent.app.ui.theme.HomeGreetingStyle
 import com.reevent.app.ui.theme.HomeForest
 import com.reevent.app.ui.theme.HomeInk
 import com.reevent.app.ui.theme.HomeLine
 import com.reevent.app.ui.theme.HomeMist
 import com.reevent.app.ui.theme.HomePaper
 import com.reevent.app.ui.theme.HomeSage
+import com.reevent.app.ui.theme.HomeSupportingTextStyle
 import com.reevent.app.ui.theme.ReEventBackground
 import com.reevent.app.ui.theme.ReEventCoral
 import com.reevent.app.ui.theme.ReEventCoralSoft
@@ -89,6 +101,14 @@ internal fun AccountScaffold(
 ) {
     Surface(color = HomeCanvas, modifier = modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxSize()) {
+            Image(
+                painter = painterResource(R.drawable.home_paper_texture),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .alpha(.055f),
+            )
             Box(
                 modifier =
                     Modifier
@@ -101,7 +121,9 @@ internal fun AccountScaffold(
             Column(
                 modifier =
                     Modifier
-                        .fillMaxSize()
+                        .align(Alignment.TopCenter)
+                        .fillMaxHeight()
+                        .widthIn(max = 760.dp)
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 24.dp, vertical = 28.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
@@ -125,12 +147,7 @@ internal fun AccountScaffold(
                     }
                     Text(
                         text = headerTitle,
-                        style = TextStyle(
-                            fontFamily = FontFamily.SansSerif,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 30.sp,
-                            lineHeight = 34.sp,
-                        ),
+                        style = HomeGreetingStyle.copy(fontSize = 38.sp, lineHeight = 40.sp),
                         color = HomeInk,
                     )
                 }
@@ -138,28 +155,27 @@ internal fun AccountScaffold(
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (!eyebrow.isNullOrBlank()) {
                             Text(
-                                eyebrow,
-                                style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 15.sp),
+                                eyebrow.uppercase(),
+                                style = HomeSupportingTextStyle.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    letterSpacing = .9.sp,
+                                ),
                                 color = HomeForest,
                             )
                         }
                         if (!title.isNullOrBlank() && title != headerTitle) {
                             Text(
                                 title,
-                                style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 28.sp),
+                                style = HomeCardTitleStyle.copy(fontSize = 29.sp, lineHeight = 32.sp),
                                 color = HomeInk,
                             )
                         }
                         if (!subtitle.isNullOrBlank()) {
                             Text(
                                 subtitle,
-                                style = TextStyle(
-                                    fontFamily = FontFamily.SansSerif,
-                                    fontWeight = FontWeight.Normal,
-                                    fontSize = 17.sp,
-                                    lineHeight = 23.sp,
-                                ),
-                                color = ReEventTextSecondary,
+                                style = HomeBodyStyle,
+                                color = com.reevent.app.ui.theme.HomeMuted,
                             )
                         }
                     }
@@ -172,9 +188,12 @@ internal fun AccountScaffold(
 }
 
 @Composable
-internal fun AccountCard(content: @Composable ColumnScope.() -> Unit) {
+internal fun AccountCard(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = HomePaper),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
@@ -288,6 +307,7 @@ internal fun EmailConfirmationCard(
     loading: Boolean,
     onResend: () -> Unit,
     onSignIn: () -> Unit,
+    secondaryActionLabel: String = "Go to sign in",
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -306,7 +326,7 @@ internal fun EmailConfirmationCard(
                 style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Normal, fontSize = 16.sp),
             )
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(onClick = onSignIn, enabled = !loading) { Text("Go to sign in", color = HomeForest, style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 16.sp)) }
+                TextButton(onClick = onSignIn, enabled = !loading) { Text(secondaryActionLabel, color = HomeForest, style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 16.sp)) }
                 TextButton(onClick = onResend, enabled = !loading) { Text("Resend email", color = HomeForest, style = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 16.sp)) }
             }
         }

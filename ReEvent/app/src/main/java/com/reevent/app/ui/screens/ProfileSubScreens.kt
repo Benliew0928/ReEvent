@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.sp
 import com.reevent.app.core.auth.AccountDeletionRules
 import com.reevent.app.core.auth.AuthUiState
 import com.reevent.app.core.model.User
+import com.reevent.app.ui.components.EditorialNotice
 import com.reevent.app.ui.theme.HomeForest
 import com.reevent.app.ui.theme.HomeInk
 import com.reevent.app.ui.theme.HomeLine
@@ -77,6 +78,10 @@ fun PersonalInfoScreen(
         onBack = onBack,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
+            EditorialNotice(
+                message = "Optional phone and gender details are kept on this device in this build; they are not uploaded to your account.",
+                modifier = Modifier.fillMaxWidth(),
+            )
             HorizontalDivider(color = HomeLine)
 
             PersonalInfoRow(
@@ -472,6 +477,10 @@ fun PushNotificationScreen(
         onBack = onBack,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
+            EditorialNotice(
+                message = "These controls are a local preference preview until push delivery is connected.",
+                modifier = Modifier.fillMaxWidth(),
+            )
             ToggleRow(
                 title = "Event updates",
                 subtitle = "Notifications for event milestones & changes",
@@ -535,6 +544,10 @@ fun EmailNotificationScreen(
         onBack = onBack,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
+            EditorialNotice(
+                message = "This control is a local preference preview until marketing email delivery is connected.",
+                modifier = Modifier.fillMaxWidth(),
+            )
             ToggleRow(
                 title = "Marketing & Newsletters",
                 subtitle = "Receive circular economy updates, feature announcements and newsletters via email.",

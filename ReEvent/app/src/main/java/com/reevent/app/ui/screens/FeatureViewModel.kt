@@ -69,7 +69,7 @@ sealed interface PassportScanResolution {
 enum class ResourceLifecycleAction(
     val label: String,
 ) {
-    CHECK_OUT("Check out item"),
+    CHECK_OUT("Begin handover"),
     RETURN("Record return"),
     MARK_DAMAGED("Mark damaged"),
     REQUEST_REPAIR("Request repair"),
@@ -343,26 +343,38 @@ class FeatureViewModel
             resource: ResourceItem,
             action: ResourceLifecycleAction,
         ) = launchAction("${action.label} recorded") {
-            val transaction =
-                transactions.observeTransactions(user.id).first().firstOrNull { it.resourceId == resource.id }
-                    ?: return@launchAction AppResult.Failure(FailureReason.CONFLICT)
+            val viewerTransactions = transactions.observeTransactions(user.id).first()
             when (action) {
                 ResourceLifecycleAction.CHECK_OUT -> {
-                    transactions.beginHandover(transaction.id)
+                    PassportLifecycleActionPolicy.transactionFor(action, user, viewerTransactions)
+                        ?.let { transactions.beginHandover(it.id) }
+                        ?: AppResult.Failure(FailureReason.CONFLICT)
                 }
 
                 ResourceLifecycleAction.RETURN -> {
-                    when (transaction.status) {
-                        TransactionStatus.ACTIVE -> transactions.beginReturn(transaction.id)
-                        TransactionStatus.RETURN_IN_PROGRESS -> transactions.confirmReturn(transaction.id)
-                        else -> AppResult.Failure(FailureReason.CONFLICT)
+                    when (val transaction = PassportLifecycleActionPolicy.transactionFor(action, user, viewerTransactions)) {
+                        null -> AppResult.Failure(FailureReason.CONFLICT)
+                        else -> when {
+                            TransactionWorkflow.canBeginReturn(user.id, transaction) -> transactions.beginReturn(transaction.id)
+                            TransactionWorkflow.canConfirmReturn(user.id, transaction) -> transactions.confirmReturn(transaction.id)
+                            else -> AppResult.Failure(FailureReason.CONFLICT)
+                        }
                     }
                 }
 
                 ResourceLifecycleAction.MARK_DAMAGED -> {
-                    resources.saveResource(
-                        resource.copy(condition = ResourceCondition.NEEDS_REPAIR, updatedAt = System.currentTimeMillis()),
-                    )
+                    if (!PassportLifecycleActionPolicy.canMarkDamaged(user, resource, viewerTransactions)) {
+                        AppResult.Failure(FailureReason.CONFLICT)
+                    } else {
+                        when (
+                            val saved = resources.saveResource(
+                                resource.copy(condition = ResourceCondition.NEEDS_REPAIR, updatedAt = System.currentTimeMillis()),
+                            )
+                        ) {
+                            is AppResult.Failure -> saved
+                            is AppResult.Success -> sync.syncPendingNow()
+                        }
+                    }
                 }
 
                 ResourceLifecycleAction.REQUEST_REPAIR,

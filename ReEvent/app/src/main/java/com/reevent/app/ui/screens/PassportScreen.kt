@@ -38,7 +38,6 @@ import androidx.compose.material.icons.outlined.Verified
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -69,21 +68,20 @@ import com.reevent.app.ui.components.ReEventScaffold
 import com.reevent.app.ui.components.ResourcePhotoImage
 import com.reevent.app.ui.components.SecondaryActionButton
 import com.reevent.app.ui.components.StatusChip
+import com.reevent.app.ui.theme.HomeBodyStyle
+import com.reevent.app.ui.theme.HomeCanvas
+import com.reevent.app.ui.theme.HomeCardTitleStyle
+import com.reevent.app.ui.theme.HomeDeepForest
 import com.reevent.app.ui.theme.HomeForest
+import com.reevent.app.ui.theme.HomeGold
+import com.reevent.app.ui.theme.HomeInk
+import com.reevent.app.ui.theme.HomeLabelStyle
 import com.reevent.app.ui.theme.HomeLine
+import com.reevent.app.ui.theme.HomeMuted
 import com.reevent.app.ui.theme.HomePaper
 import com.reevent.app.ui.theme.HomeSage
-import com.reevent.app.ui.theme.ReEventAmber
-import com.reevent.app.ui.theme.ReEventAmberSoft
-import com.reevent.app.ui.theme.ReEventGreenDeep
-import com.reevent.app.ui.theme.ReEventInk
-import com.reevent.app.ui.theme.ReEventLine
-import com.reevent.app.ui.theme.ReEventBackground
-import com.reevent.app.ui.theme.ReEventCoral
-import com.reevent.app.ui.theme.ReEventCoralSoft
-import com.reevent.app.ui.theme.ReEventMintSoft
-import com.reevent.app.ui.theme.ReEventSurface
-import com.reevent.app.ui.theme.ReEventTextSecondary
+import com.reevent.app.ui.theme.HomeSectionTitleStyle
+import com.reevent.app.ui.theme.HomeSupportingTextStyle
 
 @Composable
 fun PassportScreen(
@@ -114,7 +112,7 @@ fun PassportScreen(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .background(ReEventBackground),
+                    .background(HomeCanvas),
         ) {
             Image(
                 painter = painterResource(R.drawable.home_paper_texture),
@@ -277,7 +275,7 @@ fun PassportScreen(
                         .align(Alignment.TopCenter)
                         .widthIn(max = 760.dp)
                         .fillMaxWidth(),
-                color = ReEventBackground.copy(alpha = 0.94f),
+                color = HomeCanvas.copy(alpha = 0.94f),
                 shadowElevation = 2.dp,
             ) {
                 PassportPinnedHeader(
@@ -324,17 +322,17 @@ private fun PassportLifecycleActions(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text("Resource actions", style = MaterialTheme.typography.titleLarge, color = ReEventInk)
+            Text("Resource actions", style = HomeSectionTitleStyle, color = HomeInk)
             Text(
                 "Record an action for this resource.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = ReEventTextSecondary,
+                style = HomeSupportingTextStyle,
+                color = HomeMuted,
             )
             if (loading) {
-                Text("Saving action…", style = MaterialTheme.typography.bodyMedium, color = HomeForest)
+                Text("Saving action…", style = HomeSupportingTextStyle, color = HomeForest)
             }
-            error?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
-            notice?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = HomeForest) }
+            error?.let { Text(it, style = HomeSupportingTextStyle, color = Color(0xFF8A2836)) }
+            notice?.let { Text(it, style = HomeSupportingTextStyle, color = HomeForest) }
             actions.forEachIndexed { index, action ->
                 val modifier = Modifier.fillMaxWidth().testTag("passport_lifecycle_${action.name.lowercase()}")
                 if (index == 0) {
@@ -372,7 +370,7 @@ private fun PassportPinnedHeader(
             modifier = Modifier.size(48.dp).testTag("passport_back"),
             shape = RoundedCornerShape(24.dp),
             color = HomePaper.copy(alpha = 0.96f),
-            border = BorderStroke(1.dp, HomeForest.copy(alpha = 0.74f)),
+            border = BorderStroke(1.dp, HomeLine),
             tonalElevation = 0.dp,
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -385,11 +383,11 @@ private fun PassportPinnedHeader(
         }
         Spacer(Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text("Resource passport", style = MaterialTheme.typography.titleLarge, color = ReEventInk)
+            Text("Resource passport", style = HomeCardTitleStyle, color = HomeInk)
             Text(
                 item?.let { "Verified route for ${it.title}" } ?: "Select a resource to view its verified route",
-                style = MaterialTheme.typography.bodyMedium,
-                color = ReEventTextSecondary,
+                style = HomeSupportingTextStyle,
+                color = HomeMuted,
                 maxLines = 1,
             )
         }
@@ -410,13 +408,13 @@ private fun PassportHero(item: com.reevent.app.ui.ResourceCardModel?) {
                 .fillMaxWidth()
                 .height(220.dp)
                 .clip(RoundedCornerShape(22.dp))
-                .background(ReEventMintSoft),
+                .background(HomeSage),
     ) {
         if (item == null) {
             Text(
                 text = "No resource selected",
-                style = MaterialTheme.typography.titleLarge,
-                color = ReEventTextSecondary,
+                style = HomeSectionTitleStyle,
+                color = HomeMuted,
                 modifier = Modifier.align(Alignment.Center),
             )
         } else {
@@ -433,34 +431,34 @@ private fun PassportResourceDossier(
 ) {
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = ReEventSurface,
-        border = BorderStroke(1.dp, ReEventLine),
+        color = HomePaper,
+        border = BorderStroke(1.dp, HomeLine),
     ) {
         Column(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (item == null) {
-                Text("Resource details will appear here.", color = ReEventTextSecondary)
+                Text("Resource details will appear here.", style = HomeSupportingTextStyle, color = HomeMuted)
             } else {
-                Text("Resource dossier", style = MaterialTheme.typography.titleLarge, color = ReEventInk)
+                Text("Resource dossier", style = HomeSectionTitleStyle, color = HomeInk)
                 PassportDossierMetric(Icons.Outlined.Inventory2, "Quantity", item.quantity)
-                HorizontalDivider(color = ReEventLine)
+                HorizontalDivider(color = HomeLine)
                 PassportDossierCondition(
                     label = item.tone.label,
                     color = item.tone.color,
                 )
-                HorizontalDivider(color = ReEventLine)
+                HorizontalDivider(color = HomeLine)
                 PassportDossierMetric(Icons.Outlined.Layers, "Material", item.category)
-                HorizontalDivider(color = ReEventLine)
+                HorizontalDivider(color = HomeLine)
                 PassportDossierMetric(Icons.Outlined.Sell, "Current value", item.price)
-                HorizontalDivider(color = ReEventLine)
+                HorizontalDivider(color = HomeLine)
                 PassportDossierDetail(
                     icon = Icons.Outlined.Person,
                     label = "Your access",
                     value = viewerAccess?.label ?: "Checking authorised access",
                 )
-                HorizontalDivider(color = ReEventLine)
+                HorizontalDivider(color = HomeLine)
                 PassportDossierDetail(
                     icon = Icons.Outlined.Eco,
                     label = "Resource guidance",
@@ -478,19 +476,19 @@ private fun PassportDossierMetric(
     value: String,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Icon(icon, contentDescription = null, tint = ReEventTextSecondary, modifier = Modifier.size(16.dp))
+        Icon(icon, contentDescription = null, tint = HomeMuted, modifier = Modifier.size(16.dp))
         Text(
             label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = ReEventTextSecondary,
+            style = HomeSupportingTextStyle,
+            color = HomeMuted,
             modifier = Modifier.weight(1f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         Text(
             value,
-            style = MaterialTheme.typography.titleMedium,
-            color = ReEventInk,
+            style = HomeBodyStyle,
+            color = HomeInk,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -506,13 +504,13 @@ private fun PassportDossierCondition(
         Icon(
             Icons.Outlined.CheckCircle,
             contentDescription = null,
-            tint = ReEventTextSecondary,
+            tint = HomeMuted,
             modifier = Modifier.size(16.dp),
         )
         Text(
             "Condition",
-            style = MaterialTheme.typography.bodyMedium,
-            color = ReEventTextSecondary,
+            style = HomeSupportingTextStyle,
+            color = HomeMuted,
             modifier = Modifier.weight(1f),
         )
         StatusChip(text = label, color = color)
@@ -529,10 +527,10 @@ private fun PassportDossierDetail(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Icon(icon, contentDescription = null, tint = ReEventTextSecondary, modifier = Modifier.size(18.dp))
+        Icon(icon, contentDescription = null, tint = HomeMuted, modifier = Modifier.size(18.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(label, style = MaterialTheme.typography.bodyMedium, color = ReEventTextSecondary)
-            Text(value, style = MaterialTheme.typography.titleMedium, color = ReEventInk)
+            Text(label, style = HomeSupportingTextStyle, color = HomeMuted)
+            Text(value, style = HomeBodyStyle, color = HomeInk)
         }
     }
 }
@@ -546,7 +544,7 @@ private fun PassportVerifiedCard(
     Surface(
         onClick = onQrClick,
         shape = RoundedCornerShape(20.dp),
-        color = ReEventGreenDeep,
+        color = HomeDeepForest,
         modifier = Modifier.testTag("passport_qr_expand"),
     ) {
         Row(
@@ -559,19 +557,19 @@ private fun PassportVerifiedCard(
                     Icon(Icons.Outlined.Verified, contentDescription = null, tint = Color.White)
                     Text(
                         "PASSPORT VERIFIED",
-                        style = MaterialTheme.typography.labelLarge,
+                        style = HomeLabelStyle,
                         color = Color.White.copy(alpha = 0.78f),
                     )
                 }
-                Text(passportId, style = MaterialTheme.typography.titleLarge, color = Color.White)
+                Text(passportId, style = HomeSectionTitleStyle, color = Color.White)
                 Text(
                     "Read-only verification record for authorised partners and buyers.",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = HomeSupportingTextStyle,
                     color = Color.White.copy(alpha = 0.82f),
                 )
                 Text(
                     "Tap the QR code to enlarge it.",
-                    style = MaterialTheme.typography.labelMedium,
+                    style = HomeLabelStyle,
                     color = Color.White.copy(alpha = 0.72f),
                 )
             }
@@ -593,29 +591,29 @@ private fun PassportPendingCard(message: String?) {
     Surface(
         modifier = Modifier.testTag("passport_pending_card"),
         shape = RoundedCornerShape(20.dp),
-        color = ReEventCoralSoft.copy(alpha = 0.34f),
-        border = BorderStroke(1.dp, ReEventCoral),
+        color = Color(0xFFFFE9E7),
+        border = BorderStroke(1.dp, Color(0xFFE8B8BD)),
     ) {
         Column(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = ReEventCoral)
-                Text("Your resource is saved", style = MaterialTheme.typography.titleMedium, color = ReEventInk)
+                Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = Color(0xFF8A2836))
+                Text("Your resource is saved", style = HomeCardTitleStyle, color = HomeInk)
             }
             Text(
                 "Passport ID and QR code are issued after server verification.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = ReEventTextSecondary,
+                style = HomeSupportingTextStyle,
+                color = HomeMuted,
             )
             Text(
                 message ?: "QR code pending until the server issues this resource passport.",
-                style = MaterialTheme.typography.bodySmall,
-                color = ReEventTextSecondary,
+                style = HomeSupportingTextStyle,
+                color = HomeMuted,
             )
-            StatusChip(text = "SYNC PENDING", color = ReEventCoral)
-            HorizontalDivider(color = ReEventLine)
+            StatusChip(text = "SYNC PENDING", color = Color(0xFF8A2836))
+            HorizontalDivider(color = HomeLine)
             PassportPendingRow(
                 title = "QR code — unavailable",
                 detail = "Will be available after verification.",
@@ -633,19 +631,19 @@ private fun PassportVerificationInProgressBanner() {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        color = ReEventAmberSoft,
-        border = BorderStroke(1.dp, ReEventAmber),
+        color = HomeSage,
+        border = BorderStroke(1.dp, HomeGold),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 11.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Outlined.AccessTime, contentDescription = null, tint = ReEventAmber)
+            Icon(Icons.Outlined.AccessTime, contentDescription = null, tint = HomeForest)
             Text(
                 "VERIFICATION IN PROGRESS",
-                style = MaterialTheme.typography.labelLarge,
-                color = ReEventAmber,
+                style = HomeLabelStyle,
+                color = HomeForest,
             )
         }
     }
@@ -654,10 +652,10 @@ private fun PassportVerificationInProgressBanner() {
 @Composable
 private fun PassportPendingRow(title: String, detail: String) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Outlined.Lock, contentDescription = null, tint = ReEventTextSecondary)
+        Icon(Icons.Outlined.Lock, contentDescription = null, tint = HomeMuted)
         Column {
-            Text(title, style = MaterialTheme.typography.titleSmall, color = ReEventInk)
-            Text(detail, style = MaterialTheme.typography.bodySmall, color = ReEventTextSecondary)
+            Text(title, style = HomeBodyStyle, color = HomeInk)
+            Text(detail, style = HomeSupportingTextStyle, color = HomeMuted)
         }
     }
 }
@@ -666,14 +664,14 @@ private fun PassportPendingRow(title: String, detail: String) {
 private fun PassportEmptyState() {
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = ReEventMintSoft,
-        border = BorderStroke(1.dp, ReEventLine),
+        color = HomeSage,
+        border = BorderStroke(1.dp, HomeLine),
     ) {
         Text(
             "Select a resource to view its passport verification.",
             modifier = Modifier.padding(18.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            color = ReEventTextSecondary,
+            style = HomeSupportingTextStyle,
+            color = HomeMuted,
         )
     }
 }
@@ -682,16 +680,16 @@ private fun PassportEmptyState() {
 private fun PassportHistory(recoverySteps: List<RecoveryStep>) {
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = ReEventSurface,
-        border = BorderStroke(1.dp, ReEventLine),
+        color = HomePaper,
+        border = BorderStroke(1.dp, HomeLine),
     ) {
         Column(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Recovery trail", style = MaterialTheme.typography.titleLarge, color = ReEventInk)
+            Text("Recovery trail", style = HomeSectionTitleStyle, color = HomeInk)
             if (recoverySteps.isEmpty()) {
-                Text("No recovery route has been recorded yet.", color = ReEventTextSecondary)
+                Text("No recovery route has been recorded yet.", style = HomeSupportingTextStyle, color = HomeMuted)
             } else {
                 recoverySteps.forEachIndexed { index, step ->
                     PassportRecoveryTrailStep(
@@ -748,13 +746,13 @@ private fun PassportRecoveryTrailStep(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     step.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = ReEventInk,
+                    style = HomeBodyStyle,
+                    color = HomeInk,
                     modifier = Modifier.weight(1f),
                 )
-                Text(step.status, style = MaterialTheme.typography.labelLarge, color = ReEventTextSecondary)
+                Text(step.status, style = HomeLabelStyle, color = HomeMuted)
             }
-            Text(step.detail, style = MaterialTheme.typography.bodyMedium, color = ReEventTextSecondary)
+            Text(step.detail, style = HomeSupportingTextStyle, color = HomeMuted)
         }
     }
 }
@@ -779,14 +777,14 @@ private fun PassportQrDialog(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Passport QR", style = MaterialTheme.typography.titleLarge, color = ReEventInk)
-                        Text(resourceTitle, style = MaterialTheme.typography.bodyMedium, color = ReEventTextSecondary)
+                        Text("Passport QR", style = HomeSectionTitleStyle, color = HomeInk)
+                        Text(resourceTitle, style = HomeSupportingTextStyle, color = HomeMuted)
                     }
                     IconButton(onClick = onDismiss, modifier = Modifier.testTag("passport_qr_dialog_close")) {
                         Icon(Icons.Outlined.Close, contentDescription = "Close QR preview", tint = HomeForest)
                     }
                 }
-                Text(passportId, style = MaterialTheme.typography.titleMedium, color = HomeForest)
+                Text(passportId, style = HomeBodyStyle, color = HomeForest)
                 QrCodePanel(payload = qrPayload, modifier = Modifier.fillMaxWidth(), qrSize = 280.dp)
             }
         }

@@ -35,7 +35,10 @@ class SupabaseMarketplaceListingGateway @Inject constructor(
                     put("p_default_duration_days", draft.defaultDurationDays?.let(::JsonPrimitive) ?: JsonNull)
                     put("p_terms", draft.terms.trim())
                 }
-            ).decodeSingle<PublishedListingResponse>()
+            // The RPC returns one JSONB object. `decodeSingle` treats its response as a
+            // relation and reports a decode error after the server has already published
+            // the listing; decode the JSON object directly instead.
+            ).decodeAs<PublishedListingResponse>()
             MarketplaceListing(
                 id = response.id,
                 allowedActions = draft.allowedActions.sortedBy { it.name },

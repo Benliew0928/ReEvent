@@ -1,20 +1,27 @@
 package com.reevent.app.ui.screens
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -30,7 +37,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.reevent.app.core.data.MarketplaceListingDraftRules
 import com.reevent.app.core.data.ResourcePresentationRules
@@ -41,14 +53,19 @@ import com.reevent.app.core.data.TransactionLifecycleSyncFeedback
 import com.reevent.app.core.model.CircularTransaction
 import com.reevent.app.core.model.MarketplaceListingDraft
 import com.reevent.app.core.model.TransactionType
+import com.reevent.app.core.model.TransactionStatus
 import com.reevent.app.core.model.User
 import com.reevent.app.ui.TopLevelDestination
 import com.reevent.app.ui.marketplace.MarketplaceDashboardViewModel
 import com.reevent.app.ui.marketplace.MaterialCompassMarketplaceScreen
 import com.reevent.app.ui.components.PrimaryActionButton
+import com.reevent.app.ui.components.EditorialDetailHeader
+import com.reevent.app.ui.components.EditorialDetailScaffold
+import com.reevent.app.ui.components.EditorialEmptyState
+import com.reevent.app.ui.components.EditorialNotice
+import com.reevent.app.ui.components.EditorialSectionCard
 import com.reevent.app.ui.components.ReEventLazyColumn
 import com.reevent.app.ui.components.ReEventScaffold
-import com.reevent.app.ui.components.ScreenHeader
 import com.reevent.app.ui.components.SecondaryActionButton
 import com.reevent.app.ui.components.StatusChip
 import com.reevent.app.ui.theme.ReEventBlue
@@ -57,6 +74,19 @@ import com.reevent.app.ui.theme.ReEventGreen
 import com.reevent.app.ui.theme.ReEventInk
 import com.reevent.app.ui.theme.ReEventLine
 import com.reevent.app.ui.theme.ReEventTextSecondary
+import com.reevent.app.ui.theme.HomeBodyFont
+import com.reevent.app.ui.theme.HomeBodyStyle
+import com.reevent.app.ui.theme.HomeCardTitleStyle
+import com.reevent.app.ui.theme.HomeForest
+import com.reevent.app.ui.theme.HomeGold
+import com.reevent.app.ui.theme.HomeInk
+import com.reevent.app.ui.theme.HomeLine
+import com.reevent.app.ui.theme.HomeMist
+import com.reevent.app.ui.theme.HomeMuted
+import com.reevent.app.ui.theme.HomePaper
+import com.reevent.app.ui.theme.HomeSage
+import com.reevent.app.ui.theme.HomeSupportingTextStyle
+import com.reevent.app.ui.materials.MaterialFamilyIcon
 import kotlinx.coroutines.flow.flowOf
 
 @Composable
@@ -74,25 +104,32 @@ fun FocusedMarketplaceTransactionScreen(
     val transaction = transactions.firstOrNull { it.id == transactionId }
     val resource by (transaction?.resourceId?.let(viewModel::resource) ?: flowOf(null)).collectAsState(null)
     val syncCommands by viewModel.pendingSyncCommands().collectAsState(emptyList())
-    ReEventScaffold(
+    EditorialDetailScaffold(
         selected = TopLevelDestination.MARKETPLACE,
         onNavigate = onNavigate,
         modifier = modifier,
+        showNavigation = false,
     ) { padding ->
         ReEventLazyColumn(paddingValues = padding) {
             item {
-                ScreenHeader(
-                    title = "Lifecycle request",
-                    subtitle = "Focused from your priority inbox",
+                EditorialDetailHeader(
+                    eyebrow = "Marketplace lifecycle",
+                    title = "Request in motion",
+                    subtitle = "Review the current handover state and take the next authorised step.",
                     onBack = onBack,
                     onProfile = { onNavigate(TopLevelDestination.ACCOUNT) },
+                    profileName = user.displayName,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
             if (transaction == null) {
                 item {
-                    EmptyMarketplacePanel(
-                        "Request unavailable",
-                        "This transaction is no longer available to this account. Refresh or return to the dashboard.",
+                    EditorialEmptyState(
+                        title = "Request unavailable",
+                        detail = "This transaction is complete or no longer available to this account.",
+                        actionLabel = "Return to marketplace",
+                        onAction = onBack,
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             } else {
@@ -107,6 +144,7 @@ fun FocusedMarketplaceTransactionScreen(
                         onComplete = { viewModel.completeTransaction(user, transaction) },
                         onInTransit = { viewModel.moveTransactionInTransit(user, transaction) },
                         onPassport = { onPassport(transaction.resourceId) },
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }
@@ -223,7 +261,13 @@ private fun MarketplacePublishDialog(
 
     AlertDialog(
         onDismissRequest = { if (!loading) onDismiss() },
-        title = { Text("Publish ${resource.title}") },
+        title = {
+            Text(
+                "Publish ${resource.title}",
+                style = HomeCardTitleStyle.copy(fontSize = 28.sp),
+                color = HomeInk,
+            )
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
@@ -346,6 +390,8 @@ private fun MarketplacePublishDialog(
         dismissButton = {
             TextButton(onClick = onDismiss, enabled = !loading) { Text("Cancel") }
         },
+        containerColor = HomePaper,
+        shape = RoundedCornerShape(24.dp),
     )
 }
 
@@ -360,7 +406,7 @@ private fun MarketplaceListingDetailDialog(
     val listing = resource.marketplaceListing ?: return
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(resource.title) },
+        title = { Text(resource.title, style = HomeCardTitleStyle.copy(fontSize = 28.sp), color = HomeInk) },
         text = { MarketplaceListingDetails(resource) },
         confirmButton = {
             if (isOwner) {
@@ -370,6 +416,8 @@ private fun MarketplaceListingDetailDialog(
             }
         },
         dismissButton = { TextButton(onClick = onOpenPassport) { Text("Open passport") } },
+        containerColor = HomePaper,
+        shape = RoundedCornerShape(24.dp),
     )
 }
 
@@ -434,15 +482,31 @@ private fun MarketplaceRequestDialog(
             (allowsFraction || quantityValue % 1.0 == 0.0)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Request ${resource.title}") },
+        title = {
+            Text(
+                "Request ${resource.title}",
+                style = HomeCardTitleStyle.copy(fontSize = 28.sp),
+                color = HomeInk,
+            )
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     "This creates a pending transaction for the owner to approve. The server rechecks listing availability before accepting it.",
                 )
                 if (allowedActions.isNotEmpty()) {
-                    ChoiceField("Action", type.displayLabel(), allowedActions.map(TransactionType::displayLabel)) { selected ->
-                        type = allowedActions.first { it.displayLabel() == selected }
+                    Text("Request action", style = HomeBodyStyle, color = HomeInk)
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        allowedActions.forEach { action ->
+                            FilterChip(
+                                selected = action == type,
+                                onClick = { type = action },
+                                label = { Text(action.displayLabel()) },
+                            )
+                        }
                     }
                 }
                 OutlinedTextField(
@@ -478,6 +542,8 @@ private fun MarketplaceRequestDialog(
             }) { Text("Submit request") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        containerColor = HomePaper,
+        shape = RoundedCornerShape(24.dp),
     )
 }
 
@@ -492,39 +558,80 @@ internal fun TransactionCard(
     onComplete: () -> Unit,
     onInTransit: () -> Unit,
     onPassport: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val presentation = TransactionLifecyclePresentationRules.forViewer(user.id, transaction, syncCommand)
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(resource?.title ?: "Resource ${transaction.resourceId.take(8)}", style = MaterialTheme.typography.titleMedium)
+    EditorialSectionCard(modifier = modifier) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Surface(shape = CircleShape, color = HomeSage) {
+                    if (resource != null) {
+                        MaterialFamilyIcon(
+                            family = resource.materialFamily,
+                            contentDescription = null,
+                            modifier = Modifier.padding(12.dp).size(27.dp),
+                        )
+                    } else {
+                        Text(
+                            text = transaction.type.displayLabel().take(1),
+                            modifier = Modifier.padding(horizontal = 17.dp, vertical = 11.dp),
+                            color = HomeForest,
+                            fontFamily = HomeBodyFont,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp,
+                        )
+                    }
+                }
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
                         "${transaction.type.displayLabel()} • ${ResourcePresentationRules.quantityLabel(
                             transaction.quantity,
                             resource?.unit ?: "items",
                         )}",
-                        color = ReEventTextSecondary,
+                        style = HomeSupportingTextStyle.copy(fontSize = 12.sp, letterSpacing = .6.sp),
+                        color = HomeMuted,
+                    )
+                    Text(
+                        text = resource?.title ?: "Resource ${transaction.resourceId.take(8)}",
+                        style = HomeCardTitleStyle.copy(fontSize = 25.sp, lineHeight = 27.sp),
+                        color = HomeInk,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
-                StatusChip(presentation.statusLabel, transaction.status.toUiColor())
+                LifecycleStatusPill(
+                    label = presentation.statusLabel,
+                    terminal = transaction.status in setOf(TransactionStatus.REJECTED, TransactionStatus.CANCELLED),
+                )
             }
-            Text(
-                text = presentation.nextStep,
-                style = MaterialTheme.typography.bodyMedium,
-                color = ReEventTextSecondary,
-            )
-            Text(
-                text = "Next responsible: ${presentation.responsibleRole}",
-                style = MaterialTheme.typography.labelMedium,
-                color = ReEventInk,
-            )
+            LifecycleProgress(status = transaction.status, modifier = Modifier.fillMaxWidth())
+            Surface(shape = RoundedCornerShape(15.dp), color = HomeMist) {
+                Column(
+                    modifier = Modifier.padding(13.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text("NEXT STEP", style = HomeSupportingTextStyle.copy(fontSize = 11.sp, letterSpacing = .8.sp), color = HomeMuted)
+                    Text(presentation.nextStep, style = HomeBodyStyle, color = HomeInk)
+                    Text(
+                        text = "Responsible: ${presentation.responsibleRole}",
+                        style = HomeSupportingTextStyle,
+                        color = HomeForest,
+                    )
+                }
+            }
             when (presentation.syncFeedback) {
                 TransactionLifecycleSyncFeedback.PENDING -> {
                     LifecycleSyncFeedbackPanel(
                         title = "Action waiting to sync",
                         detail = "Do not repeat the action. The card will refresh when the server processes the queued command.",
-                        color = ReEventBlue,
+                        color = HomeForest,
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
 
@@ -533,6 +640,7 @@ internal fun TransactionCard(
                         title = "Action needs retry",
                         detail = "The server did not confirm this change. Open Profile and choose Retry failed changes, then return here to refresh.",
                         color = ReEventCoral,
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
 
@@ -569,16 +677,77 @@ private fun LifecycleSyncFeedbackPanel(
     title: String,
     detail: String,
     color: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier,
 ) {
     Surface(
-        shape =
-            androidx.compose.foundation.shape
-                .RoundedCornerShape(14.dp),
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
         color = color.copy(alpha = 0.10f),
+        border = BorderStroke(1.dp, color.copy(alpha = .18f)),
     ) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall, color = ReEventInk)
-            Text(detail, style = MaterialTheme.typography.bodySmall, color = ReEventTextSecondary)
+            Text(title, style = HomeBodyStyle, color = HomeInk)
+            Text(detail, style = HomeSupportingTextStyle, color = HomeMuted)
+        }
+    }
+}
+
+@Composable
+private fun LifecycleStatusPill(
+    label: String,
+    terminal: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = CircleShape,
+        color = if (terminal) Color(0xFFFFE9E7) else HomeSage,
+    ) {
+        Text(
+            text = label.uppercase(),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            color = if (terminal) Color(0xFF8A2836) else HomeForest,
+            fontFamily = HomeBodyFont,
+            fontWeight = FontWeight.Bold,
+            fontSize = 10.sp,
+            letterSpacing = .55.sp,
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun LifecycleProgress(
+    status: TransactionStatus,
+    modifier: Modifier = Modifier,
+) {
+    val current = when (status) {
+        TransactionStatus.REQUESTED -> 0
+        TransactionStatus.APPROVED -> 1
+        TransactionStatus.IN_TRANSIT -> 2
+        TransactionStatus.ACTIVE, TransactionStatus.RETURN_IN_PROGRESS -> 3
+        TransactionStatus.COMPLETED -> 4
+        TransactionStatus.REJECTED, TransactionStatus.CANCELLED -> -1
+    }
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        repeat(5) { index ->
+            Box(
+                modifier = Modifier
+                    .size(if (index == current) 11.dp else 8.dp)
+                    .background(if (index <= current) HomeForest else HomeLine, CircleShape),
+            )
+            if (index < 4) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 4.dp)
+                        .background(if (index < current) HomeForest else HomeLine)
+                        .size(height = 1.dp, width = 1.dp),
+                )
+            }
         }
     }
 }

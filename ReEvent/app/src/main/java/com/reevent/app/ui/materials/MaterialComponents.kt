@@ -38,10 +38,14 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.reevent.app.core.model.MaterialFamily
 import com.reevent.app.ui.theme.HomeForest
+import com.reevent.app.ui.theme.HomeCardTitleStyle
+import com.reevent.app.ui.theme.HomeInk
 import com.reevent.app.ui.theme.HomeLine
 import com.reevent.app.ui.theme.HomeMist
+import com.reevent.app.ui.theme.HomePaper
 
 @Composable
 fun MaterialFamilyIcon(
@@ -165,10 +169,18 @@ fun MaterialFamilyMultiSelectField(
         var draft by remember(selected) { mutableStateOf(selected) }
         AlertDialog(
             onDismissRequest = { open = false },
-            title = { Text("Accepted families") },
+            title = {
+                Text(
+                    "Accepted families",
+                    style = HomeCardTitleStyle.copy(fontSize = 28.sp),
+                    color = HomeInk,
+                )
+            },
             text = { FamilyGrid(draft, { family -> draft = if (family in draft) draft - family else draft + family }, Modifier.heightIn(max = 440.dp)) },
             confirmButton = { TextButton(onClick = { onSelected(draft); open = false }) { Text("Apply") } },
             dismissButton = { TextButton(onClick = { draft = emptySet() }) { Text("Accept any") } },
+            containerColor = HomePaper,
+            shape = RoundedCornerShape(24.dp),
         )
     }
 }
@@ -186,7 +198,7 @@ private fun MaterialFamilyPickerDialog(
     AlertDialog(
         modifier = modifier,
         onDismissRequest = onDismiss,
-        title = { Text("All materials") },
+        title = { Text("All materials", style = HomeCardTitleStyle.copy(fontSize = 28.sp), color = HomeInk) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(query, { query = it.take(60) }, Modifier.fillMaxWidth(), label = { Text("Search families") }, singleLine = true)
@@ -195,6 +207,8 @@ private fun MaterialFamilyPickerDialog(
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        containerColor = HomePaper,
+        shape = RoundedCornerShape(24.dp),
     )
 }
 

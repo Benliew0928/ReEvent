@@ -55,7 +55,10 @@ class SupabasePartnerGateway @Inject constructor(
                     put("p_limit", request.limit)
                     put("p_offset", request.offset)
                 },
-            ).decodeSingle<DiscoveryResponse>()
+            // `find_partner_programmes` returns a JSONB discovery envelope, not a row set.
+            // Decode the object directly so a successful map query is not presented as a
+            // client-side failure.
+            ).decodeAs<DiscoveryResponse>()
             response.toDomain()
         }
 

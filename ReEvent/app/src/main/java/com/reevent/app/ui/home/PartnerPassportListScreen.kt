@@ -26,9 +26,10 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.reevent.app.core.model.ResourceItem
 import com.reevent.app.core.model.User
 import com.reevent.app.ui.TopLevelDestination
+import com.reevent.app.ui.components.EditorialDetailHeader
+import com.reevent.app.ui.components.EditorialDetailScaffold
+import com.reevent.app.ui.components.EditorialEmptyState
 import com.reevent.app.ui.components.ReEventLazyColumn
-import com.reevent.app.ui.components.ReEventScaffold
-import com.reevent.app.ui.components.ScreenHeader
 import com.reevent.app.ui.theme.HomeBodyStyle
 import com.reevent.app.ui.theme.HomeCardTitleStyle
 import com.reevent.app.ui.theme.HomeForest
@@ -51,39 +52,32 @@ fun PartnerPassportListScreen(
     val resources by resourceFlow.collectAsState(emptyList())
     val passports by passportFlow.collectAsState(emptyList())
     val availableResourceIds = passports.map { it.resourceId }.toSet()
-    ReEventScaffold(
+    EditorialDetailScaffold(
         selected = TopLevelDestination.PROGRAMMES,
         onNavigate = onNavigate,
         modifier = modifier,
+        showNavigation = false,
     ) { padding ->
         ReEventLazyColumn(paddingValues = padding) {
             item {
-                ScreenHeader(
+                EditorialDetailHeader(
+                    eyebrow = "Partner access",
                     title = "Resource passports",
-                    subtitle = "Resources authorised through your programme transactions",
+                    subtitle = "Verified resource histories shared through your programme transactions.",
                     onBack = onBack,
                     onProfile = { onNavigate(TopLevelDestination.ACCOUNT) },
+                    profileName = user.displayName,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
             if (resources.isEmpty()) {
                 item {
-                    Surface(
-                        shape = RoundedCornerShape(18.dp),
-                        color = HomePaper,
-                        border = BorderStroke(1.dp, HomeLine),
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(18.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Text("No authorised passports", style = HomeCardTitleStyle, color = HomeInk)
-                            Text(
-                                "Resources appear here after a programme transaction grants this partner access.",
-                                style = HomeBodyStyle,
-                                color = HomeMuted,
-                            )
-                        }
-                    }
+                    EditorialEmptyState(
+                        title = "No authorised passports",
+                        detail = "Resources appear here after a programme transaction grants this partner access.",
+                        icon = Icons.Outlined.Badge,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             }
             items(resources.distinctBy(ResourceItem::id), key = ResourceItem::id) { resource ->

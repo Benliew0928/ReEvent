@@ -137,7 +137,9 @@ class SupabaseLifecycleCommandGateway @Inject constructor(
         name: String,
         parameters: kotlinx.serialization.json.JsonObject
     ): CircularTransaction = authGateway.withConfiguredClient { client ->
-        client.postgrest.rpc(name, parameters).decodeSingle<RpcEnvelope>().transaction.toDomain()
+        // All lifecycle commands return a single JSONB envelope, not a relation. Decoding it
+        // as a list lets the database commit while the app incorrectly shows a failure.
+        client.postgrest.rpc(name, parameters).decodeAs<RpcEnvelope>().transaction.toDomain()
     }
 
     private fun <T : Any> LifecycleCommandPayload.require(

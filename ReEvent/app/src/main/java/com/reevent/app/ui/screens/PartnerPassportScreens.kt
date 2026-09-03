@@ -10,7 +10,9 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
@@ -20,14 +22,23 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Paid
+import androidx.compose.material.icons.outlined.Recycling
+import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -56,8 +67,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
@@ -80,12 +93,20 @@ import com.reevent.app.feature.passports.PassportQrPayload
 import com.reevent.app.feature.passports.PassportViewerAccessPolicy
 import com.reevent.app.ui.TopLevelDestination
 import com.reevent.app.ui.components.PrimaryActionButton
+import com.reevent.app.ui.components.EditorialDetailHeader
+import com.reevent.app.ui.components.EditorialDetailScaffold
+import com.reevent.app.ui.components.EditorialEmptyState
+import com.reevent.app.ui.components.EditorialNotice
+import com.reevent.app.ui.components.EditorialSectionCard
+import com.reevent.app.ui.components.EditorialStat
+import com.reevent.app.ui.components.EditorialTextAction
 import com.reevent.app.ui.components.ReEventLazyColumn
 import com.reevent.app.ui.components.ReEventScaffold
-import com.reevent.app.ui.components.ScreenHeader
 import com.reevent.app.ui.components.SecondaryActionButton
 import com.reevent.app.ui.components.StatusChip
 import com.reevent.app.ui.materials.MaterialFamilyMultiSelectField
+import com.reevent.app.ui.materials.MaterialFamilyIcon
+import com.reevent.app.ui.theme.HomeBodyFont
 import com.reevent.app.ui.theme.HomeBodyStyle
 import com.reevent.app.ui.theme.HomeCanvas
 import com.reevent.app.ui.theme.HomeCardTitleStyle
@@ -94,6 +115,8 @@ import com.reevent.app.ui.theme.HomeGreetingStyle
 import com.reevent.app.ui.theme.HomeInk
 import com.reevent.app.ui.theme.HomeLabelStyle
 import com.reevent.app.ui.theme.HomeLine
+import com.reevent.app.ui.theme.HomeMist
+import com.reevent.app.ui.theme.HomeMuted
 import com.reevent.app.ui.theme.HomePaper
 import com.reevent.app.ui.theme.HomeSage
 import com.reevent.app.ui.theme.HomeSupportingInk
@@ -152,7 +175,9 @@ fun PassportVisualScreen(
         recoverySteps = historySteps.ifEmpty { resource?.let { listOf(it.toPassportRecoveryStep()) }.orEmpty() },
         showMatchAction = viewerAccess?.canFindPartnerMatches == true,
         profileName = user.displayName,
-        lifecycleActions = resource?.let { item -> user.passportLifecycleActionsFor(item) }.orEmpty(),
+        lifecycleActions = resource?.let { item ->
+            PassportLifecycleActionPolicy.availableActions(user, item, viewerTransactions)
+        }.orEmpty(),
         onLifecycleAction = resource?.let { item ->
             { lifecycleAction -> viewModel.applyLifecycleAction(user, item, lifecycleAction) }
         },
@@ -161,13 +186,6 @@ fun PassportVisualScreen(
         lifecycleActionError = action.error,
     )
 }
-
-private fun User.passportLifecycleActionsFor(resource: ResourceItem): List<ResourceLifecycleAction> =
-    when {
-        role == UserRole.ORGANIZER && id == resource.ownerId -> ResourceLifecycleAction.entries
-        role == UserRole.PARTICIPANT -> listOf(ResourceLifecycleAction.RETURN)
-        else -> emptyList()
-    }
 
 @Composable
 fun PartnerMapVisualScreen(
@@ -253,6 +271,7 @@ fun PartnerProgrammesVisualScreen(
     val legacyDrafts by viewModel.legacyProgrammes(user.id).collectAsState(emptyList())
     val transactions by viewModel.transactions(user.id).collectAsState(emptyList())
     val syncCommands by viewModel.pendingSyncCommands().collectAsState(emptyList())
+    val action by viewModel.action.collectAsState()
     val recoveryTasks =
         transactions.filter {
             it.partnerId == user.id && it.status !in
@@ -267,29 +286,53 @@ fun PartnerProgrammesVisualScreen(
     var creatingProgramme by rememberSaveable { mutableStateOf(startCreating) }
     var replacementLegacy by remember { mutableStateOf<LegacyProgrammeDraft?>(null) }
 
-    ReEventScaffold(
+    EditorialDetailScaffold(
         selected = TopLevelDestination.PROGRAMMES,
         onNavigate = onNavigate,
         modifier = modifier,
     ) { padding ->
         ReEventLazyColumn(paddingValues = padding) {
             item {
-                ScreenHeader(
-                    title = "Programmes",
-                    subtitle = if (focusedTransactionId == null) "Manage programmes and assigned handovers" else "Focused programme task",
+                EditorialDetailHeader(
+                    eyebrow = "Partner workspace",
+                    title = "Circular programmes",
+                    subtitle = if (focusedTransactionId == null) {
+                        "Shape the routes that keep materials in motion."
+                    } else {
+                        "A priority task is open below, with its next authorised action."
+                    },
                     onProfile = { onNavigate(TopLevelDestination.ACCOUNT) },
+                    profileName = user.displayName,
+                    modifier = Modifier.fillMaxWidth(),
                 )
+            }
+            item {
+                ProgrammesOverviewCard(
+                    activeProgrammes = programmes.count(CircularProgramme::active),
+                    totalProgrammes = programmes.size,
+                    taskCount = recoveryTasks.size,
+                    onCreate = { creatingProgramme = true },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            action.error?.let { message ->
+                item { EditorialNotice(message, modifier = Modifier.fillMaxWidth(), isError = true) }
+            }
+            action.notice?.let { message ->
+                item { EditorialNotice(message, modifier = Modifier.fillMaxWidth()) }
             }
             if (focusedTransactionId != null) {
                 if (focusedTask == null) {
                     item {
-                        EmptyMarketplacePanel(
-                            "Programme task unavailable",
-                            "This task is complete or no longer authorised for this account.",
+                        EditorialEmptyState(
+                            title = "Programme task unavailable",
+                            detail = "This task is complete or no longer authorised for this account.",
+                            icon = Icons.Outlined.TaskAlt,
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 } else {
-                    item { Text("Focused task", style = MaterialTheme.typography.titleLarge, color = ReEventInk) }
+                    item { ProgrammeSectionHeading("Priority task", "Opened from your partner inbox") }
                     item {
                         val resource by viewModel.resource(focusedTask.resourceId).collectAsState(null)
                         TransactionCard(
@@ -302,59 +345,59 @@ fun PartnerProgrammesVisualScreen(
                             onComplete = { viewModel.completeTransaction(user, focusedTask) },
                             onInTransit = { viewModel.moveTransactionInTransit(user, focusedTask) },
                             onPassport = { onOpenPassport(focusedTask.resourceId) },
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 }
             }
-            item {
-                PrimaryActionButton(
-                    text = "Create circular programme",
-                    onClick = { creatingProgramme = true },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
             if (programmes.isEmpty()) {
-                item { EmptyMarketplacePanel("No programmes yet", "Create a programme so organisers can find your circular services.") }
+                item {
+                    EditorialEmptyState(
+                        title = "No programmes yet",
+                        detail = "Create a programme so organisers can discover your circular services and request a route.",
+                        icon = Icons.Outlined.Inventory2,
+                        actionLabel = "Create a circular programme",
+                        onAction = { creatingProgramme = true },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             } else {
-                item { Text("Programmes", style = MaterialTheme.typography.titleLarge, color = ReEventInk) }
+                item { ProgrammeSectionHeading("Your programmes", "${programmes.size} configured route${if (programmes.size == 1) "" else "s"}") }
             }
             items(programmes, key = { it.id }) { programme ->
                 ProgrammeCard(
                     programme = programme,
                     onEdit = { editingProgramme = programme },
                     onDeactivate = { viewModel.deactivateProgramme(user, programme) },
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
             if (legacyDrafts.isNotEmpty()) {
                 item {
-                    Text("Legacy programme inputs", style = MaterialTheme.typography.titleLarge, color = ReEventInk)
-                }
-                item {
-                    Text(
-                        "These incomplete local inputs were not uploaded. Create a fresh inactive replacement and select a validated exact point before activation.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = ReEventTextSecondary,
+                    ProgrammeSectionHeading(
+                        "Draft recovery",
+                        "Older local inputs need a validated location before they can become programmes",
                     )
                 }
                 items(legacyDrafts, key = { "legacy-${it.id}" }) { legacy ->
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                            Text(legacy.name, style = MaterialTheme.typography.titleMedium)
-                            Text("Old location: ${legacy.location.ifBlank { "Not supplied" }}", color = ReEventTextSecondary)
-                            Text("This record is inactive and cannot be uploaded.", style = MaterialTheme.typography.bodySmall)
-                            PrimaryActionButton(
-                                "Create replacement",
-                                { replacementLegacy = legacy },
-                                Modifier.fillMaxWidth(),
-                            )
-                        }
-                    }
+                    LegacyProgrammeCard(
+                        legacy = legacy,
+                        onReplace = { replacementLegacy = legacy },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             }
             if (recoveryTasks.isEmpty()) {
-                item { EmptyMarketplacePanel("No assigned handovers", "Accepted marketplace and partner requests will appear here.") }
+                item {
+                    EditorialEmptyState(
+                        title = "No assigned handovers",
+                        detail = "Accepted marketplace and programme requests will appear here when your team has a lifecycle step to complete.",
+                        icon = Icons.Outlined.TaskAlt,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             } else {
-                item { Text("Assigned recovery tasks", style = MaterialTheme.typography.titleLarge, color = ReEventInk) }
+                item { ProgrammeSectionHeading("Assigned recovery tasks", "${recoveryTasks.size} active") }
             }
             items(recoveryTasks.filterNot { it.id == focusedTask?.id }, key = { it.id }) { transaction ->
                 val resource by viewModel.resource(transaction.resourceId).collectAsState(null)
@@ -368,6 +411,7 @@ fun PartnerProgrammesVisualScreen(
                     onComplete = { viewModel.completeTransaction(user, transaction) },
                     onInTransit = { viewModel.moveTransactionInTransit(user, transaction) },
                     onPassport = { onOpenPassport(transaction.resourceId) },
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
@@ -429,18 +473,72 @@ private fun ProgrammeCard(
     programme: CircularProgramme,
     onEdit: () -> Unit,
     onDeactivate: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(programme.name, style = MaterialTheme.typography.titleMedium, color = ReEventInk)
-                    Text(programme.type.displayLabel(), color = ReEventTextSecondary)
+    EditorialSectionCard(modifier = modifier) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+                Surface(shape = CircleShape, color = HomeSage) {
+                    Icon(
+                        imageVector = programme.type.programmeIcon(),
+                        contentDescription = null,
+                        tint = HomeForest,
+                        modifier = Modifier.padding(12.dp).size(28.dp),
+                    )
                 }
-                StatusChip(if (programme.active) "Active" else "Inactive", if (programme.active) ReEventGreen else ReEventTextSecondary)
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        programme.type.displayLabel().uppercase(),
+                        style = HomeSupportingTextStyle.copy(fontSize = 11.sp, letterSpacing = .8.sp),
+                        color = HomeSupportingInk,
+                    )
+                    Text(
+                        programme.name,
+                        style = HomeCardTitleStyle.copy(fontSize = 26.sp, lineHeight = 28.sp),
+                        color = HomeInk,
+                    )
+                }
+                ProgrammeStatusPill(programme.active)
             }
-            Text(programme.location.ifBlank { "Location pending" }, color = ReEventTextSecondary)
-            Text("Accepts: ${programme.acceptedMaterialFamilies.map(MaterialFamily::displayLabel).ifEmpty { listOf("all materials") }.joinToString()}")
+            Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.Top) {
+                Icon(Icons.Outlined.LocationOn, null, tint = HomeForest, modifier = Modifier.size(19.dp))
+                Text(
+                    programme.location.ifBlank { "Location pending" },
+                    style = HomeSupportingTextStyle,
+                    color = HomeMuted,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            ProgrammeCapacityStrip(programme = programme, modifier = Modifier.fillMaxWidth())
+            Text("MATERIAL ROUTES", style = HomeSupportingTextStyle.copy(fontSize = 11.sp, letterSpacing = .8.sp), color = HomeMuted)
+            if (programme.acceptedMaterialFamilies.isEmpty()) {
+                Surface(shape = CircleShape, color = HomeMist) {
+                    Text(
+                        "All material families",
+                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
+                        style = HomeSupportingTextStyle,
+                        color = HomeForest,
+                    )
+                }
+            } else {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    programme.acceptedMaterialFamilies.sortedBy(MaterialFamily::ordinal).forEach { family ->
+                        Surface(shape = CircleShape, color = HomeMist, border = BorderStroke(1.dp, HomeLine)) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                MaterialFamilyIcon(family, modifier = Modifier.size(17.dp), contentDescription = null)
+                                Text(family.displayLabel, style = HomeSupportingTextStyle, color = HomeForest)
+                            }
+                        }
+                    }
+                }
+            }
             PrimaryActionButton("Edit programme", onEdit, Modifier.fillMaxWidth())
             if (programme.active) {
                 SecondaryActionButton("Deactivate programme", onDeactivate, Modifier.fillMaxWidth())
@@ -448,6 +546,158 @@ private fun ProgrammeCard(
         }
     }
 }
+
+@Composable
+private fun ProgrammesOverviewCard(
+    activeProgrammes: Int,
+    totalProgrammes: Int,
+    taskCount: Int,
+    onCreate: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(modifier = modifier, shape = RoundedCornerShape(24.dp), color = HomeForest) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(
+                "PROGRAMME OVERVIEW",
+                color = HomeSage,
+                fontFamily = HomeBodyFont,
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp,
+                letterSpacing = 1.sp,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ProgrammeOverviewStat(activeProgrammes.toString(), "Active", Modifier.weight(1f))
+                ProgrammeOverviewStat(totalProgrammes.toString(), "Configured", Modifier.weight(1f))
+                ProgrammeOverviewStat(taskCount.toString(), "Tasks", Modifier.weight(1f))
+            }
+            EditorialTextAction(
+                label = "Create circular programme",
+                onClick = onCreate,
+                icon = Icons.Outlined.Add,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProgrammeOverviewStat(
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            value,
+            style = HomeGreetingStyle,
+            color = Color.White,
+        )
+        Text(label, style = HomeSupportingTextStyle, color = HomeSage)
+    }
+}
+
+@Composable
+private fun ProgrammeSectionHeading(
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(title, style = HomeGreetingStyle.copy(fontSize = 29.sp), color = HomeInk)
+        Text(subtitle, style = HomeSupportingTextStyle, color = HomeMuted)
+    }
+}
+
+@Composable
+private fun ProgrammeStatusPill(
+    active: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = CircleShape,
+        color = if (active) HomeSage else HomeMist,
+        border = BorderStroke(1.dp, HomeLine),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Surface(modifier = Modifier.size(7.dp), shape = CircleShape, color = if (active) HomeForest else HomeSupportingInk) {}
+            Text(
+                if (active) "ACTIVE" else "INACTIVE",
+                style = HomeSupportingTextStyle.copy(fontSize = 10.sp),
+                color = HomeForest,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProgrammeCapacityStrip(
+    programme: CircularProgramme,
+    modifier: Modifier = Modifier,
+) {
+    Surface(modifier = modifier, shape = RoundedCornerShape(15.dp), color = HomeMist) {
+        Row(
+            modifier = Modifier.padding(13.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            EditorialStat(
+                value = programme.remainingCapacity?.programmeNumber() ?: "—",
+                label = programme.unit?.let { "${it.lowercase()} remaining" } ?: "Capacity not set",
+                modifier = Modifier.weight(1f),
+            )
+            Box(modifier = Modifier.size(width = 1.dp, height = 44.dp).background(HomeLine))
+            EditorialStat(
+                value = if (programme.pickupAvailable) "Yes" else "No",
+                label = "Pickup available",
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun LegacyProgrammeCard(
+    legacy: LegacyProgrammeDraft,
+    onReplace: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    EditorialSectionCard(modifier = modifier) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp),
+        ) {
+            Text("LOCAL DRAFT", style = HomeLabelStyle, color = HomeSupportingInk)
+            Text(legacy.name, style = HomeCardTitleStyle.copy(fontSize = 25.sp), color = HomeInk)
+            Text(
+                "Old location: ${legacy.location.ifBlank { "Not supplied" }}",
+                style = HomeSupportingTextStyle,
+                color = HomeMuted,
+            )
+            EditorialNotice(
+                message = "This input is inactive and cannot be uploaded until its rules and exact location are validated.",
+                modifier = Modifier.fillMaxWidth(),
+            )
+            PrimaryActionButton("Create replacement", onReplace, Modifier.fillMaxWidth())
+        }
+    }
+}
+
+private fun ProgrammeType.programmeIcon() = when (this) {
+    ProgrammeType.REPAIR -> Icons.Outlined.Build
+    ProgrammeType.RECYCLE -> Icons.Outlined.Recycling
+    ProgrammeType.BUY_BACK -> Icons.Outlined.Paid
+}
+
+private fun Double.programmeNumber(): String =
+    if (this % 1.0 == 0.0) toLong().toString() else "%.1f".format(this)
 
 private data class ProgrammeForm(
     val name: String,

@@ -15,6 +15,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,6 +34,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.reevent.app.BuildConfig
 import com.reevent.app.core.data.AppResult
 import com.reevent.app.core.model.GeoLocation
@@ -42,6 +44,15 @@ import com.reevent.app.core.network.MapTilerHttpConfiguration
 import com.reevent.app.ui.theme.ReEventGreen
 import com.reevent.app.ui.theme.ReEventLine
 import com.reevent.app.ui.theme.ReEventTextSecondary
+import com.reevent.app.ui.theme.HomeBodyStyle
+import com.reevent.app.ui.theme.HomeCardTitleStyle
+import com.reevent.app.ui.theme.HomeForest
+import com.reevent.app.ui.theme.HomeInk
+import com.reevent.app.ui.theme.HomeLine
+import com.reevent.app.ui.theme.HomeMist
+import com.reevent.app.ui.theme.HomeMuted
+import com.reevent.app.ui.theme.HomePaper
+import com.reevent.app.ui.theme.HomeSupportingTextStyle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
@@ -103,7 +114,13 @@ fun LocationPickerDialog(
     AlertDialog(
         modifier = modifier,
         onDismissRequest = onDismiss,
-        title = { Text("Choose exact location") },
+        title = {
+            Text(
+                "Choose exact location",
+                style = HomeCardTitleStyle.copy(fontSize = 28.sp),
+                color = HomeInk,
+            )
+        },
         text = {
             Column(
                 Modifier.verticalScroll(rememberScrollState()),
@@ -120,6 +137,15 @@ fun LocationPickerDialog(
                     supportingText = { Text("Search starts after 3 characters and a 350 ms pause.") },
                     trailingIcon = { if (searching) CircularProgressIndicator() },
                     singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = HomePaper,
+                        unfocusedContainerColor = HomePaper,
+                        focusedBorderColor = HomeForest,
+                        unfocusedBorderColor = HomeLine,
+                        focusedLabelColor = HomeForest,
+                        cursorColor = HomeForest,
+                    ),
                 )
                 suggestions.forEach { suggestion ->
                     Surface(
@@ -130,9 +156,10 @@ fun LocationPickerDialog(
                             searchError = null
                         },
                         shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, ReEventLine),
+                        border = BorderStroke(1.dp, HomeLine),
+                        color = HomeMist,
                     ) {
-                        Text(suggestion.label, Modifier.padding(10.dp))
+                        Text(suggestion.label, Modifier.padding(10.dp), style = HomeBodyStyle, color = HomeInk)
                     }
                 }
                 searchError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
@@ -163,8 +190,8 @@ fun LocationPickerDialog(
                 )
                 Text(
                     if (selected == null) "Select an address to place the pin." else "Long-press the map to move the exact business pin.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = ReEventTextSecondary,
+                    style = HomeSupportingTextStyle,
+                    color = HomeMuted,
                 )
                 reverseMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = ReEventTextSecondary) }
                 selected?.let {
@@ -176,6 +203,8 @@ fun LocationPickerDialog(
             TextButton(onClick = { selected?.let(onSelected) }, enabled = selected != null) { Text("Use this point") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        containerColor = HomePaper,
+        shape = RoundedCornerShape(24.dp),
     )
 }
 
@@ -187,7 +216,7 @@ private fun LocationPinMap(
 ) {
     val key = BuildConfig.MAPTILER_API_KEY
     if (!MapRenderCompatibility.canRender()) {
-        Surface(modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(12.dp)) {
+        Surface(modifier.fillMaxWidth(), color = HomeMist, shape = RoundedCornerShape(12.dp)) {
             Text(
                 "Map preview is unavailable on this legacy emulator. Search and select an address to use its validated coordinates.",
                 Modifier.padding(12.dp),
@@ -196,7 +225,7 @@ private fun LocationPinMap(
         return
     }
     if (key.isBlank()) {
-        Surface(modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(12.dp)) {
+        Surface(modifier.fillMaxWidth(), color = HomeMist, shape = RoundedCornerShape(12.dp)) {
             Text("Map preview requires MAPTILER_API_KEY. Search results still provide validated coordinates.", Modifier.padding(12.dp))
         }
         return
@@ -250,7 +279,7 @@ private fun LocationPinMap(
                 id = "location-pin",
                 source = source,
                 radius = const(11.dp),
-                color = const(ReEventGreen),
+                color = const(HomeForest),
                 strokeWidth = const(4.dp),
                 strokeColor = const(Color.White),
             )

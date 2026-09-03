@@ -32,14 +32,17 @@ class SupabaseEventLifecycleGateway @Inject constructor(
         client.postgrest.rpc(
             "publish_event",
             eventPayload(event),
-        ).decodeSingle<EventCommandEnvelope>().event.toDomain()
+        // `publish_event` returns one JSONB envelope, which PostgREST serializes as a JSON
+        // object (rather than a one-element relation). `decodeSingle` always expects a list
+        // and therefore reported a successful server transition as a client-side failure.
+        ).decodeAs<EventCommandEnvelope>().event.toDomain()
     }
 
     override suspend fun updateActive(event: Event): Event = authGateway.withConfiguredClient { client ->
         client.postgrest.rpc(
             "update_active_event",
             eventPayload(event),
-        ).decodeSingle<EventCommandEnvelope>().event.toDomain()
+        ).decodeAs<EventCommandEnvelope>().event.toDomain()
     }
 
     override suspend fun complete(eventId: String): Event = command(
@@ -77,7 +80,7 @@ class SupabaseEventLifecycleGateway @Inject constructor(
                 // after a lost response returns the already-accepted terminal/current row.
                 put("p_idempotency_key", UUID.randomUUID().toString())
             },
-        ).decodeSingle<EventCommandEnvelope>().event.toDomain()
+        ).decodeAs<EventCommandEnvelope>().event.toDomain()
     }
 
     @Serializable

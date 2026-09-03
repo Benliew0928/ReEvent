@@ -42,11 +42,15 @@ import com.reevent.app.core.model.User
 import com.reevent.app.ui.TopLevelDestination
 import com.reevent.app.ui.components.ReEventScaffold
 import com.reevent.app.ui.components.SyncQueueCard
+import com.reevent.app.ui.theme.HomeBodyStyle
+import com.reevent.app.ui.theme.HomeCardTitleStyle
 import com.reevent.app.ui.theme.HomeForest
+import com.reevent.app.ui.theme.HomeGreetingStyle
 import com.reevent.app.ui.theme.HomeInk
 import com.reevent.app.ui.theme.HomeLine
 import com.reevent.app.ui.theme.HomeMist
 import com.reevent.app.ui.theme.HomePaper
+import com.reevent.app.ui.theme.HomeSupportingTextStyle
 import com.reevent.app.ui.theme.ReEventCoral
 import com.reevent.app.ui.theme.ReEventTextSecondary
 
@@ -69,6 +73,7 @@ fun ProfileFlowScreen(
     user: User,
     onBack: () -> Unit,
     onNavigate: (TopLevelDestination) -> Unit,
+    modifier: Modifier = Modifier,
     viewModel: AuthViewModel = hiltViewModel(),
     syncViewModel: FeatureViewModel = hiltViewModel(),
 ) {
@@ -188,7 +193,7 @@ fun ProfileFlowScreen(
         null -> {}
     }
 
-    ReEventScaffold(selected = TopLevelDestination.ACCOUNT, onNavigate = onNavigate) { padding ->
+    ReEventScaffold(selected = TopLevelDestination.ACCOUNT, onNavigate = onNavigate, modifier = modifier) { padding ->
         AccountScaffold(
             headerTitle = "Profile",
             subtitle = "Manage your personal details, preferences, and account security.",
@@ -224,19 +229,12 @@ fun ProfileFlowScreen(
                     ) {
                         Text(
                             text = userDisplayName,
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontFamily = FontFamily.SansSerif,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 22.sp,
-                            ),
+                            style = HomeCardTitleStyle.copy(fontSize = 26.sp, lineHeight = 28.sp),
                             color = HomeInk,
                         )
                         Text(
                             text = user.email,
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontFamily = FontFamily.SansSerif,
-                                fontWeight = FontWeight.SemiBold,
-                            ),
+                            style = HomeSupportingTextStyle,
                             color = ReEventTextSecondary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -326,16 +324,15 @@ fun ProfileFlowScreen(
 }
 
 @Composable
-private fun ProfileSectionLabel(title: String) {
+private fun ProfileSectionLabel(
+    title: String,
+    modifier: Modifier = Modifier,
+) {
     Text(
         text = title,
-        style = MaterialTheme.typography.titleMedium.copy(
-            fontFamily = FontFamily.SansSerif,
-            fontWeight = FontWeight.Bold,
-            fontSize = 18.sp,
-        ),
+        style = HomeGreetingStyle.copy(fontSize = 25.sp, lineHeight = 28.sp),
         color = HomeInk,
-        modifier = Modifier.padding(top = 6.dp, bottom = 2.dp),
+        modifier = modifier.padding(top = 6.dp, bottom = 2.dp),
     )
 }
 
@@ -343,9 +340,10 @@ private fun ProfileSectionLabel(title: String) {
 private fun ProfileNavigationRow(
     title: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(vertical = 4.dp),
@@ -354,10 +352,7 @@ private fun ProfileNavigationRow(
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.bodyLarge.copy(
-                fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.Bold,
-            ),
+            style = HomeBodyStyle,
             color = HomeInk,
         )
         Icon(

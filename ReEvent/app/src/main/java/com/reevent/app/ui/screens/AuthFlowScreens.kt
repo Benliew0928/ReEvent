@@ -218,6 +218,7 @@ fun SignInFlowScreen(viewModel: AuthViewModel = hiltViewModel()) {
                         viewModel.clearFeedback()
                         step = AuthStep.SIGN_UP_FORM
                     },
+                    onResendConfirmation = { viewModel.resendSignUpConfirmation(it) },
                     onSubmitSignIn = {
                         formSubmitted = true
                         if (password.isNotBlank()) {
@@ -602,6 +603,7 @@ private fun WelcomeBackFormScreen(
     state: com.reevent.app.core.auth.AuthUiState,
     onBackToEmail: () -> Unit,
     onNeedSignUp: () -> Unit,
+    onResendConfirmation: (String) -> Unit,
     onSubmitSignIn: () -> Unit,
     onSendMagicLink: () -> Unit,
     onForgotPassword: () -> Unit,
@@ -691,6 +693,20 @@ private fun WelcomeBackFormScreen(
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 )
             }
+        }
+
+        // A failed sign-in used to update AuthUiState but this form never rendered the
+        // feedback. In particular, an unconfirmed account appeared to do nothing.
+        AccountMessage(state)
+        if (state.confirmationRequired) {
+            Spacer(Modifier.height(16.dp))
+            EmailConfirmationCard(
+                email = state.confirmationEmail ?: email,
+                loading = loading,
+                onResend = { onResendConfirmation(state.confirmationEmail ?: email) },
+                onSignIn = onBackToEmail,
+                secondaryActionLabel = "Use a different email",
+            )
         }
 
         Spacer(Modifier.height(32.dp))

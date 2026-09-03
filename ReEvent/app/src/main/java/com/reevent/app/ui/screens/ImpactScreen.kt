@@ -1,17 +1,18 @@
 package com.reevent.app.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,9 +22,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Verified
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -35,42 +37,43 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.reevent.app.R
 import com.reevent.app.core.model.ImpactRecord
 import com.reevent.app.feature.impact.ImpactBadge
 import com.reevent.app.ui.ImpactMetric
 import com.reevent.app.ui.TopLevelDestination
-import com.reevent.app.ui.components.MetricCard
-import com.reevent.app.ui.components.MiniBarChart
+import com.reevent.app.ui.components.EditorialDetailHeader
+import com.reevent.app.ui.components.EditorialDetailScaffold
+import com.reevent.app.ui.components.EditorialIconButton
+import com.reevent.app.ui.components.EditorialNotice
+import com.reevent.app.ui.components.EditorialSectionCard
 import com.reevent.app.ui.components.NotificationDialog
-import com.reevent.app.ui.components.ProgressRing
 import com.reevent.app.ui.components.ReEventLazyColumn
-import com.reevent.app.ui.components.ReEventScaffold
-import com.reevent.app.ui.components.ScreenHeader
-import com.reevent.app.ui.components.SectionTitle
-import com.reevent.app.ui.components.StatusChip
-import com.reevent.app.ui.components.WarmChartColors
+import com.reevent.app.ui.theme.HomeBodyFont
+import com.reevent.app.ui.theme.HomeBodyStyle
+import com.reevent.app.ui.theme.HomeCardTitleStyle
+import com.reevent.app.ui.theme.HomeEditorialFont
 import com.reevent.app.ui.theme.HomeForest
+import com.reevent.app.ui.theme.HomeGold
+import com.reevent.app.ui.theme.HomeInk
 import com.reevent.app.ui.theme.HomeLine
 import com.reevent.app.ui.theme.HomeMist
+import com.reevent.app.ui.theme.HomeMuted
 import com.reevent.app.ui.theme.HomePaper
-import com.reevent.app.ui.theme.ReEventAmber
-import com.reevent.app.ui.theme.ReEventBackground
-import com.reevent.app.ui.theme.ReEventBlue
-import com.reevent.app.ui.theme.ReEventCoral
-import com.reevent.app.ui.theme.ReEventGreen
-import com.reevent.app.ui.theme.ReEventGreenDeep
-import com.reevent.app.ui.theme.ReEventInk
-import com.reevent.app.ui.theme.ReEventLine
-import com.reevent.app.ui.theme.ReEventMintSoft
-import com.reevent.app.ui.theme.ReEventSurface
-import com.reevent.app.ui.theme.ReEventTextSecondary
+import com.reevent.app.ui.theme.HomeSage
+import com.reevent.app.ui.theme.HomeSectionTitleStyle
+import com.reevent.app.ui.theme.HomeSupportingTextStyle
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -84,6 +87,7 @@ data class ImpactEventScope(
 fun ImpactScreen(
     onNavigate: (TopLevelDestination) -> Unit,
     onProfile: () -> Unit,
+    modifier: Modifier = Modifier,
     metrics: List<ImpactMetric> = emptyList(),
     recoveryRate: Float? = null,
     recoveryLabel: String = "—",
@@ -98,242 +102,85 @@ fun ImpactScreen(
     var selectingScope by rememberSaveable { mutableStateOf(false) }
     var showNotificationDialog by rememberSaveable { mutableStateOf(false) }
 
-    ReEventScaffold(selected = TopLevelDestination.IMPACT, onNavigate = onNavigate) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(ReEventBackground),
+    EditorialDetailScaffold(
+        selected = TopLevelDestination.IMPACT,
+        onNavigate = onNavigate,
+        modifier = modifier,
+    ) { padding ->
+        ReEventLazyColumn(
+            paddingValues = padding,
+            modifier = Modifier.testTag("impact_editorial_list"),
         ) {
-            // Paper texture background
-            Image(
-                painter = painterResource(R.drawable.home_paper_texture),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-                alpha = 0.15f,
-            )
-            // Botanical sprig accent top right
-            Image(
-                painter = painterResource(R.drawable.home_botanical_sprig),
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                alignment = Alignment.TopEnd,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(y = 48.dp)
-                    .width(260.dp)
-                    .height(218.dp),
-                alpha = 0.25f,
-            )
-            // Botanical sprig accent bottom left
-            Image(
-                painter = painterResource(R.drawable.home_botanical_sprig),
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                alignment = Alignment.BottomStart,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .offset(x = (-60).dp, y = 40.dp)
-                    .width(220.dp)
-                    .height(180.dp)
-                    .rotate(-30f),
-                alpha = 0.18f,
-            )
+            item {
+                EditorialDetailHeader(
+                    eyebrow = "Verified reporting",
+                    title = "Impact, made visible",
+                    subtitle = "A clear record of what stayed in use and what avoided disposal.",
+                    onProfile = onProfile,
+                    profileName = "Profile",
+                    trailing = {
+                        EditorialIconButton(
+                            icon = Icons.Outlined.Notifications,
+                            contentDescription = "Notifications",
+                            onClick = { showNotificationDialog = true },
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
 
-            ReEventLazyColumn(paddingValues = padding) {
+            selectedScope?.let { scope ->
                 item {
-                    ScreenHeader(
-                        title = "Impact board",
-                        subtitle = "Circular economy proof for reporting and marks",
-                        onProfile = onProfile,
-                        onNotificationClick = { showNotificationDialog = true },
+                    ImpactScopeCard(
+                        scope = scope,
+                        canChange = scopes.size > 1,
+                        onChange = { selectingScope = true },
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
+            }
 
-                selectedScope?.let { scope ->
-                    item {
-                        Surface(
-                            shape = RoundedCornerShape(18.dp),
-                            color = HomePaper,
-                            border = BorderStroke(1.dp, HomeLine),
-                            tonalElevation = 1.dp,
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(CircleShape)
-                                        .background(HomeMist),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Event,
-                                        contentDescription = null,
-                                        tint = HomeForest,
-                                        modifier = Modifier.size(20.dp),
-                                    )
-                                }
-                                Spacer(Modifier.width(12.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Reporting scope",
-                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
-                                        color = ReEventTextSecondary,
-                                    )
-                                    Text(
-                                        text = scope.name,
-                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = ReEventInk,
-                                    )
-                                }
-                                if (scopes.size > 1) {
-                                    TextButton(onClick = { selectingScope = true }) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text("Change", color = HomeForest, fontWeight = FontWeight.Bold)
-                                            Icon(
-                                                imageVector = Icons.Outlined.KeyboardArrowDown,
-                                                contentDescription = null,
-                                                tint = HomeForest,
-                                                modifier = Modifier.size(18.dp),
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+            item {
+                ImpactHeroCard(
+                    recoveryRate = recoveryRate,
+                    recoveryLabel = recoveryLabel,
+                    detail = unavailableEstimateReason ?: if (metrics.isEmpty()) {
+                        "Verified impact appears after the first completed recovery or handover."
+                    } else {
+                        "Completed circular routes are translated into reporting-ready outcomes."
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
 
-                // Summary Card with Progress Ring
+            item {
+                ImpactSectionHeading(
+                    title = "Recovery channels",
+                    subtitle = "Verified completion mix across reuse, repair, donation and recycling.",
+                )
+            }
+            item {
+                RecoveryChannelsCard(
+                    values = chartValues.ifEmpty { listOf(0f, 0f, 0f, 0f) },
+                    unavailableReason = unavailableEstimateReason,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            item {
+                ImpactBadgeCard(badge = badge, modifier = Modifier.fillMaxWidth())
+            }
+
+            if (metrics.isNotEmpty()) {
+                item { ImpactSectionHeading("Reporting measures", "Only authoritative or explicitly unavailable values are shown.") }
+                item { ImpactMetricGrid(metrics = metrics, modifier = Modifier.fillMaxWidth()) }
+            }
+
+            latestRecord?.let { record ->
                 item {
-                    Surface(
-                        shape = RoundedCornerShape(22.dp),
-                        color = HomePaper,
-                        border = BorderStroke(1.dp, HomeLine),
-                        tonalElevation = 2.dp,
-                    ) {
-                        AdaptiveTwoPane(
-                            modifier = Modifier.padding(20.dp),
-                            stackedAlignment = Alignment.CenterHorizontally,
-                            first = {
-                                ProgressRing(
-                                    progress = recoveryRate ?: 0f,
-                                    centerText = recoveryLabel,
-                                    label = "recovered",
-                                    modifier = Modifier.size(148.dp),
-                                )
-                            },
-                            second = {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    StatusChip(text = "SDG 12 aligned", color = ReEventGreen)
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(
-                                        text = unavailableEstimateReason ?: if (metrics.isEmpty()) {
-                                            "Impact will appear here after the first verified recovery or handover."
-                                        } else {
-                                            "The event avoided disposal by routing items to reuse, repair and remanufacturing."
-                                        },
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = ReEventInk,
-                                    )
-                                }
-                            },
-                        )
-                    }
+                    ImpactSectionHeading("Latest contribution", "The newest server-verified lifecycle outcome.")
                 }
-
-                // Recovery Channels Bar Chart
-                item {
-                    Surface(
-                        shape = RoundedCornerShape(22.dp),
-                        color = HomePaper,
-                        border = BorderStroke(1.dp, HomeLine),
-                        tonalElevation = 2.dp,
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(20.dp),
-                            verticalArrangement = Arrangement.spacedBy(14.dp),
-                        ) {
-                            SectionTitle(title = "Recovery channels")
-                            MiniBarChart(
-                                values = chartValues.ifEmpty { listOf(0f, 0f, 0f, 0f) },
-                                colors = WarmChartColors,
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                            ) {
-                                LegendDot("Reuse", ReEventGreen)
-                                LegendDot("Repair", ReEventAmber)
-                                LegendDot("Donation", ReEventBlue)
-                                LegendDot("Recycle", ReEventCoral)
-                            }
-                            unavailableEstimateReason?.let {
-                                Text(it, style = MaterialTheme.typography.bodySmall, color = ReEventTextSecondary)
-                            }
-                        }
-                    }
-                }
-
-                // Recovery Badge Banner
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(190.dp)
-                            .clip(RoundedCornerShape(22.dp))
-                            .background(ReEventGreenDeep),
-                    ) {
-                        if (badge == null) {
-                            Text(
-                                text = "A recovery badge will appear after verified impact is recorded.",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = Color.White.copy(alpha = 0.82f),
-                                modifier = Modifier
-                                    .align(Alignment.Center)
-                                    .padding(24.dp),
-                            )
-                        } else {
-                            Image(
-                                painter = painterResource(R.drawable.impact_badge_high_recovery),
-                                contentDescription = "${badge.displayLabel()} badge",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop,
-                            )
-                            Text(
-                                text = badge.displayLabel(),
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                color = Color.White,
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .padding(16.dp),
-                            )
-                        }
-                    }
-                }
-
-                // Metric Cards Grid
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        metrics.forEachIndexed { index, metric ->
-                            MetricCard(
-                                value = metric.value,
-                                label = metric.label,
-                                detail = metric.detail,
-                                color = WarmChartColors[index % WarmChartColors.size],
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                    }
-                }
-
-                // Latest Contribution Card
-                latestRecord?.let { record ->
-                    item { LatestImpactContributionCard(record) }
-                }
+                item { LatestImpactContributionCard(record, modifier = Modifier.fillMaxWidth()) }
             }
         }
     }
@@ -348,25 +195,27 @@ fun ImpactScreen(
             title = {
                 Text(
                     text = "Choose reporting event",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = ReEventInk,
+                    style = HomeCardTitleStyle.copy(fontSize = 28.sp),
+                    color = HomeInk,
                 )
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     scopes.forEach { scope ->
-                        TextButton(
+                        Surface(
                             onClick = {
                                 onScopeSelected(scope.id)
                                 selectingScope = false
                             },
+                            shape = RoundedCornerShape(14.dp),
+                            color = if (scope.id == selectedScope?.id) HomeSage else HomeMist,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text(
                                 text = scope.name,
-                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                                style = HomeBodyStyle,
                                 color = HomeForest,
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.padding(13.dp),
                             )
                         }
                     }
@@ -378,40 +227,346 @@ fun ImpactScreen(
                 }
             },
             containerColor = HomePaper,
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(24.dp),
         )
     }
 }
 
 @Composable
-private fun LatestImpactContributionCard(record: ImpactRecord) {
-    Surface(
-        shape = RoundedCornerShape(22.dp),
-        color = HomePaper,
-        border = BorderStroke(1.dp, HomeLine),
-        tonalElevation = 2.dp,
-    ) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun ImpactScopeCard(
+    scope: ImpactEventScope,
+    canChange: Boolean,
+    onChange: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    EditorialSectionCard(modifier = modifier) {
+        Row(
+            modifier = Modifier.padding(15.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Surface(shape = CircleShape, color = HomeMist) {
+                Icon(
+                    Icons.Outlined.Event,
+                    contentDescription = null,
+                    tint = HomeForest,
+                    modifier = Modifier.padding(11.dp).size(22.dp),
+                )
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("REPORTING SCOPE", style = HomeSupportingTextStyle.copy(fontSize = 11.sp, letterSpacing = .8.sp), color = HomeMuted)
+                Text(scope.name, style = HomeCardTitleStyle.copy(fontSize = 23.sp), color = HomeInk)
+            }
+            if (canChange) {
+                Surface(onClick = onChange, shape = CircleShape, color = HomeSage) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("Change", style = HomeSupportingTextStyle, color = HomeForest)
+                        Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = null, tint = HomeForest, modifier = Modifier.size(18.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ImpactHeroCard(
+    recoveryRate: Float?,
+    recoveryLabel: String,
+    detail: String,
+    modifier: Modifier = Modifier,
+) {
+    Surface(modifier = modifier, shape = RoundedCornerShape(24.dp), color = HomeForest) {
+        BoxWithConstraints {
+            if (maxWidth < 420.dp) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                ) {
+                    ImpactHeroCopy(detail = detail, modifier = Modifier.fillMaxWidth())
+                    EditorialImpactRing(
+                        progress = recoveryRate,
+                        centerText = recoveryLabel,
+                        modifier = Modifier.size(170.dp),
+                    )
+                }
+            } else {
+                Row(
+                    modifier = Modifier.padding(22.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(22.dp),
+                ) {
+                    ImpactHeroCopy(detail = detail, modifier = Modifier.weight(1f))
+                    EditorialImpactRing(
+                        progress = recoveryRate,
+                        centerText = recoveryLabel,
+                        modifier = Modifier.size(180.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ImpactHeroCopy(detail: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(9.dp)) {
+        Text(
+            "RECOVERY PROGRESS",
+            color = HomeSage,
+            fontFamily = HomeBodyFont,
+            fontWeight = FontWeight.Bold,
+            fontSize = 12.sp,
+            letterSpacing = 1.sp,
+        )
+        Text(
+            "Every outcome counts.",
+            color = Color.White,
+            fontFamily = HomeEditorialFont,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 36.sp,
+            lineHeight = 36.sp,
+        )
+        Text(detail, style = HomeBodyStyle, color = Color.White.copy(alpha = .82f))
+        Surface(shape = CircleShape, color = HomeSage) {
+            Row(
+                modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Outlined.Verified, contentDescription = null, tint = HomeForest, modifier = Modifier.size(17.dp))
+                Text("SDG 12 ALIGNED", style = HomeSupportingTextStyle.copy(fontSize = 11.sp), color = HomeForest)
+            }
+        }
+    }
+}
+
+@Composable
+private fun EditorialImpactRing(
+    progress: Float?,
+    centerText: String,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val stroke = 12.dp.toPx()
+            val arcSize = Size(size.width - stroke, size.height - stroke)
+            val origin = Offset(stroke / 2f, stroke / 2f)
+            drawArc(
+                color = Color.White.copy(alpha = .22f),
+                startAngle = -90f,
+                sweepAngle = 360f,
+                useCenter = false,
+                topLeft = origin,
+                size = arcSize,
+                style = Stroke(width = stroke, cap = StrokeCap.Round),
+            )
+            progress?.let {
+                drawArc(
+                    color = Color.White,
+                    startAngle = -90f,
+                    sweepAngle = 360f * it.coerceIn(0f, 1f),
+                    useCenter = false,
+                    topLeft = origin,
+                    size = arcSize,
+                    style = Stroke(width = stroke, cap = StrokeCap.Round),
+                )
+            }
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                centerText,
+                color = Color.White,
+                fontFamily = HomeEditorialFont,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 38.sp,
+            )
+            Text("recovered", style = HomeSupportingTextStyle, color = HomeSage)
+        }
+    }
+}
+
+@Composable
+private fun ImpactSectionHeading(
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(title, style = HomeSectionTitleStyle, color = HomeInk)
+        Text(subtitle, style = HomeSupportingTextStyle, color = HomeMuted)
+    }
+}
+
+@Composable
+private fun RecoveryChannelsCard(
+    values: List<Float>,
+    unavailableReason: String?,
+    modifier: Modifier = Modifier,
+) {
+    val labels = listOf("Reuse", "Repair", "Donation", "Recycle")
+    val fills = listOf(HomeForest, HomeGold, Color(0xFF76917C), Color(0xFFA7B58E))
+    EditorialSectionCard(modifier = modifier) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().height(128.dp),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                values.take(4).forEachIndexed { index, value ->
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(7.dp),
+                    ) {
+                        Text("${(value.coerceIn(0f, 1f) * 100).toInt()}%", style = HomeSupportingTextStyle, color = HomeMuted)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height((20 + value.coerceIn(0f, 1f) * 72).dp)
+                                .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
+                                .background(fills[index]),
+                        )
+                    }
+                }
+            }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                labels.forEachIndexed { index, label ->
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(modifier = Modifier.size(8.dp).background(fills[index], CircleShape))
+                        Text(label, style = HomeSupportingTextStyle.copy(fontSize = 11.sp), color = HomeMuted)
+                    }
+                }
+            }
+            unavailableReason?.let { EditorialNotice(it, modifier = Modifier.fillMaxWidth()) }
+        }
+    }
+}
+
+@Composable
+private fun ImpactBadgeCard(
+    badge: ImpactBadge?,
+    modifier: Modifier = Modifier,
+) {
+    Surface(modifier = modifier, shape = RoundedCornerShape(22.dp), color = HomeSage) {
+        Box(modifier = Modifier.fillMaxWidth().height(176.dp)) {
+            if (badge == null) {
+                Column(
+                    modifier = Modifier.align(Alignment.Center).padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Icon(Icons.Outlined.Verified, contentDescription = null, tint = HomeForest, modifier = Modifier.size(34.dp))
+                    Text("Recovery badge pending", style = HomeCardTitleStyle.copy(fontSize = 27.sp), color = HomeInk)
+                    Text(
+                        "A badge appears after verified impact is recorded.",
+                        style = HomeSupportingTextStyle,
+                        color = HomeMuted,
+                    )
+                }
+            } else {
+                Image(
+                    painter = painterResource(R.drawable.impact_badge_high_recovery),
+                    contentDescription = "${badge.displayLabel()} badge",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+                Surface(
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(14.dp),
+                    shape = CircleShape,
+                    color = HomePaper.copy(alpha = .92f),
+                ) {
+                    Text(
+                        badge.displayLabel(),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        style = HomeBodyStyle,
+                        color = HomeForest,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ImpactMetricGrid(
+    metrics: List<ImpactMetric>,
+    modifier: Modifier = Modifier,
+) {
+    BoxWithConstraints(modifier = modifier) {
+        val columns = if (maxWidth < 440.dp) 1 else 2
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            metrics.chunked(columns).forEach { rowMetrics ->
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    rowMetrics.forEach { metric ->
+                        ImpactMetricCard(metric = metric, modifier = Modifier.weight(1f))
+                    }
+                    repeat(columns - rowMetrics.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ImpactMetricCard(
+    metric: ImpactMetric,
+    modifier: Modifier = Modifier,
+) {
+    EditorialSectionCard(modifier = modifier) {
+        Column(
+            modifier = Modifier.padding(17.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                metric.value,
+                color = HomeForest,
+                fontFamily = HomeEditorialFont,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 34.sp,
+                lineHeight = 35.sp,
+            )
+            Text(metric.label, style = HomeBodyStyle, color = HomeInk)
+            Text(metric.detail, style = HomeSupportingTextStyle, color = HomeMuted)
+        }
+    }
+}
+
+@Composable
+private fun LatestImpactContributionCard(
+    record: ImpactRecord,
+    modifier: Modifier = Modifier,
+) {
+    EditorialSectionCard(modifier = modifier) {
+        Column(
+            modifier = Modifier.padding(19.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp),
+        ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.CheckCircle,
-                    contentDescription = null,
-                    tint = ReEventGreen,
-                    modifier = Modifier.size(20.dp),
-                )
-                Text(
-                    text = "Latest verified contribution",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = ReEventInk,
-                )
+                Surface(shape = CircleShape, color = HomeSage) {
+                    Icon(
+                        Icons.Outlined.CheckCircle,
+                        contentDescription = null,
+                        tint = HomeForest,
+                        modifier = Modifier.padding(9.dp).size(20.dp),
+                    )
+                }
+                Text("SERVER VERIFIED", style = HomeSupportingTextStyle.copy(fontSize = 11.sp, letterSpacing = .8.sp), color = HomeForest)
             }
             Text(
                 text = "${record.transactionType.displayLabel()} — ${record.completedQuantity.formatImpactNumber()} ${record.unit}",
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                color = ReEventInk,
+                style = HomeCardTitleStyle.copy(fontSize = 25.sp),
+                color = HomeInk,
             )
             val outcomes = buildList {
                 record.materialDivertedKg?.let { add("${it.formatImpactNumber()} kg diverted") }
@@ -421,40 +576,17 @@ private fun LatestImpactContributionCard(record: ImpactRecord) {
             }
             Text(
                 text = outcomes.ifEmpty {
-                    listOf("No documented mass/factor estimate was supplied for this completed outcome.")
-                }.joinToString(" | "),
-                style = MaterialTheme.typography.bodyMedium,
-                color = ReEventTextSecondary,
+                    listOf("No documented mass or emissions estimate was supplied for this outcome.")
+                }.joinToString(" · "),
+                style = HomeBodyStyle,
+                color = HomeMuted,
             )
             Text(
-                text = "Server record: ${record.calculatedAt.toImpactDateTime()}",
-                style = MaterialTheme.typography.bodySmall,
-                color = ReEventTextSecondary,
+                text = "Recorded ${record.calculatedAt.toImpactDateTime()}",
+                style = HomeSupportingTextStyle,
+                color = HomeMuted,
             )
         }
-    }
-}
-
-@Composable
-private fun LegendDot(
-    label: String,
-    color: Color,
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(9.dp)
-                .clip(CircleShape)
-                .background(color),
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = ReEventTextSecondary,
-        )
     }
 }
 
@@ -466,8 +598,10 @@ private fun ImpactBadge.displayLabel(): String =
     }
 
 private fun Double.formatImpactNumber(): String =
-    if (this % 1.0 == 0.0) toLong().toString() else "%.3f".format(java.util.Locale.US, this).trimEnd('0').trimEnd('.')
+    if (this % 1.0 == 0.0) toLong().toString() else
+        "%.3f".format(java.util.Locale.US, this).trimEnd('0').trimEnd('.')
 
 private val impactDateTimeFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM uuuu, HH:mm")
 
-private fun Long.toImpactDateTime(): String = Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).format(impactDateTimeFormat)
+private fun Long.toImpactDateTime(): String =
+    Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).format(impactDateTimeFormat)

@@ -544,15 +544,27 @@ abstract class ReEventDatabase : RoomDatabase() {
                 "RUBBER" to listOf("rubber", "latex", "silicone"),
             )
             fun match(aliases: List<String>) = aliases.joinToString(" OR ") { "$value LIKE '%$it%'" }
-            val recognised = families.joinToString(" OR ") { (_, aliases) -> "(${match(aliases)})" }
             val entries = families.joinToString(" || ") { (family, aliases) ->
                 "CASE WHEN ${match(aliases)} THEN '\"$family\",' ELSE '' END"
             }
+            // The legacy payload is a JSON array encoded as text. `LIKE` detects the known
+            // families but, by itself, cannot tell whether another array item was unknown.
+            // Strip every recognised JSON token first; any remaining content must be carried
+            // into the catch-all family rather than silently narrowing a programme's scope.
+            val recognisedTokensRemoved = families
+                .flatMap { (_, aliases) -> aliases }
+                .fold(value) { expression, alias ->
+                    "REPLACE($expression, '\"$alias\"', '')"
+                }
+            val unrecognisedContent = listOf("[", "]", ",", "\"", " ")
+                .fold(recognisedTokensRemoved) { expression, token ->
+                    "REPLACE($expression, '$token', '')"
+                }
             return """
                 CASE
                     WHEN TRIM($column) IN ('', '[]') THEN '[]'
                     ELSE '[' || RTRIM(
-                        $entries || CASE WHEN NOT ($recognised) THEN '"MIXED_OTHER",' ELSE '' END,
+                        $entries || CASE WHEN LENGTH($unrecognisedContent) > 0 THEN '"MIXED_OTHER",' ELSE '' END,
                         ','
                     ) || ']'
                 END

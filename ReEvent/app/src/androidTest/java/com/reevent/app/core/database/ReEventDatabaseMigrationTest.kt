@@ -342,11 +342,11 @@ class ReEventDatabaseMigrationTest {
                 INSERT INTO resource_items (
                     id, accountId, eventId, ownerId, title, category, material, condition,
                     quantity, unit, status, valueCents, imageUrlsJson, createdAt, updatedAt,
-                    syncState, archived
+                    syncState, archived, marketplaceAllowedActionsJson, marketplaceTerms
                 ) VALUES (
                     'resource-v7', '$ACCOUNT_A', 'event-v7', 'owner-v7', 'Preserved chair',
                     'Furniture', 'Wood', 'GOOD', 12.0, 'units', 'ACTIVE', 0, '[]',
-                    10, 11, 'SYNCED', 0
+                    10, 11, 'SYNCED', 0, '[]', ''
                 )
                 """.trimIndent(),
             )
@@ -403,21 +403,23 @@ class ReEventDatabaseMigrationTest {
                 INSERT INTO resource_items (
                     id, accountId, eventId, ownerId, title, category, material, condition,
                     quantity, unit, status, valueCents, imageUrlsJson, createdAt, updatedAt,
-                    syncState, archived
+                    syncState, archived, marketplaceAllowedActionsJson, marketplaceTerms, reuseCount
                 ) VALUES
-                    ('wood', '$ACCOUNT_A', 'event', 'owner', 'Chair', 'Furniture', 'Wood', 'GOOD', 1, 'ITEM', 'ACTIVE', 0, '[]', 1, 2, 'SYNCED', 0),
-                    ('acrylic', '$ACCOUNT_A', 'event', 'owner', 'Panel', 'Signage', 'Acrylic', 'GOOD', 2, 'KG', 'ACTIVE', 0, '[]', 1, 2, 'SYNCED', 0),
-                    ('unknown', '$ACCOUNT_A', 'event', 'owner', 'Prop', 'Decor', 'Foam composite', 'FAIR', 3, 'ITEM', 'ACTIVE', 0, '[]', 1, 2, 'PENDING', 0)
+                    ('wood', '$ACCOUNT_A', 'event', 'owner', 'Chair', 'Furniture', 'Wood', 'GOOD', 1, 'ITEM', 'ACTIVE', 0, '[]', 1, 2, 'SYNCED', 0, '[]', '', 0),
+                    ('acrylic', '$ACCOUNT_A', 'event', 'owner', 'Panel', 'Signage', 'Acrylic', 'GOOD', 2, 'KG', 'ACTIVE', 0, '[]', 1, 2, 'SYNCED', 0, '[]', '', 0),
+                    ('unknown', '$ACCOUNT_A', 'event', 'owner', 'Prop', 'Decor', 'Foam composite', 'FAIR', 3, 'ITEM', 'ACTIVE', 0, '[]', 1, 2, 'PENDING', 0, '[]', '', 0)
                 """.trimIndent(),
             )
             database.execSQL(
                 """
                 INSERT INTO circular_programmes (
                     id, accountId, partnerId, name, type, acceptedMaterialsJson,
-                    location, active, createdAt, updatedAt, syncState
+                    location, active, createdAt, updatedAt, syncState, acceptedCategoriesJson,
+                    acceptedConditionsJson, coinDirection, pickupAvailable, processingMethod, terms
                 ) VALUES (
                     'programme', '$ACCOUNT_A', 'partner', 'Recovery', 'RECYCLE',
-                    '["wood","Wood","acrylic","mystery"]', 'Kuala Lumpur', 1, 1, 2, 'SYNCED'
+                    '["wood","Wood","acrylic","mystery"]', 'Kuala Lumpur', 1, 1, 2, 'SYNCED',
+                    '[]', '[]', 'FREE', 0, '', ''
                 )
                 """.trimIndent(),
             )
@@ -464,10 +466,18 @@ class ReEventDatabaseMigrationTest {
         ).use { database ->
             assertEquals(1L, database.count("events"))
             assertEquals(
-                listOf(null, null, null, "0.0"),
+                listOf(null, null, null),
                 database.nullableRow(
-                    "SELECT eventType, timezoneId, expectedAttendance, recoveryTargetPercent FROM events WHERE id = 'event-v9'",
+                    "SELECT eventType, timezoneId, expectedAttendance FROM events WHERE id = 'event-v9'",
                 ),
+            )
+            assertEquals(
+                0.0,
+                database.query("SELECT recoveryTargetPercent FROM events WHERE id = 'event-v9'").use { cursor ->
+                    assertTrue(cursor.moveToFirst())
+                    cursor.getDouble(0)
+                },
+                0.0,
             )
             assertEquals(0L, database.count("discoverable_events"))
             assertEquals(
